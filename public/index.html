@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- <script src="/scripts/d3/dist/d3.js"></script> -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+
+  <body>
+    <div>
+      CliqueMaximo
+      <input type="file" id="inputFile" accept=".txt" onchange="readFile()" />
+    </div>
+    <div id="container">
+      <div id="graph">
+        <div class="hidden" id="leftNodesCount">Clique de Tamanho: -</div>
+      </div>
+      <div id="matrix"></div>
+      <div id="buttonsDiv" class="hidden">
+        <button id="switchGraphBTN" onclick="switchGraph()"></button>
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="switchDegreesCheckbox"
+          onchange="switchDegrees()"
+          checked
+        />
+        <label for="switchDegreesCheckbox" id="switchDegreesLabel"
+          >Mostrar Grau dos Vértice</label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showGreyLinksCheckbox"
+          onchange="toggleGreyLinks()"
+          checked
+        />
+        <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"
+          >Mostrar Arestas Cinzas</label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showGreyNodesCheckbox"
+          onchange="toggleGreyNodes()"
+          checked
+        />
+        <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
+          >Mostrar Vértices Cinzas</label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showMatrixCheckbox"
+          onchange="toggleMatrix()"
+          checked
+        />
+        <label for="showMatrixCheckbox" id="showMatrixLabel"
+          >Mostrar Matriz</label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showIDTooltipCheckbox"
+          onchange="toggleIDTooltip()"
+          checked
+        />
+        <label for="showIDTooltipCheckbox">Mostrar ID do Vértice</label>
+        <br />
+        <br />
+        <div id="Arestas"></div>
+        <br />
+        <br />
+        <div id="fakeNodes" class="flex hidden">
+          <table>
+            <tr>
+              <th><span>Atual</span></th>
+              <th><span>Anterior</span></th>
+            </tr>
+            <tr>
+              <td>
+                <div class="column">
+                  <div>
+                    <div class="fakeNode" style="--node-color: green">
+                      <div id="greenNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: blue">
+                      <div id="blueNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: grey">
+                      <div id="greyNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: red">
+                      <div id="redNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="column">
+                  <div>
+                    <div class="fakeNode" style="--node-color: green">
+                      <div id="lastGreenNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: blue">
+                      <div id="lastBlueNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: grey">
+                      <div id="lastGreyNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fakeNode" style="--node-color: red">
+                      <div id="lastRedNodeCount" class="fakeNode-text"></div>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <br />
+        <br />
+      </div>
+    </div>
+    <div id="IDtooltip" class="tooltip"></div>
+    <script src="graph.js"></script>
+    <script src="render.js"></script>
+    <script src="engine.js"></script>
+  </body>
+</html>

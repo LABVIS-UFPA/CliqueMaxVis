@@ -1,0 +1,116 @@
+.node-text {
+  cursor: pointer;
+}
+
+.flex {
+  display: flex;
+  text-align: center;
+}
+
+.column {
+  flex: 1;
+  display: inline-block;
+}
+
+table {
+  font-family: Arial, sans-serif;
+  border-collapse: collapse;
+  width: 50%;
+  margin: 0 auto;
+  border: 2px solid #333;
+}
+
+th,
+td {
+  padding: 12px;
+  border: 1px solid #ccc;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+tr:hover {
+  background-color: #ddd;
+}
+
+.fakeNode {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--node-color, transparent);
+  border: 2px solid #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.fakeNode-text {
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#container {
+  display: flex;
+  height: 97vh;
+}
+
+#graph {
+  width: 70%;
+  height: 100%;
+}
+
+#matrix {
+  width: 30%;
+  height: 100%;
+  background-color: #fff;
+  font-family: monospace;
+  overflow: auto;
+  color: blue;
+}
+
+#complementGraphButton {
+  margin-top: 10px;
+}
+
+.link-green {
+  stroke: green !important;
+}
+
+.node-gray {
+  fill: gray;
+  stroke: gray;
+  stroke-width: 2;
+}
+
+#Arestas {
+  background-color: rgb(208, 232, 255);
+}
+
+.hidden {
+  display: none;
+}
+
+.visible {
+  display: block;
+}
+
+.tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  display: none;
+}
