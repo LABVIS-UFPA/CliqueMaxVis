@@ -9,17 +9,25 @@
   </head>
 
   <body>
-    <div>
-      CliqueMaximo
-      <input type="file" id="inputFile" accept=".txt" onchange="readFile()" />
+    <header>
+      <h1>CliqueMaximo</h1>
+    </header>
+    <div id="fileModal" class="modal">
+      <div class="modal-content">
+        <input type="file" id="inputFile" accept=".txt" onchange="readFile()" />
+      </div>
     </div>
     <div id="container">
       <div id="graph">
         <div class="hidden" id="leftNodesCount">Clique de Tamanho: -</div>
       </div>
-      <div id="matrix"></div>
-      <div id="buttonsDiv" class="hidden">
-        <button id="switchGraphBTN" onclick="switchGraph()"></button>
+      <!-- <div id="matrix"></div> -->
+      <div id="buttonsDiv" class="hidden q-px-md">
+        <button
+          id="switchGraphBTN"
+          onclick="switchGraph()"
+          style="width: fit-content; margin-top: 4px; font-weight: bold"
+        ></button>
         <br />
         <br />
         <input
@@ -29,7 +37,7 @@
           checked
         />
         <label for="switchDegreesCheckbox" id="switchDegreesLabel"
-          >Mostrar Grau dos Vértice</label
+          ><strong>Mostrar Grau dos Vértice</strong></label
         >
         <br />
         <br />
@@ -40,7 +48,7 @@
           checked
         />
         <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"
-          >Mostrar Arestas Cinzas</label
+          ><strong>Mostrar Arestas Cinzas</strong></label
         >
         <br />
         <br />
@@ -51,11 +59,12 @@
           checked
         />
         <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
-          >Mostrar Vértices Cinzas</label
+          ><strong>Mostrar Vértices Cinzas</strong></label
         >
         <br />
         <br />
-        <input
+        <!-- Suprimido para o tcc -->
+        <!-- <input
           type="checkbox"
           id="showMatrixCheckbox"
           onchange="toggleMatrix()"
@@ -65,18 +74,21 @@
           >Mostrar Matriz</label
         >
         <br />
-        <br />
+        <br /> -->
         <input
           type="checkbox"
           id="showIDTooltipCheckbox"
           onchange="toggleIDTooltip()"
           checked
         />
-        <label for="showIDTooltipCheckbox">Mostrar ID do Vértice</label>
+        <label for="showIDTooltipCheckbox"
+          ><strong>Mostrar ID do Vértice</strong></label
+        >
         <br />
         <br />
+        <hr />
         <div id="Arestas"></div>
-        <br />
+        <div id="totalRelevantDegree" class="hidden"></div>
         <br />
         <div id="fakeNodes" class="flex hidden">
           <table>
@@ -87,54 +99,54 @@
             <tr>
               <td>
                 <div class="column">
-                  <div>
-                    <div class="fakeNode" style="--node-color: green">
-                      <div id="greenNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: green"></div>
+                    <div id="greenNodeCount" class="fakeNode-text column"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: blue">
-                      <div id="blueNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: blue"></div>
+                    <div id="blueNodeCount" class="fakeNode-text"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: grey">
-                      <div id="greyNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: grey"></div>
+                    <div id="greyNodeCount" class="fakeNode-text"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: red">
-                      <div id="redNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: red"></div>
+                    <div id="redNodeCount" class="fakeNode-text"></div>
                   </div>
                 </div>
               </td>
               <td>
                 <div class="column">
-                  <div>
-                    <div class="fakeNode" style="--node-color: green">
-                      <div id="lastGreenNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: green"></div>
+                    <div id="lastGreenNodeCount" class="fakeNode-text"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: blue">
-                      <div id="lastBlueNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: blue"></div>
+                    <div id="lastBlueNodeCount" class="fakeNode-text"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: grey">
-                      <div id="lastGreyNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: grey"></div>
+                    <div id="lastGreyNodeCount" class="fakeNode-text"></div>
                   </div>
-                  <div>
-                    <div class="fakeNode" style="--node-color: red">
-                      <div id="lastRedNodeCount" class="fakeNode-text"></div>
-                    </div>
+                  <div class="flex">
+                    <div class="fakeNode" style="--node-color: red"></div>
+                    <div id="lastRedNodeCount" class="fakeNode-text"></div>
                   </div>
                 </div>
               </td>
             </tr>
           </table>
+          <br />
+          <br />
+          <div id="resetBTN" class="hidden">
+            <button onclick="reloadPage()">
+              <i class="fa fa-refresh"></i>
+              Resetar Aplicação
+            </button>
+          </div>
         </div>
         <br />
         <br />
@@ -146,3 +158,8 @@
     <script src="engine.js"></script>
   </body>
 </html>
+<script>
+  function reloadPage() {
+    location.reload();
+  }
+</script>

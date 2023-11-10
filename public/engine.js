@@ -19,7 +19,11 @@ let greenCount;
 let redCount;
 let blueCount;
 let greyCount;
+let totalRelevantDegree;
+let maxClique = 0;
 const IDtooltip = d3.select("#IDtooltip");
+
+document.getElementById('fileModal').style.display = 'block';
 
 function readFile() {
   const [file] = document.querySelector("#inputFile").files;
@@ -41,6 +45,10 @@ function readFile() {
   if (file) {
     reader.readAsText(file);
   }
+  document.getElementById("inputFile").classList.add("hidden");
+  document.getElementById("resetBTN").classList.remove("hidden");
+  document.getElementById("resetBTN").classList.add("visible");
+  document.getElementById('fileModal').style.display = 'none';
 }
 
 function switchGraph() {
@@ -49,6 +57,7 @@ function switchGraph() {
   updateNodeTextValues();
   updateVertexColors();
   updateLinkColors();
+  loadMenu();
 }
 
 function switchLinks() {
@@ -83,11 +92,11 @@ function loadMenu() {
     } <br><br>
     <strong>Nº Arestas<br>Originais:</strong> ${originalArestasCount} <br><br>
     <strong>Nº Arestas Complementares:</strong> ${complementarArestasCount} <br><br>
-  `;
+    `;
   document.getElementById("buttonsDiv").classList.remove("hidden");
   document.getElementById("buttonsDiv").classList.add("visible");
 
-  document.getElementById("switchGraphBTN").innerHTML = `${
+  document.getElementById("switchGraphBTN").innerText = `${
     showOriginalLinks ? "Mostrar Grafo Complementar" : "Mostrar Grafo Original"
   }`;
 
@@ -104,8 +113,8 @@ function drag(simulation) {
   }
 
   function dragged(event, d) {
-    d.fx = event.x;
-    d.fy = event.y;
+    d.fx = Math.max(0, Math.min(width*0.99, event.x));
+    d.fy = Math.max(0, Math.min(height*0.99, event.y));
     updateVertexColors();
     updateLinkColors();
     updateNodeTextValues();
@@ -114,17 +123,19 @@ function drag(simulation) {
 
   function dragended(event, d) {
     if (!event.active) simulation.alphaTarget(0);
-    d.fx = d.x;
-    d.fy = d.y;
-
+    d.fx = null;
+    d.fy = null;
     clickCounter(d);
     updateVertexColors();
     updateLinkColors();
     updateNodeTextValues();
     mouseover(event, d);
+    document.getElementById("totalRelevantDegree").classList.remove("hidden");
+    document.getElementById("totalRelevantDegree").classList.add("visible");
     document.getElementById("fakeNodes").classList.remove("hidden");
     document.getElementById("fakeNodes").classList.add("visible");
     updateLastNodeCounts()
+    updateTotalRelevantDegree()
   }
 
   const dragBehavior = d3
@@ -163,14 +174,23 @@ function clickCounter() {
   const areAnyRedNodesInLeft = uniqueLeftNodes.some(
     (node) => node.fill === "red"
   );
+
+  if (!areAnyRedNodesInLeft && uniqueLeftNodes.length > maxClique) {
+    maxClique = uniqueLeftNodes.length;
+  }
+
   const leftNodesCountText = document.getElementById("leftNodesCount");
 
-  leftNodesCountText.textContent = `Clique de Tamanho: ${
-    areAnyRedNodesInLeft ? "-" : `${uniqueLeftNodes.length}`
+  leftNodesCountText.innerHTML = `
+  <strong>Maior clique encontrado: </strong>
+  ${maxClique}
+  <br/>
+  <strong>Clique de Tamanho: </strong>
+  ${areAnyRedNodesInLeft ? "-" : `${uniqueLeftNodes.length}`
   }`;
 }
 function updateVertexColors() {
-  const lineX = window.innerWidth * 0.7 * 0.4;
+  const lineX = window.innerWidth * 0.2;
   const leftVertices = nodes.filter((d) => d.x < lineX);
 
   nodes.forEach((d) => {
@@ -240,6 +260,11 @@ function updateVertexColors() {
       d.fill === "#ccc" && !showGreyNodes ? "none" : "inline"
     );
   updateNodeCounts();
+  hideNodeCount();
+}
+
+function updateTotalRelevantDegree () {
+    document.getElementById("totalRelevantDegree").innerHTML = `<strong>Graus Úteis:</strong> ${totalRelevantDegree}` 
 }
 
 function updateLastNodeCounts() {
@@ -331,35 +356,40 @@ function updateLinkColors() {
 }
 
 function updateNodeTextValues() {
+  totalRelevantDegree = 0;
   nodeElements.each(function (nodeData) {
     const node = d3.select(this);
     const leftNodes = nodes.filter((d) => d.x < lineX);
-    
     if (leftNodes.length > 0) {
       const greenAndBlueStrokes = d3.selectAll(".link").filter(function (d) {
         const sourceId = d.source.id;
         const targetId = d.target.id;
-
         if (showOriginalLinks) {
           return (
             (sourceId === nodeData.id || targetId === nodeData.id) &&
             d.originalLink &&
-            ((d.source.fill === "green" || d.source.fill === "blue") && (d.target.fill === "green" || d.target.fill === "blue"))
+            (
+              (d.source.fill === "green" || d.source.fill === "blue" || d.source.fill === "red") &&
+              (d.target.fill === "green" || d.target.fill === "blue" || d.target.fill === "red")
+            )
           );
         } else {
           return (
             (sourceId === nodeData.id || targetId === nodeData.id) &&
             !d.originalLink &&
-            ((d.source.fill === "green" || d.source.fill === "blue") && (d.target.fill === "green" || d.target.fill === "blue"))
+            (
+              (d.source.fill === "green" || d.source.fill === "blue" || d.source.fill === "red") &&
+              (d.target.fill === "green" || d.target.fill === "blue" || d.target.fill === "red")
+            )
           );
         }
       });
       node.select("text").text(greenAndBlueStrokes.size());
+      totalRelevantDegree += greenAndBlueStrokes.size();
     } else {
       const connectedStrokes = d3.selectAll(".link").filter(function (d) {
         const sourceId = d.source.id;
         const targetId = d.target.id;
-
         if (showOriginalLinks) {
           return (
             (sourceId === nodeData.id || targetId === nodeData.id) &&
@@ -378,6 +408,7 @@ function updateNodeTextValues() {
   hideNodeCount();
 }
 
+
 function switchDegrees() {
   showNodeDegrees = !showNodeDegrees;
   hideNodeCount();
@@ -385,10 +416,16 @@ function switchDegrees() {
 
 function hideNodeCount() {
   const textElements = d3.selectAll(".node text");
-  textElements.style("display", function () {
+  textElements.style("display", function (d) {
     if (showNodeDegrees) {
-      return "inline";
-    } else {
+      if (d.fill === "#ccc" && !showGreyNodes){
+        return "none";
+      } 
+      else {
+        return "inline";
+      }
+    } 
+    else {
       return "none";
     }
   });
@@ -433,6 +470,7 @@ function init(){
   renderGraph();
   loadMenu();
   switchLinks();
-  renderMatrix();
+  // suprimida para o tcc
+  // renderMatrix();
   updateNodeTextValues();
 }

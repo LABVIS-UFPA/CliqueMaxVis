@@ -2,8 +2,8 @@ let width;
 let height;
 
 function renderGraph() {
-  width = window.innerWidth * 0.7;
-  const height = window.innerHeight * 0.95;
+  width = window.innerWidth * 0.9;
+  height = window.innerHeight * 0.95;
 
   const svg = d3
     .select("#graph")
@@ -13,12 +13,9 @@ function renderGraph() {
 
   const simulation = d3
     .forceSimulation(graph.nodes)
-    .force(
-      "link",
-      d3.forceLink(graph.links).id((d) => d.id)
-    )
+    .force("link",d3.forceLink(graph.links).id((d) => d.id))
     .force("charge", d3.forceManyBody().strength(-200))
-    .force("center", d3.forceCenter(width * 0.7, height / 2));
+    .force("center", d3.forceCenter(width * 0.6, height / 2))
 
   const link = svg
     .selectAll(".link")
@@ -55,7 +52,7 @@ function renderGraph() {
     .attr("class", "node-text")
     
 
-  lineX = width * 0.4;
+  lineX = innerWidth * 0.2;
 
   svg
     .append("line")
