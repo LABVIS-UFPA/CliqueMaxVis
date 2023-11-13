@@ -2,6 +2,9 @@ let showOriginalLinks = true;
 let showNodeDegrees = true;
 let showGreyLinks = true;
 let showGreyNodes = true;
+let showGreenBorder = true;
+let showPurpleBorder = true;
+let showPinkBorder = true;
 let showIDTooltip = true;
 let showMatrix = true;
 let nodeElements;
@@ -58,6 +61,7 @@ function switchGraph() {
   updateVertexColors();
   updateLinkColors();
   loadMenu();
+  updateTotalRelevantDegree();
 }
 
 function switchLinks() {
@@ -96,8 +100,8 @@ function loadMenu() {
   document.getElementById("buttonsDiv").classList.remove("hidden");
   document.getElementById("buttonsDiv").classList.add("visible");
 
-  document.getElementById("switchGraphBTN").innerText = `${
-    showOriginalLinks ? "Mostrar Grafo Complementar" : "Mostrar Grafo Original"
+  document.getElementById("switchGraphBTN").innerHTML = `${
+    showOriginalLinks ? "<strong>Mostrar Grafo <br/>Complementar</strong>" : "<strong>Mostrar Grafo <br/>Original</strong>"
   }`;
 
   document.getElementById("leftNodesCount").classList.remove("hidden");
@@ -264,7 +268,7 @@ function updateVertexColors() {
 }
 
 function updateTotalRelevantDegree () {
-    document.getElementById("totalRelevantDegree").innerHTML = `<strong>Graus Úteis:</strong> ${totalRelevantDegree}` 
+    document.getElementById("totalRelevantDegree").innerHTML = `<strong>Graus Úteis:</strong> ${totalRelevantDegree === 0 ? "-" : totalRelevantDegree}` 
 }
 
 function updateLastNodeCounts() {
@@ -356,12 +360,18 @@ function updateLinkColors() {
 }
 
 function updateNodeTextValues() {
+  let maxDegreeNodes = [];
+  let maxDegree = 0;
+  let minDegreeNodes = [];
+  let minDegree = Infinity;
   totalRelevantDegree = 0;
+  let connectedStrokes;
+  let greenAndBlueStrokes;
   nodeElements.each(function (nodeData) {
     const node = d3.select(this);
     const leftNodes = nodes.filter((d) => d.x < lineX);
     if (leftNodes.length > 0) {
-      const greenAndBlueStrokes = d3.selectAll(".link").filter(function (d) {
+       greenAndBlueStrokes = d3.selectAll(".link").filter(function (d) {
         const sourceId = d.source.id;
         const targetId = d.target.id;
         if (showOriginalLinks) {
@@ -384,10 +394,14 @@ function updateNodeTextValues() {
           );
         }
       });
-      node.select("text").text(greenAndBlueStrokes.size());
+      if (greenAndBlueStrokes.size() === 0 && nodeData.x > lineX) {
+        node.select("text").text("-");  
+      }else{
+        node.select("text").text(greenAndBlueStrokes.size());
+      }
       totalRelevantDegree += greenAndBlueStrokes.size();
     } else {
-      const connectedStrokes = d3.selectAll(".link").filter(function (d) {
+      connectedStrokes = d3.selectAll(".link").filter(function (d) {
         const sourceId = d.source.id;
         const targetId = d.target.id;
         if (showOriginalLinks) {
@@ -404,7 +418,33 @@ function updateNodeTextValues() {
       });
       node.select("text").text(connectedStrokes.size());
     }
+    if (nodeData.x >= lineX && nodeData.fill !== "#ccc") {
+      const degree = leftNodes.length > 0 ? greenAndBlueStrokes.size() : connectedStrokes.size();
+      if (degree < minDegree) {
+        minDegree = degree;
+        minDegreeNodes = [node];
+      } else if (degree === minDegree) {
+        minDegreeNodes.push(node);
+      }
+      if (degree > maxDegree) {
+        maxDegree = degree;
+        maxDegreeNodes = [node];
+      } else if (degree === maxDegree) {
+        maxDegreeNodes.push(node);
+      }
+    }
   });
+  nodeElements.selectAll("circle").attr("stroke", "#fff").attr("r", 13).attr("stroke-width", 1);;
+  if (showPinkBorder && minDegreeNodes.length > 0) {
+    minDegreeNodes.forEach((node) => {
+      node.select("circle").attr("stroke", "pink").attr("r", 15).attr("stroke-width", 4);;
+    });
+  }
+  if (showPurpleBorder && maxDegreeNodes.length > 0) {
+    maxDegreeNodes.forEach((node) => {
+      node.select("circle").attr("stroke", "darkorchid").attr("r", 15).attr("stroke-width", 4);;
+    });
+  }
   hideNodeCount();
 }
 
@@ -441,6 +481,21 @@ function toggleGreyNodes() {
   updateVertexColors();
 }
 
+function togglePurpleBorder() {
+  showPurpleBorder = !showPurpleBorder
+  updateNodeTextValues();
+}
+
+function toggleGreenBorder() {
+  showGreenBorder = !showGreenBorder
+  updateNodeTextValues();
+}
+
+function togglePinkBorder() {
+  showPinkBorder = !showPinkBorder
+  updateNodeTextValues();
+}
+
 function toggleIDTooltip() {
   showIDTooltip = !showIDTooltip;
 }
@@ -470,7 +525,7 @@ function init(){
   renderGraph();
   loadMenu();
   switchLinks();
+  updateNodeTextValues();
   // suprimida para o tcc
   // renderMatrix();
-  updateNodeTextValues();
 }

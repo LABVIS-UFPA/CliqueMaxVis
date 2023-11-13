@@ -3,7 +3,7 @@ let height;
 
 function renderGraph() {
   width = window.innerWidth * 0.9;
-  height = window.innerHeight * 0.95;
+  height = window.innerHeight * 0.90;
 
   const svg = d3
     .select("#graph")
@@ -15,7 +15,7 @@ function renderGraph() {
     .forceSimulation(graph.nodes)
     .force("link",d3.forceLink(graph.links).id((d) => d.id))
     .force("charge", d3.forceManyBody().strength(-200))
-    .force("center", d3.forceCenter(width * 0.6, height / 2))
+    .force("center", d3.forceCenter(width * 0.6, height / 2));
 
   const link = svg
     .selectAll(".link")
@@ -34,14 +34,16 @@ function renderGraph() {
     .attr("fill", "blue")
     .attr("class", "node")
     .call(drag(simulation));
-    
-    node.on("mouseover", mouseover).on("mouseout", mouseout);
-    
+
     node
+      .on("mouseover", mouseover)
+      .on("mouseout", mouseout);
+
+  node
     .append("circle")
-    .attr("r", 12)
+    .attr("r", 13)
     .attr("stroke", "#fff")
-    .attr("stroke-width", 2);
+    .attr("stroke-width", 1);
 
   node
     .append("text")
@@ -49,8 +51,7 @@ function renderGraph() {
     .attr("dy", 5)
     .attr("text-anchor", "middle")
     .attr("fill", "white")
-    .attr("class", "node-text")
-    
+    .attr("class", "node-text");
 
   lineX = innerWidth * 0.2;
 
@@ -66,6 +67,13 @@ function renderGraph() {
 
   let tickCount = 0;
   simulation.on("tick", () => {
+    if (tickCount % 2 === 0 ) {
+      graph.nodes.forEach(node => {
+        node.x = Math.max(0, Math.min(width, node.x));
+        node.y = Math.max(0, Math.min(height, node.y));
+      });
+    }
+
     link
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
@@ -75,13 +83,16 @@ function renderGraph() {
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
 
     tickCount++;
-    if (tickCount = 100) {
+    if (tickCount >= 100) {
       simulation.force("link", null);
       simulation.force("charge", null);
       simulation.force("center", null);
     }
-    if (tickCount = 1) 
-      updateNodeTextValues()
+    if (tickCount === 1) {
+      updateNodeTextValues();
+      updateVertexColors();
+      updateLinkColors();
+    }
   });
 }
 

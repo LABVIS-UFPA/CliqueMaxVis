@@ -10,7 +10,7 @@
 
   <body>
     <header>
-      <h1>CliqueMaximo</h1>
+      <h1 style="width: 100%">Clique Maximo</h1>
     </header>
     <div id="fileModal" class="modal">
       <div class="modal-content">
@@ -19,14 +19,18 @@
     </div>
     <div id="container">
       <div id="graph">
-        <div class="hidden" id="leftNodesCount">Clique de Tamanho: -</div>
+        <div class="hidden" id="leftNodesCount">
+          <strong>Maior clique encontrado: -</strong>
+          <br />
+          <strong>Clique de Tamanho: -</strong>
+        </div>
       </div>
       <!-- <div id="matrix"></div> -->
       <div id="buttonsDiv" class="hidden q-px-md">
         <button
           id="switchGraphBTN"
           onclick="switchGraph()"
-          style="width: fit-content; margin-top: 4px; font-weight: bold"
+          style="width: 100%; margin-top: 4px; font-weight: bold"
         ></button>
         <br />
         <br />
@@ -37,7 +41,7 @@
           checked
         />
         <label for="switchDegreesCheckbox" id="switchDegreesLabel"
-          ><strong>Mostrar Grau dos Vértice</strong></label
+          ><strong>Exibir Grau dos Vértice</strong></label
         >
         <br />
         <br />
@@ -48,7 +52,7 @@
           checked
         />
         <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"
-          ><strong>Mostrar Arestas Cinzas</strong></label
+          ><strong>Exibir Arestas Cinzas</strong></label
         >
         <br />
         <br />
@@ -59,7 +63,40 @@
           checked
         />
         <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
-          ><strong>Mostrar Vértices Cinzas</strong></label
+          ><strong>Exibir Vértices Cinzas</strong></label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showPurpleNodesCheckbox"
+          onchange="togglePurpleBorder()"
+          checked
+        />
+        <label for="showPurpleNodesCheckbox" id="showPurpleNodesLabel"
+          ><strong>Exibir maior grau</strong></label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showPinkNodesCheckbox"
+          onchange="togglePinkBorder()"
+          checked
+        />
+        <label for="showPinkNodesCheckbox" id="showPinkNodesLabel"
+          ><strong>Exibir menor grau</strong></label
+        >
+        <br />
+        <br />
+        <input
+          type="checkbox"
+          id="showGreenNodesCheckbox"
+          onchange="toggleGreenBorder()"
+          checked
+        />
+        <label for="showGreenNodesCheckbox" id="showGreenNodesLabel"
+          ><strong>Exibir mais provável</strong></label
         >
         <br />
         <br />
@@ -71,7 +108,7 @@
           checked
         />
         <label for="showMatrixCheckbox" id="showMatrixLabel"
-          >Mostrar Matriz</label
+          >Exibir Matriz</label
         >
         <br />
         <br /> -->
@@ -82,7 +119,7 @@
           checked
         />
         <label for="showIDTooltipCheckbox"
-          ><strong>Mostrar ID do Vértice</strong></label
+          ><strong>Exibir ID do Vértice</strong></label
         >
         <br />
         <br />
@@ -101,7 +138,7 @@
                 <div class="column">
                   <div class="flex">
                     <div class="fakeNode" style="--node-color: green"></div>
-                    <div id="greenNodeCount" class="fakeNode-text column"></div>
+                    <div id="greenNodeCount" class="fakeNode-text"></div>
                   </div>
                   <div class="flex">
                     <div class="fakeNode" style="--node-color: blue"></div>
@@ -144,12 +181,10 @@
           <div id="resetBTN" class="hidden">
             <button onclick="reloadPage()">
               <i class="fa fa-refresh"></i>
-              Resetar Aplicação
+              Escolher Novo Grafo
             </button>
           </div>
         </div>
-        <br />
-        <br />
       </div>
     </div>
     <div id="IDtooltip" class="tooltip"></div>
