@@ -26,7 +26,7 @@ let totalRelevantDegree;
 let maxClique = 0;
 const IDtooltip = d3.select("#IDtooltip");
 
-document.getElementById('fileModal').style.display = 'block';
+document.getElementById("fileModal").style.display = "block";
 
 function readFile() {
   const [file] = document.querySelector("#inputFile").files;
@@ -51,7 +51,7 @@ function readFile() {
   document.getElementById("inputFile").classList.add("hidden");
   document.getElementById("resetBTN").classList.remove("hidden");
   document.getElementById("resetBTN").classList.add("visible");
-  document.getElementById('fileModal').style.display = 'none';
+  document.getElementById("fileModal").style.display = "none";
 }
 
 function switchGraph() {
@@ -84,8 +84,9 @@ function switchLinks() {
 }
 
 function loadMenu() {
-  const originalArestasCount = graph.links.filter((link) => link.originalLink)
-    .length;
+  const originalArestasCount = graph.links.filter(
+    (link) => link.originalLink
+  ).length;
   const complementarArestasCount = graph.links.filter(
     (link) => !link.originalLink
   ).length;
@@ -101,7 +102,9 @@ function loadMenu() {
   document.getElementById("buttonsDiv").classList.add("visible");
 
   document.getElementById("switchGraphBTN").innerHTML = `${
-    showOriginalLinks ? "<strong>Mostrar Grafo <br/>Complementar</strong>" : "<strong>Mostrar Grafo <br/>Original</strong>"
+    showOriginalLinks
+      ? "<strong>Mostrar Grafo <br/>Complementar</strong>"
+      : "<strong>Mostrar Grafo <br/>Original</strong>"
   }`;
 
   document.getElementById("leftNodesCount").classList.remove("hidden");
@@ -117,8 +120,8 @@ function drag(simulation) {
   }
 
   function dragged(event, d) {
-    d.fx = Math.max(0, Math.min(width*0.99, event.x));
-    d.fy = Math.max(0, Math.min(height*0.99, event.y));
+    d.fx = Math.max(0, Math.min(width * 0.99, event.x));
+    d.fy = Math.max(0, Math.min(height * 0.99, event.y));
     updateVertexColors();
     updateLinkColors();
     updateNodeTextValues();
@@ -138,8 +141,8 @@ function drag(simulation) {
     document.getElementById("totalRelevantDegree").classList.add("visible");
     document.getElementById("fakeNodes").classList.remove("hidden");
     document.getElementById("fakeNodes").classList.add("visible");
-    updateLastNodeCounts()
-    updateTotalRelevantDegree()
+    updateLastNodeCounts();
+    updateTotalRelevantDegree();
   }
 
   const dragBehavior = d3
@@ -190,8 +193,7 @@ function clickCounter() {
   ${maxClique}
   <br/>
   <strong>Clique de Tamanho: </strong>
-  ${areAnyRedNodesInLeft ? "-" : `${uniqueLeftNodes.length}`
-  }`;
+  ${areAnyRedNodesInLeft ? "-" : `${uniqueLeftNodes.length}`}`;
 }
 function updateVertexColors() {
   const lineX = window.innerWidth * 0.2;
@@ -267,23 +269,19 @@ function updateVertexColors() {
   hideNodeCount();
 }
 
-function updateTotalRelevantDegree () {
-    document.getElementById("totalRelevantDegree").innerHTML = `<strong>Graus Úteis:</strong> ${totalRelevantDegree === 0 ? "-" : totalRelevantDegree}` 
+function updateTotalRelevantDegree() {
+  document.getElementById(
+    "totalRelevantDegree"
+  ).innerHTML = `<strong>Graus Úteis:</strong> ${
+    totalRelevantDegree === 0 ? "-" : totalRelevantDegree
+  }`;
 }
 
 function updateLastNodeCounts() {
-  document.getElementById(
-    "lastGreenNodeCount"
-    ).textContent = lastGreenCount;
-  document.getElementById(
-    "lastBlueNodeCount"
-    ).textContent = lastBlueCount;
-  document.getElementById(
-      "lastGreyNodeCount"
-    ).textContent = lastGreyCount;
-  document.getElementById(
-    "lastRedNodeCount"
-    ).textContent = lastRedCount;
+  document.getElementById("lastGreenNodeCount").textContent = lastGreenCount;
+  document.getElementById("lastBlueNodeCount").textContent = lastBlueCount;
+  document.getElementById("lastGreyNodeCount").textContent = lastGreyCount;
+  document.getElementById("lastRedNodeCount").textContent = lastRedCount;
 
   lastGreenCount = greenCount;
   lastBlueCount = blueCount;
@@ -297,18 +295,10 @@ function updateNodeCounts() {
   blueCount = nodes.filter((d) => d.fill === "blue")?.length;
   greyCount = nodes.filter((d) => d.fill === "#ccc")?.length;
 
-  document.getElementById(
-    "greenNodeCount"
-    ).textContent = greenCount;
-  document.getElementById(
-    "blueNodeCount"
-    ).textContent = blueCount;
-  document.getElementById(
-      "greyNodeCount"
-    ).textContent = greyCount;
-  document.getElementById(
-    "redNodeCount"
-    ).textContent = redCount;
+  document.getElementById("greenNodeCount").textContent = greenCount;
+  document.getElementById("blueNodeCount").textContent = blueCount;
+  document.getElementById("greyNodeCount").textContent = greyCount;
+  document.getElementById("redNodeCount").textContent = redCount;
 }
 
 function updateLinkColors() {
@@ -371,32 +361,36 @@ function updateNodeTextValues() {
     const node = d3.select(this);
     const leftNodes = nodes.filter((d) => d.x < lineX);
     if (leftNodes.length > 0) {
-       greenAndBlueStrokes = d3.selectAll(".link").filter(function (d) {
+      greenAndBlueStrokes = d3.selectAll(".link").filter(function (d) {
         const sourceId = d.source.id;
         const targetId = d.target.id;
         if (showOriginalLinks) {
           return (
             (sourceId === nodeData.id || targetId === nodeData.id) &&
             d.originalLink &&
-            (
-              (d.source.fill === "green" || d.source.fill === "blue" || d.source.fill === "red") &&
-              (d.target.fill === "green" || d.target.fill === "blue" || d.target.fill === "red")
-            )
+            (d.source.fill === "green" ||
+              d.source.fill === "blue" ||
+              d.source.fill === "red") &&
+            (d.target.fill === "green" ||
+              d.target.fill === "blue" ||
+              d.target.fill === "red")
           );
         } else {
           return (
             (sourceId === nodeData.id || targetId === nodeData.id) &&
             !d.originalLink &&
-            (
-              (d.source.fill === "green" || d.source.fill === "blue" || d.source.fill === "red") &&
-              (d.target.fill === "green" || d.target.fill === "blue" || d.target.fill === "red")
-            )
+            (d.source.fill === "green" ||
+              d.source.fill === "blue" ||
+              d.source.fill === "red") &&
+            (d.target.fill === "green" ||
+              d.target.fill === "blue" ||
+              d.target.fill === "red")
           );
         }
       });
-      if (greenAndBlueStrokes.size() === 0 && nodeData.x > lineX) {
-        node.select("text").text("-");  
-      }else{
+      if (greenAndBlueStrokes.size() === 0 && nodeData.fill === "#ccc") {
+        node.select("text").text("-");
+      } else {
         node.select("text").text(greenAndBlueStrokes.size());
       }
       totalRelevantDegree += greenAndBlueStrokes.size();
@@ -419,7 +413,10 @@ function updateNodeTextValues() {
       node.select("text").text(connectedStrokes.size());
     }
     if (nodeData.x >= lineX && nodeData.fill !== "#ccc") {
-      const degree = leftNodes.length > 0 ? greenAndBlueStrokes.size() : connectedStrokes.size();
+      const degree =
+        leftNodes.length > 0
+          ? greenAndBlueStrokes.size()
+          : connectedStrokes.size();
       if (degree < minDegree) {
         minDegree = degree;
         minDegreeNodes = [node];
@@ -434,20 +431,31 @@ function updateNodeTextValues() {
       }
     }
   });
-  nodeElements.selectAll("circle").attr("stroke", "#fff").attr("r", 13).attr("stroke-width", 1);;
+  nodeElements
+    .selectAll("circle")
+    .attr("stroke", "#fff")
+    .attr("r", 13)
+    .attr("stroke-width", 1);
   if (showPinkBorder && minDegreeNodes.length > 0) {
     minDegreeNodes.forEach((node) => {
-      node.select("circle").attr("stroke", "pink").attr("r", 15).attr("stroke-width", 4);;
+      node
+        .select("circle")
+        .attr("stroke", "pink")
+        .attr("r", 15)
+        .attr("stroke-width", 4);
     });
   }
   if (showPurpleBorder && maxDegreeNodes.length > 0) {
     maxDegreeNodes.forEach((node) => {
-      node.select("circle").attr("stroke", "darkorchid").attr("r", 15).attr("stroke-width", 4);;
+      node
+        .select("circle")
+        .attr("stroke", "darkorchid")
+        .attr("r", 15)
+        .attr("stroke-width", 4);
     });
   }
   hideNodeCount();
 }
-
 
 function switchDegrees() {
   showNodeDegrees = !showNodeDegrees;
@@ -458,14 +466,12 @@ function hideNodeCount() {
   const textElements = d3.selectAll(".node text");
   textElements.style("display", function (d) {
     if (showNodeDegrees) {
-      if (d.fill === "#ccc" && !showGreyNodes){
+      if (d.fill === "#ccc" && !showGreyNodes) {
         return "none";
-      } 
-      else {
+      } else {
         return "inline";
       }
-    } 
-    else {
+    } else {
       return "none";
     }
   });
@@ -482,17 +488,17 @@ function toggleGreyNodes() {
 }
 
 function togglePurpleBorder() {
-  showPurpleBorder = !showPurpleBorder
+  showPurpleBorder = !showPurpleBorder;
   updateNodeTextValues();
 }
 
 function toggleGreenBorder() {
-  showGreenBorder = !showGreenBorder
+  showGreenBorder = !showGreenBorder;
   updateNodeTextValues();
 }
 
 function togglePinkBorder() {
-  showPinkBorder = !showPinkBorder
+  showPinkBorder = !showPinkBorder;
   updateNodeTextValues();
 }
 
@@ -520,7 +526,7 @@ function mouseout() {
   IDtooltip.style("display", "none");
 }
 
-function init(){
+function init() {
   calculateCompleteGraph();
   renderGraph();
   loadMenu();
