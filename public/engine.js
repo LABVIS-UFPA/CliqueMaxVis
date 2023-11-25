@@ -3,7 +3,7 @@ let showNodeDegrees = true;
 let showGreyLinks = true;
 let showGreyNodes = true;
 let showGreenBorder = true;
-let showPurpleBorder = true;
+let showBestBorder = true;
 let showPinkBorder = true;
 let showIDTooltip = true;
 let showMatrix = true;
@@ -95,7 +95,7 @@ function loadMenu() {
     <strong>Grafo Apresentado:</strong> ${
       showOriginalLinks ? "Original" : "Complementar"
     } <br><br>
-    <strong>Nº Arestas<br>Originais:</strong> ${originalArestasCount} <br><br>
+    <strong>Nº Arestas Originais:</strong> ${originalArestasCount} <br><br>
     <strong>Nº Arestas Complementares:</strong> ${complementarArestasCount} <br><br>
     `;
   document.getElementById("buttonsDiv").classList.remove("hidden");
@@ -108,7 +108,7 @@ function loadMenu() {
   }`;
 
   document.getElementById("leftNodesCount").classList.remove("hidden");
-  document.getElementById("leftNodesCount").classList.add("visible");
+  document.getElementById("legend").classList.remove("hidden");
 }
 
 function drag(simulation) {
@@ -434,23 +434,23 @@ function updateNodeTextValues() {
   nodeElements
     .selectAll("circle")
     .attr("stroke", "#fff")
-    .attr("r", 13)
+    .attr("r", 14)
     .attr("stroke-width", 1);
-  if (showPinkBorder && minDegreeNodes.length > 0) {
+  if (!showOriginalLinks && showBestBorder && minDegreeNodes.length > 0) {
     minDegreeNodes.forEach((node) => {
       node
         .select("circle")
-        .attr("stroke", "pink")
-        .attr("r", 15)
+        .attr("stroke", "black")
+        .attr("r", 18)
         .attr("stroke-width", 4);
     });
   }
-  if (showPurpleBorder && maxDegreeNodes.length > 0) {
+  if (showOriginalLinks && showBestBorder && maxDegreeNodes.length > 0) {
     maxDegreeNodes.forEach((node) => {
       node
         .select("circle")
-        .attr("stroke", "darkorchid")
-        .attr("r", 15)
+        .attr("stroke", "black")
+        .attr("r", 18)
         .attr("stroke-width", 4);
     });
   }
@@ -487,20 +487,20 @@ function toggleGreyNodes() {
   updateVertexColors();
 }
 
-function togglePurpleBorder() {
-  showPurpleBorder = !showPurpleBorder;
+function toggleBestBorder() {
+  showBestBorder = !showBestBorder;
   updateNodeTextValues();
 }
 
-function toggleGreenBorder() {
-  showGreenBorder = !showGreenBorder;
-  updateNodeTextValues();
-}
+// function toggleGreenBorder() {
+//   showGreenBorder = !showGreenBorder;
+//   updateNodeTextValues();
+// }
 
-function togglePinkBorder() {
-  showPinkBorder = !showPinkBorder;
-  updateNodeTextValues();
-}
+// function togglePinkBorder() {
+//   showPinkBorder = !showPinkBorder;
+//   updateNodeTextValues();
+// }
 
 function toggleIDTooltip() {
   showIDTooltip = !showIDTooltip;

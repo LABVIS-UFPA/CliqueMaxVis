@@ -3,7 +3,7 @@ let height;
 
 function renderGraph() {
   width = window.innerWidth * 0.9;
-  height = window.innerHeight * 0.90;
+  height = window.innerHeight * 0.94;
 
   const svg = d3
     .select("#graph")
@@ -35,13 +35,13 @@ function renderGraph() {
     .attr("class", "node")
     .call(drag(simulation));
 
-    node
-      .on("mouseover", mouseover)
-      .on("mouseout", mouseout);
+  node
+    .on("mouseover", mouseover)
+    .on("mouseout", mouseout);
 
   node
     .append("circle")
-    .attr("r", 13)
+    .attr("r", 14)
     .attr("stroke", "#fff")
     .attr("stroke-width", 1);
 
@@ -83,7 +83,7 @@ function renderGraph() {
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
 
     tickCount++;
-    if (tickCount >= 100) {
+    if (tickCount >= 10) {
       simulation.force("link", null);
       simulation.force("charge", null);
       simulation.force("center", null);
