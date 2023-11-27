@@ -18,7 +18,6 @@
 table {
   font-family: Arial, sans-serif;
   border-collapse: collapse;
-  width: 50%;
   margin: 0 auto;
   border: 2px solid #333;
 }
@@ -170,16 +169,16 @@ h1 {
 
 #legend {
   position: absolute;
-  top: 5%;
-  left: 50%;
-  width: 50%;
+  top: 6%;
+  left: 54%;
+  width: 66%;
   transform: translateX(-50%);
   margin: 0 auto;
 }
 
 #leftNodesCount {
   position: absolute;
-  top: 5%;
+  top: 6%;
   left: 104px;
   transform: translateX(-50%);
   margin: 0 auto;
