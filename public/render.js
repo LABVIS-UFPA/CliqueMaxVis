@@ -2,8 +2,8 @@ let width;
 let height;
 
 function renderGraph() {
-  width = window.innerWidth * 0.9;
-  height = window.innerHeight * 0.94;
+  width = window.innerWidth * 0.88;
+  height = window.innerHeight * 0.93;
 
   const svg = d3
     .select("#graph")
