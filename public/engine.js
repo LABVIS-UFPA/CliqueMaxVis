@@ -1,6 +1,9 @@
 let showOriginalLinks = true;
 let showNodeDegrees = true;
 let showGreyLinks = true;
+let showGreenLinks = true;
+let showBlueLinks = true;
+let showRedLinks = true;
 let showGreyNodes = true;
 let showGreenBorder = true;
 let showBestBorder = true;
@@ -318,14 +321,14 @@ function updateLinkColors() {
         (source.fill === "green" && target.fill === "blue") ||
         (source.fill === "blue" && target.fill === "green")
       ) {
-        return "green";
+        return showGreenLinks ? "green" : "none";
       } else if (source.fill === "blue" && target.fill === "blue") {
-        return "blue";
+        return showBlueLinks ? "blue" : "none";
       } else {
         const sourceOnLeft = source.x < lineX;
         const targetOnLeft = target.x < lineX;
         if (sourceOnLeft && targetOnLeft) {
-          return "green";
+          return showGreenLinks ? "green" : "none";
         }
         return showGreyLinks ? "grey" : "none";
       }
@@ -337,11 +340,11 @@ function updateLinkColors() {
         (source.fill === "green" && target.fill === "blue") ||
         (source.fill === "blue" && target.fill === "green")
       ) {
-        return "green";
+        return showGreenLinks ? "green" : "none";
       } else if (source.fill === "blue" && target.fill === "blue") {
-        return "red";
+        return showRedLinks ? "red" : "none";
       } else if (source.fill === "red" && target.fill === "red") {
-        return "red";
+        return showRedLinks ? "red" : "none";
       } else {
         return showGreyLinks ? "grey" : "none";
       }
@@ -482,6 +485,21 @@ function toggleGreyLinks() {
   updateLinkColors();
 }
 
+function toggleGreenLinks() {
+  showGreenLinks = !showGreenLinks;
+  updateLinkColors();
+}
+
+function toggleBlueLinks() {
+  showBlueLinks = !showBlueLinks;
+  updateLinkColors();
+}
+
+function toggleRedLinks() {
+  showRedLinks = !showRedLinks;
+  updateLinkColors();
+}
+
 function toggleGreyNodes() {
   showGreyNodes = !showGreyNodes;
   updateVertexColors();
@@ -533,5 +551,5 @@ function init() {
   switchLinks();
   updateNodeTextValues();
   // suprimida para o tcc
-  // renderMatrix();
+  //renderMatrix();
 }

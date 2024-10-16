@@ -1,210 +1,204 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="UTF-8" />
     <!-- <script src="/scripts/d3/dist/d3.js"></script> -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" type="text/css" href="style.css" />
-  </head>
-  <body>
+</head>
+<body>
     <header>
-      <h1 style="width: 100%">Clique máximo</h1>
+        <h1 style="width: 100%">Clique máximo</h1>
     </header>
     <div id="fileModal" class="modal">
-      <div class="modal-content">
-        <input type="file" id="inputFile" accept=".txt" onchange="readFile()" />
-      </div>
+        <div class="modal-content">
+            <input type="file" id="inputFile" accept=".txt" onchange="readFile()" />
+        </div>
     </div>
     <div id="container">
-      <div id="graph"></div>
-      <!-- <div id="matrix"></div> -->
-      <div id="buttonsDiv" class="hidden q-px-md">
-        <button
-          id="switchGraphBTN"
-          onclick="switchGraph()"
-          style="width: 100%; margin-top: 4px; font-weight: bold"
-        ></button>
-        <br />
-        <br />
-        <input
-          type="checkbox"
-          id="showGreyNodesCheckbox"
-          onchange="toggleGreyNodes()"
-          checked
-        />
-        <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
-          ><strong>Exibir vértices cinzas</strong></label
-        >
-        <br />
-        <input
-          type="checkbox"
-          id="showGreyLinksCheckbox"
-          onchange="toggleGreyLinks()"
-          checked
-        />
-        <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"
-          ><strong>Exibir arestas cinzas</strong></label
-        >
-        <br />
-        <input
-          type="checkbox"
-          id="switchDegreesCheckbox"
-          onchange="switchDegrees()"
-          checked
-        />
-        <label for="switchDegreesCheckbox" id="switchDegreesLabel"
-          ><strong>Exibir grau dos vértices</strong></label
-        >
-        <br />
-        <input
-          type="checkbox"
-          id="showBestNodesCheckbox"
-          onchange="toggleBestBorder()"
-          checked
-        />
-        <label for="showBestNodesCheckbox" id="showBestNodesLabel"
-          ><strong>Exibir melhor grau</strong></label
-        >
-        <br />
-        <!-- <input
-          type="checkbox"
-          id="showPinkNodesCheckbox"
-          onchange="togglePinkBorder()"
-          checked
-        />
-        <label for="showPinkNodesCheckbox" id="showPinkNodesLabel"
-          ><strong>Exibir menor grau</strong></label
-        >
-        <br /> -->
-        <!-- <input
-          type="checkbox"
-          id="showGreenNodesCheckbox"
-          onchange="toggleGreenBorder()"
-          checked
-        />
-        <label for="showGreenNodesCheckbox" id="showGreenNodesLabel"
-          ><strong>Exibir mais provável</strong></label
-        >
-        <br /> -->
-        <!-- Suprimido para o tcc -->
-        <!-- <input
-          type="checkbox"
-          id="showMatrixCheckbox"
-          onchange="toggleMatrix()"
-          checked
-        />
-        <label for="showMatrixCheckbox" id="showMatrixLabel"
-          >Exibir Matriz</label
-        >
-        <br /> -->
-        <input
-          type="checkbox"
-          id="showIDTooltipCheckbox"
-          onchange="toggleIDTooltip()"
-          checked
-        />
-        <label for="showIDTooltipCheckbox"
-          ><strong>Exibir ID do vértice</strong></label
-        >
-        <hr />
-        <div id="Arestas"></div>
-        <div id="totalRelevantDegree" class="hidden"></div>
-        <br />
-        <div id="fakeNodes" class="flex hidden">
-          <table>
-            <tr>
-              <th><span>Atual</span></th>
-              <th><span>Anterior</span></th>
-            </tr>
-            <tr>
-              <td>
-                <div class="column">
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: green"></div>
-                    <div id="greenNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: blue"></div>
-                    <div id="blueNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: grey"></div>
-                    <div id="greyNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: red"></div>
-                    <div id="redNodeCount" class="fakeNode-text"></div>
-                  </div>
+        <div id="graph"></div>
+        <!-- <div id="matrix"></div> -->
+        <div id="buttonsDiv" class="hidden q-px-md">
+            <button id="switchGraphBTN"
+                    onclick="switchGraph()"
+                    style="width: 100%; margin-top: 4px; font-weight: bold"></button>
+            <br />
+            <br />
+            <input type="checkbox"
+                   id="showGreyNodesCheckbox"
+                   onchange="toggleGreyNodes()"
+                   checked />
+            <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"><strong>Exibir vértices cinzas</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="showGreyLinksCheckbox"
+                   onchange="toggleGreyLinks()"
+                   checked />
+            <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"><strong>Exibir arestas cinzas</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="showBlueLinksCheckbox"
+                   onchange="toggleBlueLinks()"
+                   checked />
+            <label for="showBlueLinksCheckbox" id="showBlueLinksLabel"><strong>Exibir arestas azuis</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="showGreenLinksCheckbox"
+                   onchange="toggleGreenLinks()"
+                   checked />
+            <label for="showGreenLinksCheckbox" id="showGreenLinksLabel"><strong>Exibir arestas verdes</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="showRedLinksCheckbox"
+                   onchange="toggleRedLinks()"
+                   checked />
+            <label for="showRedLinksCheckbox" id="showRedLinksLabel"><strong>Exibir arestas vermelhas</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="switchDegreesCheckbox"
+                   onchange="switchDegrees()"
+                   checked />
+            <label for="switchDegreesCheckbox" id="switchDegreesLabel"><strong>Exibir grau dos vértices</strong></label>
+            <br />
+            <input type="checkbox"
+                   id="showBestNodesCheckbox"
+                   onchange="toggleBestBorder()"
+                   checked />
+            <label for="showBestNodesCheckbox" id="showBestNodesLabel"><strong>Exibir melhor grau</strong></label>
+            <br />
+            <!-- <input
+              type="checkbox"
+              id="showPinkNodesCheckbox"
+              onchange="togglePinkBorder()"
+              checked
+            />
+            <label for="showPinkNodesCheckbox" id="showPinkNodesLabel"
+              ><strong>Exibir menor grau</strong></label
+            >
+            <br /> -->
+            <!-- <input
+              type="checkbox"
+              id="showGreenNodesCheckbox"
+              onchange="toggleGreenBorder()"
+              checked
+            />
+            <label for="showGreenNodesCheckbox" id="showGreenNodesLabel"
+              ><strong>Exibir mais provável</strong></label
+            >
+            <br /> -->
+            <!-- Suprimido para o tcc -->
+            <!-- <input
+              type="checkbox"
+              id="showMatrixCheckbox"
+              onchange="toggleMatrix()"
+              checked
+            />
+            <label for="showMatrixCheckbox" id="showMatrixLabel"
+              >Exibir Matriz</label
+            >
+            <br /> -->
+            <input type="checkbox"
+                   id="showIDTooltipCheckbox"
+                   onchange="toggleIDTooltip()"
+                   checked />
+            <label for="showIDTooltipCheckbox"><strong>Exibir ID do vértice</strong></label>
+            <hr />
+            <div id="Arestas"></div>
+            <div id="totalRelevantDegree" class="hidden"></div>
+            <br />
+            <div id="fakeNodes" class="flex hidden">
+                <table>
+                    <tr>
+                        <th><span>Atual</span></th>
+                        <th><span>Anterior</span></th>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="column">
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: green"></div>
+                                    <div id="greenNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: blue"></div>
+                                    <div id="blueNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: grey"></div>
+                                    <div id="greyNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: red"></div>
+                                    <div id="redNodeCount" class="fakeNode-text"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="column">
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: green"></div>
+                                    <div id="lastGreenNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: blue"></div>
+                                    <div id="lastBlueNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: grey"></div>
+                                    <div id="lastGreyNodeCount" class="fakeNode-text"></div>
+                                </div>
+                                <div class="flex">
+                                    <div class="fakeNode" style="--node-color: red"></div>
+                                    <div id="lastRedNodeCount" class="fakeNode-text"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+                <br />
+                <div id="resetBTN" class="hidden">
+                    <button onclick="reloadPage()">
+                        <i class="fa fa-refresh"></i>
+                        Escolher Novo Grafo
+                    </button>
                 </div>
-              </td>
-              <td>
-                <div class="column">
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: green"></div>
-                    <div id="lastGreenNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: blue"></div>
-                    <div id="lastBlueNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: grey"></div>
-                    <div id="lastGreyNodeCount" class="fakeNode-text"></div>
-                  </div>
-                  <div class="flex">
-                    <div class="fakeNode" style="--node-color: red"></div>
-                    <div id="lastRedNodeCount" class="fakeNode-text"></div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </table>
-          <br />
-          <div id="resetBTN" class="hidden">
-            <button onclick="reloadPage()">
-              <i class="fa fa-refresh"></i>
-              Escolher Novo Grafo
-            </button>
-          </div>
+            </div>
         </div>
-      </div>
     </div>
     <div class="hidden" id="leftNodesCount">
-      <strong>Maior clique encontrado: -</strong>
-      <br />
-      <strong>Clique de tamanho: -</strong>
+        <strong>Maior clique encontrado: -</strong>
+        <br />
+        <strong>Clique de tamanho: -</strong>
     </div>
     <div id="legend" class="flex legend hidden">
-      <div class="fakeNode" style="--node-color: green"></div>
-      <div class="fakeNode-text" style="margin-right: 10px">
-        Compõe o clique encontrado
-      </div>
-      <div class="fakeNode" style="--node-color: blue"></div>
-      <div class="fakeNode-text" style="margin-right: 10px">
-        Candidato a compor o clique
-      </div>
-      <div class="fakeNode" style="--node-color: grey"></div>
-      <div class="fakeNode-text" style="margin-right: 10px">
-        Não é candidato a compor o clique
-      </div>
-      <div class="fakeNode" style="--node-color: red"></div>
-      <div class="fakeNode-text" style="margin-right: 10px">
-        Não compõe o clique encontrado
-      </div>
-      <div
-        class="fakeNodeB"
-        style="--node-color: blue; --border-color: black 4px solid"
-      ></div>
-      <div class="fakeNode-text" style="margin-left: 4px; margin-right: 10px">
-        Melhor grau
-      </div>
+        <div class="fakeNode" style="--node-color: green"></div>
+        <div class="fakeNode-text" style="margin-right: 10px">
+            Compõe o clique encontrado
+        </div>
+        <div class="fakeNode" style="--node-color: blue"></div>
+        <div class="fakeNode-text" style="margin-right: 10px">
+            Candidato a compor o clique
+        </div>
+        <div class="fakeNode" style="--node-color: grey"></div>
+        <div class="fakeNode-text" style="margin-right: 10px">
+            Não é candidato a compor o clique
+        </div>
+        <div class="fakeNode" style="--node-color: red"></div>
+        <div class="fakeNode-text" style="margin-right: 10px">
+            Não compõe o clique encontrado
+        </div>
+        <div class="fakeNodeB"
+             style="--node-color: blue; --border-color: black 4px solid"></div>
+        <div class="fakeNode-text" style="margin-left: 4px; margin-right: 10px">
+            Melhor grau
+        </div>
     </div>
     <div id="IDtooltip" class="tooltip"></div>
     <script src="graph.js"></script>
     <script src="render.js"></script>
     <script src="engine.js"></script>
-  </body>
+</body>
 </html>
 <script>
   function reloadPage() {
