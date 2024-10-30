@@ -86,6 +86,11 @@ body {
 #graph {
   width: 90%;
   height: 90%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px; 
+  padding: 20px;
+  overflow: auto;
 }
 
 #matrix {
@@ -182,4 +187,18 @@ h1 {
   left: 104px;
   transform: translateX(-50%);
   margin: 0 auto;
+}
+
+
+.node {
+  width: 50px; /* node size */
+  height: 50px;
+  background-color: blue;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  border-radius: 50%;
+  cursor: pointer;
 }
