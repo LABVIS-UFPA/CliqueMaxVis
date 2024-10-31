@@ -99,26 +99,88 @@ let height;
 // }
 
 function renderGraph() {
-  const width = window.innerWidth * 0.88;
-  const height = window.innerHeight * 0.93;
+  width = window.innerWidth * 0.88;
+  height = window.innerHeight * 0.93;
 
-  const container = document.getElementById("graph");
-  container.style.width = `${width}px`;
-  container.style.height = `${height}px`;
-  container.innerHTML = ""; // Clear previous nodes
+  const svg = d3
+    .select("#graph")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
 
-  // Render each node as a clickable div
-  graph.nodes.forEach((node) => {
-    const nodeDiv = document.createElement("div");
-    nodeDiv.className = "node";
-    nodeDiv.innerText = node.id; // Display node ID or any label
+  const nodeGroup = svg
+    .append("g")
+    .attr("class", "nodes");
 
-    // Add click event
-    nodeDiv.onclick = () => alert(`Node ${node.id} clicked!`);
+  const linkGroup = svg
+    .append("g")
+    .attr("class", "links");
 
-    container.appendChild(nodeDiv);
-  });
+  // Adjust grid parameters to bring nodes closer
+  const columns = Math.ceil(Math.sqrt(graph.nodes.length));
+  const padding = 80; // Set a smaller padding to make nodes closer
+  const nodeWidth = width / columns - padding;
+  const nodeHeight = height / columns - padding;
+
+  // Define links statically without force simulation
+  const link = linkGroup
+    .selectAll(".link")
+    .data(graph.links)
+    .enter()
+    .append("line")
+    .attr("class", "link")
+    .attr("stroke", "#ccc")
+    .attr("stroke-width", 1.5)
+    .attr("x1", (d) => d.source.x)
+    .attr("y1", (d) => d.source.y)
+    .attr("x2", (d) => d.target.x)
+    .attr("y2", (d) => d.target.y);
+
+  // Arrange nodes in a closer grid layout
+  const node = nodeGroup
+    .selectAll(".node")
+    .data(graph.nodes)
+    .enter()
+    .append("g")
+    .attr("class", "node")
+    .attr("transform", (d, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      d.x = col * nodeWidth + nodeWidth / 2; // Calculate x with reduced padding
+      d.y = row * nodeHeight + nodeHeight / 2; // Calculate y with reduced padding
+      return `translate(${d.x},${d.y})`;
+    });
+
+  // Append circle and text to each node
+  node
+    .append("circle")
+    .attr("r", 14)
+    .attr("fill", "blue")
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 1);
+
+  node
+    .append("text")
+    .attr("dx", 0)
+    .attr("dy", 5)
+    .attr("text-anchor", "middle")
+    .attr("fill", "white")
+    .attr("class", "node-text")
+    .text((d) => d.id);
+
+  // Draw vertical line
+  const lineX = innerWidth * 0.2;
+  svg
+    .append("line")
+    .attr("class", "line-vertical")
+    .attr("x1", lineX)
+    .attr("y1", 0)
+    .attr("x2", lineX)
+    .attr("y2", height)
+    .attr("stroke", "black")
+    .attr("stroke-width", 1);
 }
+
 
 
 
