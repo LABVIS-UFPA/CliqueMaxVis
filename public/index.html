@@ -7,10 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" type="text/css" href="style.css" />
   </head>
-
   <body>
     <header>
-      <h1 style="width: 100%">Clique Maximo</h1>
+      <h1 style="width: 100%">Clique máximo</h1>
     </header>
     <div id="fileModal" class="modal">
       <div class="modal-content">
@@ -18,13 +17,7 @@
       </div>
     </div>
     <div id="container">
-      <div id="graph">
-        <div class="hidden" id="leftNodesCount">
-          <strong>Maior clique encontrado: -</strong>
-          <br />
-          <strong>Clique de Tamanho: -</strong>
-        </div>
-      </div>
+      <div id="graph"></div>
       <!-- <div id="matrix"></div> -->
       <div id="buttonsDiv" class="hidden q-px-md">
         <button
@@ -36,14 +29,13 @@
         <br />
         <input
           type="checkbox"
-          id="switchDegreesCheckbox"
-          onchange="switchDegrees()"
+          id="showGreyNodesCheckbox"
+          onchange="toggleGreyNodes()"
           checked
         />
-        <label for="switchDegreesCheckbox" id="switchDegreesLabel"
-          ><strong>Exibir Grau dos Vértice</strong></label
+        <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
+          ><strong>Exibir vértices cinzas</strong></label
         >
-        <br />
         <br />
         <input
           type="checkbox"
@@ -52,33 +44,30 @@
           checked
         />
         <label for="showGreyLinksCheckbox" id="showGreyLinksLabel"
-          ><strong>Exibir Arestas Cinzas</strong></label
+          ><strong>Exibir arestas cinzas</strong></label
         >
-        <br />
         <br />
         <input
           type="checkbox"
-          id="showGreyNodesCheckbox"
-          onchange="toggleGreyNodes()"
+          id="switchDegreesCheckbox"
+          onchange="switchDegrees()"
           checked
         />
-        <label for="showGreyNodesCheckbox" id="showGreyNodesLabel"
-          ><strong>Exibir Vértices Cinzas</strong></label
+        <label for="switchDegreesCheckbox" id="switchDegreesLabel"
+          ><strong>Exibir grau dos vértices</strong></label
         >
-        <br />
         <br />
         <input
           type="checkbox"
-          id="showPurpleNodesCheckbox"
-          onchange="togglePurpleBorder()"
+          id="showBestNodesCheckbox"
+          onchange="toggleBestBorder()"
           checked
         />
-        <label for="showPurpleNodesCheckbox" id="showPurpleNodesLabel"
-          ><strong>Exibir maior grau</strong></label
+        <label for="showBestNodesCheckbox" id="showBestNodesLabel"
+          ><strong>Exibir melhor grau</strong></label
         >
         <br />
-        <br />
-        <input
+        <!-- <input
           type="checkbox"
           id="showPinkNodesCheckbox"
           onchange="togglePinkBorder()"
@@ -87,9 +76,8 @@
         <label for="showPinkNodesCheckbox" id="showPinkNodesLabel"
           ><strong>Exibir menor grau</strong></label
         >
-        <br />
-        <br />
-        <input
+        <br /> -->
+        <!-- <input
           type="checkbox"
           id="showGreenNodesCheckbox"
           onchange="toggleGreenBorder()"
@@ -98,8 +86,7 @@
         <label for="showGreenNodesCheckbox" id="showGreenNodesLabel"
           ><strong>Exibir mais provável</strong></label
         >
-        <br />
-        <br />
+        <br /> -->
         <!-- Suprimido para o tcc -->
         <!-- <input
           type="checkbox"
@@ -110,7 +97,6 @@
         <label for="showMatrixCheckbox" id="showMatrixLabel"
           >Exibir Matriz</label
         >
-        <br />
         <br /> -->
         <input
           type="checkbox"
@@ -119,10 +105,8 @@
           checked
         />
         <label for="showIDTooltipCheckbox"
-          ><strong>Exibir ID do Vértice</strong></label
+          ><strong>Exibir ID do vértice</strong></label
         >
-        <br />
-        <br />
         <hr />
         <div id="Arestas"></div>
         <div id="totalRelevantDegree" class="hidden"></div>
@@ -177,7 +161,6 @@
             </tr>
           </table>
           <br />
-          <br />
           <div id="resetBTN" class="hidden">
             <button onclick="reloadPage()">
               <i class="fa fa-refresh"></i>
@@ -185,6 +168,36 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+    <div class="hidden" id="leftNodesCount">
+      <strong>Maior clique encontrado: -</strong>
+      <br />
+      <strong>Clique de tamanho: -</strong>
+    </div>
+    <div id="legend" class="flex legend hidden">
+      <div class="fakeNode" style="--node-color: green"></div>
+      <div class="fakeNode-text" style="margin-right: 10px">
+        Compõe o clique encontrado
+      </div>
+      <div class="fakeNode" style="--node-color: blue"></div>
+      <div class="fakeNode-text" style="margin-right: 10px">
+        Candidato a compor o clique
+      </div>
+      <div class="fakeNode" style="--node-color: grey"></div>
+      <div class="fakeNode-text" style="margin-right: 10px">
+        Não é candidato a compor o clique
+      </div>
+      <div class="fakeNode" style="--node-color: red"></div>
+      <div class="fakeNode-text" style="margin-right: 10px">
+        Não compõe o clique encontrado
+      </div>
+      <div
+        class="fakeNodeB"
+        style="--node-color: blue; --border-color: black 4px solid"
+      ></div>
+      <div class="fakeNode-text" style="margin-left: 4px; margin-right: 10px">
+        Melhor grau
       </div>
     </div>
     <div id="IDtooltip" class="tooltip"></div>
