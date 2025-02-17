@@ -1,3 +1,5 @@
+// const { CliqueBuilder } = require("./graph");
+
 let showOriginalLinks = true;
 let showNodeDegrees = true;
 let showGreyLinks = true;
@@ -12,8 +14,8 @@ let linkElements;
 let lineX;
 let graph;
 let leftNodes = [];
-let arr;
-let regex = /\ne\s(\d+)\s(\d+)/g;
+// let arr;
+// let regex = /\ne\s(\d+)\s(\d+)/g;
 let lastGreenCount;
 let lastBlueCount;
 let lastGreyCount;
@@ -36,11 +38,61 @@ function readFile() {
     () => {
       let text = reader.result;
       graph = new Graph();
-      while ((arr = regex.exec(text)) !== null) {
-        graph.addLink(+arr[1], +arr[2], true);
-      }
+      graph.importFromText(text);
+      // console.log(graph.exportToText());
+      graph.calcMatAdjs();
+      console.log(graph.calcSquareMat());
+      console.log(graph.sumSqrMat());
 
-      init();
+      // let div = graph.sortLinksByCliquesReverse(); // Comentar quando não for para ordenar o grafo.
+      
+      
+
+      // let CS = new CliqueSolver(graph);
+      // let startTime = performance.now();
+      
+      // let result = CS.alg10();//()=>{}, {cursor:Infinity,div,resp:[]});
+      
+      // console.log((performance.now() - startTime)/1000);
+
+      // console.log(result);
+      // // for(let r of result){
+      // //   console.log(r.isValid());
+      // // }
+      // for(let r of result){
+      //   let clique = new CliqueBuilder(graph,{nodes:r});
+      //   console.log(clique.isValid());
+      // }
+        
+      // let max = Math.max(...result.map(c=>c.clique.length));
+      // let counts = [0]
+      // for (let i = 2; i <= max; i++) {
+      //   counts.push(result.reduce((acc, cur) => cur.clique.length===i?acc+1:acc, 0));
+      // }
+      // let nodesmap = graph.nodes.reduce((acc, cur) => {acc[cur.id] = 0; return acc}, {});
+      // for(let l of graph.links)
+      //   l.isVisited = false;
+      // for(let r of result){
+      //   for(let c of r.clique){
+      //     nodesmap[c]++;
+      //   }
+      //   for (let i=0; i < r.clique.length; i++) {
+      //     for (let j=i+1; j < r.clique.length; j++){
+      //       graph.adj[r.clique[i]][r.clique[j]].isVisited = true;
+      //     }
+      //   }
+      // }
+      
+      // console.log(`Sobre o grafo n(${graph.nodes.length}) e l(${graph.links.length})`);
+      // console.log(result);
+      // console.log("utilizou todos os nós",  !(Object.values(nodesmap).includes(0)));
+      // console.log("utilizou todas as arestas",  !(graph.links.map(l=>l.isVisited).includes(false)));
+      
+      // console.log("todos são maximais?",  !(result.map(cb=>{return cb.isMaximal()}).includes(false)));
+      // // console.log(result.map(cb=>{cb.graph = graph; return cb.isMaximal()}));
+      // console.log("counts", counts);
+
+      // init();
     },
     false
   );
