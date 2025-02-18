@@ -222,6 +222,39 @@ function calculateCompleteGraph() {
 }
 
 
+
+class CliqueMask{
+  constructor(graph, nodeMask){
+    this.graph = graph;
+    if(!nodeMask) {
+      this.nodeMask = graph.nodes.map(n=>1);
+    }else{
+      this.nodeMask = nodeMask;
+    }
+  }
+
+  verifyClique(){
+    let count = this.nodeMask.reduce((sum, bit) => sum + bit, 0);
+    let nodes = this.graph.nodes;
+    let numNodes = nodes.length;
+    
+    for (let i = 0; i < numNodes; i++) {
+      for (let j = i + 1; j < numNodes; j++) {
+          if (this.nodeMask[i] && this.nodeMask[j] && !this.graph.matAjd[i][j]) {
+              return 0;
+          }
+      }
+    }
+    return count;
+  }
+
+}
+
+CliqueMask.getConstructor = (graph) => {
+  return (nodeMask) => { return new CliqueMask(graph, nodeMask)}
+}
+
+
 class CliqueSolver{
   constructor(graph) {
     this.graph = graph;
@@ -2967,4 +3000,4 @@ class OrderedArray {
   }
 }
 
-if(typeof module !== "undefined") module.exports = {Graph, CliqueBuilder, CliqueSolver};
+if(typeof module !== "undefined") module.exports = {Graph, CliqueBuilder, CliqueSolver,CliqueMask};

@@ -2,12 +2,13 @@
 
 
 const fs = require("fs");
-const {Graph, CliqueBuilder, CliqueSolver} = require("./graph.js");
+const {Graph, CliqueBuilder, CliqueSolver, CliqueMask} = require("./graph.js");
+const {GA} = require("./gen_alg.js");
 
 // let dbpath = "../exemplosGrafos/grafoK5.txt";
 // let dbpath = "../exemplosGrafos/homer.col.txt";
-// let dbpath = "../exemplosGrafos/queen5_5.col.txt";
-let dbpath = "../exemplosGrafos/clique34.txt";
+let dbpath = "../exemplosGrafos/queen5_5.col.txt";
+// let dbpath = "../exemplosGrafos/clique34.txt";
 // let dbpath = "../exemplosGrafos/clique34.txt";
 
 
@@ -15,15 +16,36 @@ let txt = fs.readFileSync(dbpath, {encoding:"utf-8"});
 
 let graph = new Graph();
 graph.importFromText(txt);
+graph.calcMatAdjs();
 
-for(let i=0;i<graph.nodes.length;i++){
-    for(let j=i+1;j<graph.nodes.length;j++){
-        let r = graph.hasSameAdjs(graph.nodes[i],graph.nodes[j]);
-        if(r<90){
-            console.log(r, `nodes[${graph.nodes[i].id},${graph.nodes[j].id}]`);
-        }
-    }
-}
+let ga = new GA(CliqueMask.getConstructor(graph));
+
+
+ga.init();
+ga.nextGeneration();
+ga.nextGeneration();
+ga.nextGeneration();
+ga.nextGeneration();
+ga.nextGeneration();
+ga.nextGeneration();
+
+console.log(ga.population[0].nodeMask);
+console.log(ga.population[0].fitness);
+console.log(ga.population[0].age);
+
+
+
+
+
+
+// for(let i=0;i<graph.nodes.length;i++){
+//     for(let j=i+1;j<graph.nodes.length;j++){
+//         let r = graph.hasSameAdjs(graph.nodes[i],graph.nodes[j]);
+//         if(r<90){
+//             console.log(r, `nodes[${graph.nodes[i].id},${graph.nodes[j].id}]`);
+//         }
+//     }
+// }
 
 
 
