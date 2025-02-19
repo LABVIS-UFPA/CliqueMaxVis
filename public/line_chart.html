@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Clique Máximo - Algoritmo Genético</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0"></script>
+
+    <style media="screen">
+      /* Add space between Vega-Embed links  */
+      .vega-actions a {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Line Chart Visualization</h1>
+    <!-- Container for the visualization -->
+    <p id="status">Aguardando dados...</p>
+    <div id="vis" style="width: 100%;"></div>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:8080");
+
+        socket.onmessage = function(event) {
+            console.log(event);
+            const data = JSON.parse(event.data);
+            document.getElementById("status").innerHTML = 
+                `Geração: ${data.generation} | Melhor Fitness: ${data.fitness} <br> Genes: ${data.genes.join(", ")}`;
+        };
+
+        socket.onopen = function() {
+            console.log("Conectado ao servidor WebSocket");
+        };
+
+        // Assign the specification to a local variable vlSpec.
+        var vlSpec = {
+            $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+            data: {name: 'table'},
+            width: 400,
+            mark: 'line',
+            encoding: {
+                x: {field: 'x', type: 'quantitative', scale: {zero: false}},
+                y: {field: 'y', type: 'quantitative'},
+                color: {field: 'category', type: 'nominal'}
+            }
+            };
+            vegaEmbed('#vis', vlSpec).then(function (res) {
+            /**
+             * Generates a new tuple with random walk.
+             */
+            function newGenerator() {
+                var counter = -1;
+                var previousY = [1];
+                return function () {
+                counter++;
+                var newVals = previousY.map(function (v, c) {
+                    //console.log(`Variavel v: ${v}`);
+                    //console.log(`Variavel c: ${c}`);
+                    return {
+                    x: counter,
+                    y: v + Math.round(Math.random() * 10 - c * 3),
+                    category: c
+                    };
+                });
+                console.log(newVals);
+                previousY = newVals.map(function (v) {
+                    return v.y;
+                });
+                return newVals;
+                };
+            }
+
+            var valueGenerator = newGenerator();
+            var minimumX = -100;
+            window.setInterval(function () {
+                minimumX++;
+                var changeSet = vega
+                .changeset()
+                .insert(valueGenerator())
+                .remove(function (t) {
+                    return t.x < minimumX;
+                });
+                res.view.change('table', changeSet).run();
+            }, 1000);
+        });
+
+        // Embed the visualization in the container with id `vis`
+        // vegaEmbed('#vis', vlSpec);
+    </script>
+  </body>
+</html>

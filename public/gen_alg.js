@@ -1,11 +1,17 @@
+//Código para enviar dados via WebSocket
+const WebSocket = require('ws');
+const ws = new WebSocket('ws://localhost:8080');
+
+ws.on('open', () => {
+    console.log("Connected to WebSocket server");
+});
+
 const numNodes = 10;
 const populationSize = 100;
 const mutationRate = 0.05;
 const survivalRate = 0.5;
 const newIndividual = 100;
 const generations = 1000;
-
-
 
 
 class GA{
@@ -131,6 +137,14 @@ function evolve() {
     for (let gen = 0; gen < generations; gen++) {
         population.sort((a, b) => fitness(b) - fitness(a));
         console.log(`Generation ${gen}: Best fitness = ${fitness(population[0])}`);
+
+        // Envia o melhor indivíduo para o WebSocket
+        ws.send(JSON.stringify({
+            generation: gen,
+            fitness: fitness(population[0]),
+            genes: population[0].genes
+        }));
+
         if (fitness(population[0]) === numNodes) {
             console.log(`Maximum clique found in generation ${gen}:, population[0]`);
             return;
@@ -146,6 +160,6 @@ function evolve() {
     }
 }
 
-// evolve();
+evolve();
 
 if(typeof module !== "undefined") module.exports = {GA};
