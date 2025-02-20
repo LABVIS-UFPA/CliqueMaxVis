@@ -34,10 +34,11 @@
           width: "container",
           mark: 'line',
           encoding: {
-              x: {field: 'x', type: 'quantitative', scale: {zero: false}},
-              y: {field: 'y', type: 'quantitative'},
+              x: {field: 'x', type: 'quantitative', scale: {zero: false}, "title": "Generation" },
+              y: {field: 'y', type: 'quantitative', title: "Fitness"},
               color: {field: 'category', type: 'nominal'}
-          }
+          },
+          "config": {"legend": {"orient": "bottom", "direction": "horizontal"}}
           };
           vegaEmbed('#vis', vlSpec).then(function (res) {
 
@@ -59,8 +60,8 @@
                       `Geração: ${message.data.generation} | Melhor Fitness: ${message.data.bestFitness}`;
 
                     let data = [];
-                    data.push({x:message.data.generation, y: message.data.bestFitness, color: 0})
-                    //data.push({x:message.data.generation, y: message.data.bestFitness, color: 1})
+                    data.push({x:message.data.generation, y: message.data.bestFitness, category: "Best"})
+                    data.push({x:message.data.generation, y: message.data.worstFitness, category: "Worst"})
                     if(minimumX < -x_len) minimumX = data[0].x-x_len;
                     minimumX++;
                     // console.log(data, minimumX);

@@ -1,7 +1,7 @@
 
-const populationSize = 100;
-const mutationRate = 0.05;
-const survivalRate = 0.5;
+const populationSize = 10000;
+const mutationRate = 0.8;
+const survivalRate = 0.15;
 
 
 
@@ -31,7 +31,15 @@ class GA{
         this.oldPopulation = this.population;
         this.population = this.selection(this.population, newPopulation);
         this.generation++;
+        // this.calcMetrics();
     }
+
+    // calcMetrics(){
+    //     this.fitnessInterval = [
+    //         Math.max(...this.population.map(i=>i.fitness)),
+    //         Math.min(...this.population.map(i=>i.fitness))
+    //     ]
+    // }
 }
 GA.fitness={};
 GA.fitness.std = (population)=>{
@@ -43,9 +51,10 @@ GA.fitness.std = (population)=>{
 GA.crossover = {};
 GA.crossover.simples = (population, newIndividual)=>{
     let newPopulation = [];
-    while(newPopulation.length < newIndividual){
+    while(newPopulation.length < populationSize){
         let [p1, p2] = [population[Math.floor(Math.random() * population.length)],
-        population[Math.floor(Math.random() * population.length)]];
+            population[Math.floor(Math.random() * population.length)]
+        ];
         const midpoint = Math.floor(Math.random() * p1.nodeMask.length);
         let newMask = p1.nodeMask.slice(0, midpoint).concat(p2.nodeMask.slice(midpoint));
         newPopulation.push(newIndividual(newMask));

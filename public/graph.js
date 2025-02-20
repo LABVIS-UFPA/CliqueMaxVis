@@ -241,7 +241,8 @@ class CliqueMask{
     for (let i = 0; i < numNodes; i++) {
       for (let j = i + 1; j < numNodes; j++) {
           if (this.nodeMask[i] && this.nodeMask[j] && !this.graph.matAjd[i][j]) {
-              return 0;
+              if(count>0) count=-1;
+              else count--;
           }
       }
     }

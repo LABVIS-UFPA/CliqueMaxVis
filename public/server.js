@@ -23,8 +23,8 @@ const {GA} = require("./gen_alg.js");
 
 // let dbpath = "../exemplosGrafos/grafoK5.txt";
 // let dbpath = "../exemplosGrafos/homer.col.txt";
-let dbpath = "../exemplosGrafos/queen5_5.col.txt";
-// let dbpath = "../exemplosGrafos/clique34.txt";
+// let dbpath = "../exemplosGrafos/queen5_5.col.txt";
+let dbpath = "../exemplosGrafos/clique34.txt";
 // let dbpath = "../exemplosGrafos/clique34.txt";
 
 
@@ -44,17 +44,21 @@ setInterval(()=>{
     
     for (const c of clients) {
         c.send(JSON.stringify({act:"data", data:{
-            bestFitness: ga.population[0].fitness, 
+            bestFitness: ga.population[0].fitness,
+            worstFitness: ga.population[ga.population.length-1].fitness,
             generation: ga.generation
         }}));
     }
 
     
     console.log(`Best Fitness: ${ga.population[0].fitness}`);
+    console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
     console.log(`Best age: ${ga.population[0].age}`);
-    console.log(ga.population[0].nodeMask);
+    // console.log(ga.population[0].nodeMask);
     console.log(`generation: ${ga.generation}`);
-},900);
+    
+    // console.log(ga.population.map(i=>i.nodeMask));
+},300);
 
 
 
