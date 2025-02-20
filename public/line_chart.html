@@ -24,73 +24,71 @@
     <div id="vis" style="width: 100%;"></div>
 
     <script>
-        const socket = new WebSocket("ws://localhost:8080");
-
-        socket.onmessage = function(event) {
-            console.log(event);
-            const data = JSON.parse(event.data);
-            document.getElementById("status").innerHTML = 
-                `Geração: ${data.generation} | Melhor Fitness: ${data.fitness} <br> Genes: ${data.genes.join(", ")}`;
-        };
-
-        socket.onopen = function() {
-            console.log("Conectado ao servidor WebSocket");
-        };
+      
+      let x_len = 200;
 
         // Assign the specification to a local variable vlSpec.
-        var vlSpec = {
-            $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-            data: {name: 'table'},
-            width: 400,
-            mark: 'line',
-            encoding: {
-                x: {field: 'x', type: 'quantitative', scale: {zero: false}},
-                y: {field: 'y', type: 'quantitative'},
-                color: {field: 'category', type: 'nominal'}
-            }
-            };
-            vegaEmbed('#vis', vlSpec).then(function (res) {
-            /**
-             * Generates a new tuple with random walk.
-             */
-            function newGenerator() {
-                var counter = -1;
-                var previousY = [1];
-                return function () {
-                counter++;
-                var newVals = previousY.map(function (v, c) {
-                    //console.log(`Variavel v: ${v}`);
-                    //console.log(`Variavel c: ${c}`);
-                    return {
-                    x: counter,
-                    y: v + Math.round(Math.random() * 10 - c * 3),
-                    category: c
-                    };
-                });
-                console.log(newVals);
-                previousY = newVals.map(function (v) {
-                    return v.y;
-                });
-                return newVals;
-                };
-            }
+      var vlSpec = {
+          $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+          data: {name: 'table'},
+          width: "container",
+          mark: 'line',
+          encoding: {
+              x: {field: 'x', type: 'quantitative', scale: {zero: false}},
+              y: {field: 'y', type: 'quantitative'},
+              color: {field: 'category', type: 'nominal'}
+          }
+          };
+          vegaEmbed('#vis', vlSpec).then(function (res) {
 
-            var valueGenerator = newGenerator();
-            var minimumX = -100;
-            window.setInterval(function () {
-                minimumX++;
-                var changeSet = vega
-                .changeset()
-                .insert(valueGenerator())
-                .remove(function (t) {
-                    return t.x < minimumX;
-                });
-                res.view.change('table', changeSet).run();
-            }, 1000);
-        });
+
+            var minimumX = -1000000;
+            const socket = new WebSocket("ws://localhost:3214");
+            
+
+            socket.onmessage = function(event) {
+                // console.log(event);
+                const message = JSON.parse(event.data);
+
+                switch(message.act){
+                  case "log":
+                    console.log(message.data);
+                    break;
+                  case "data":
+                    document.getElementById("status").innerHTML = 
+                      `Geração: ${message.data.generation} | Melhor Fitness: ${message.data.bestFitness}`;
+
+                    let data = [];
+                    data.push({x:message.data.generation, y: message.data.bestFitness, color: 0})
+                    //data.push({x:message.data.generation, y: message.data.bestFitness, color: 1})
+                    if(minimumX < -x_len) minimumX = data[0].x-x_len;
+                    minimumX++;
+                    // console.log(data, minimumX);
+                    var changeSet = vega
+                    .changeset()
+                    .insert(data)
+                    // .remove(function (t) {
+                    //     return t.x < minimumX;
+                    // });
+                    res.view.change('table', changeSet).run();
+                    break;
+                }
+                
+            };
+
+            socket.onopen = function() {
+                console.log("Conectado ao servidor WebSocket");
+            };
+          
+      });
 
         // Embed the visualization in the container with id `vis`
         // vegaEmbed('#vis', vlSpec);
+
+        
+
+
+
     </script>
   </body>
 </html>
