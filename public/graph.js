@@ -8,7 +8,7 @@ class Graph {
 
   addNode(id) {
     if (this.nodesByKey[id]) return; //Caso o vértice já exista não faz nada.
-    let n = { id: id };
+    let n = { id: id , index: this.nodes.length};
     this.nodes.push(n);
     this.nodesByKey[id] = n;
     this.adj[id] = {};
@@ -64,10 +64,19 @@ class Graph {
 
   subGraph(filterNodes, filterLinks){
     let subGraph = new Graph();
+    const node_mask = [];
     for (let i = 0; i < this.nodes.length; i++) {
+      node_mask.push(0);
       if(filterNodes(this.nodes[i], i)){
         subGraph.addNode(this.nodes[i].id);
+        node_mask[i]=1;
       }
+    }
+    if(!filterLinks) filterLinks = l => {
+      const si = this.nodesByKey[l.source].index;
+      const ti = this.nodesByKey[l.target].index;
+      if(node_mask[si] && node_mask[ti]) return true;
+      else return false;
     }
     for (let i = 0; i < this.links.length; i++) {
       if(filterLinks(this.links[i], i)){
@@ -247,6 +256,39 @@ class CliqueMask{
       }
     }
     return count;
+  }
+
+  isNotEqual(clique){
+    let numNodes = this.graph.nodes.length;
+    for (let i = 0; i < numNodes; i++) {
+      if (this.nodeMask[i] !== clique.nodeMask[i]) {
+          return true;
+      }
+    }
+    return false;
+  }
+
+
+  extraction (){
+    let i = 0;
+    while (this.verifyClique()<0){
+      i=Math.floor(Math.random()*this.nodeMask.length);
+      this.nodeMask[i]=0;
+    }
+    return this;
+  }
+  improvement(){
+    const len = this.nodeMask.length;
+    let i=Math.floor(Math.random()*len);
+    let cont = 0;
+    while (cont<len){
+      i = (i+1) % len;
+      cont++; 
+      this.nodeMask[i] = 1;
+      if(this.verifyClique()>=0) continue;
+      this.nodeMask[i] = 0;
+    }
+    return this;
   }
 
 }

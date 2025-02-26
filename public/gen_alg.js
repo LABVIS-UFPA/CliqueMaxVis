@@ -1,7 +1,12 @@
 
-const populationSize = 10000;
+const populationSize = 10;
 const mutationRate = 0.8;
+const mutationSelectionRate = 0.5;
 const survivalRate = 0.15;
+const maxAge = 80;
+const hasMaxAge=false;
+const hasExtractionImprovement = true;
+const preventEqualIndividuals = false;
 
 
 
@@ -11,7 +16,7 @@ class GA{
         this.newIndividual = individualConstructor
         this.generatePopulation = GA.generatePopulation.simples;
         this.fitness = GA.fitness.std;
-        this.crossover = GA.crossover.simples;
+        this.crossover = GA.crossover.simples//GA.crossover.sem_repeticao;
         this.mutate = GA.mutate.simples;
         this.selection = GA.selection.simples;
         this.generation = 0;
@@ -57,7 +62,45 @@ GA.crossover.simples = (population, newIndividual)=>{
         ];
         const midpoint = Math.floor(Math.random() * p1.nodeMask.length);
         let newMask = p1.nodeMask.slice(0, midpoint).concat(p2.nodeMask.slice(midpoint));
-        newPopulation.push(newIndividual(newMask));
+
+        let newI = newIndividual(newMask);
+        if(hasExtractionImprovement) newI.extraction().improvement();
+
+        newPopulation.push(newI);
+    }
+    return newPopulation;
+}
+GA.crossover.sem_repeticao = (population, newIndividual)=>{
+    let newPopulation = [];
+    while(newPopulation.length < populationSize){
+        let [p1, p2] = [population[Math.floor(Math.random() * population.length)],
+            population[Math.floor(Math.random() * population.length)]
+        ];
+        const midpoint = Math.floor(Math.random() * p1.nodeMask.length);
+        let newMask = p1.nodeMask.slice(0, midpoint).concat(p2.nodeMask.slice(midpoint));
+        let newI = newIndividual(newMask)
+        
+        if(hasExtractionImprovement) newI.extraction().improvement();
+        
+        if(preventEqualIndividuals){
+            let isEqual = false;
+            for (const i of newPopulation) {
+                if(!newI.isNotEqual(i)){
+                    isEqual = true;
+                    break;
+                }
+            }
+            if(isEqual) continue;
+            for (const i of population) {
+                if(!newI.isNotEqual(i)){
+                    isEqual = true;
+                    break;
+                }
+            }
+            if(isEqual) continue;
+        }
+
+        newPopulation.push(newI);
     }
     return newPopulation;
 }
@@ -65,12 +108,21 @@ GA.crossover.simples = (population, newIndividual)=>{
 GA.mutate ={};
 GA.mutate.simples = (population) => {
     for (const individual of population) {
-        individual.nodeMask.map(bit => Math.random() < mutationRate ? 1 - bit : bit);
+        if(Math.random() < mutationSelectionRate){
+            individual.nodeMask.map(bit => Math.random() < mutationRate ? 1 - bit : bit);
+            if(hasExtractionImprovement) individual.extraction().improvement();
+        }
     }   
 }
 
 GA.selection = {};
 GA.selection.simples = (oldPopulation, newPopulation) => {
+    
+    if(hasMaxAge){
+        for (const i of oldPopulation) if(i.age > maxAge) i.fitness = 0;
+        for (const i of newPopulation) if(i.age > maxAge) i.fitness = 0;
+    }
+    
     oldPopulation.sort((a, b) => b.fitness - a.fitness);
     newPopulation.sort((a, b) => b.fitness - a.fitness);
     let midpoint = Math.floor(populationSize * survivalRate);
@@ -89,6 +141,8 @@ GA.generatePopulation.simples = (newIndividual, numNodes) => {
     for (let i = 0; i < populationSize; i++) {
         let individual = newIndividual(Array.from({ length: numNodes }, 
             () => Math.random() > 0.5 ? 1 : 0));
+        
+        if(hasExtractionImprovement) individual.extraction().improvement();
         population.push(individual);
     }
     return population;
