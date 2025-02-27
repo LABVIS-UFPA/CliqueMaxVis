@@ -271,6 +271,7 @@ class CliqueMask{
 
   extraction (){
     let i = 0;
+    //TODO: melhorar performance.
     while (this.verifyClique()<0){
       i=Math.floor(Math.random()*this.nodeMask.length);
       this.nodeMask[i]=0;
@@ -285,6 +286,7 @@ class CliqueMask{
       i = (i+1) % len;
       cont++; 
       this.nodeMask[i] = 1;
+      //TODO: melhorar performance.
       if(this.verifyClique()>=0) continue;
       this.nodeMask[i] = 0;
     }

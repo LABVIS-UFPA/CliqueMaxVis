@@ -52,7 +52,7 @@ let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
 ga.init();
 
 setInterval(()=>{
-    ga.nextGeneration();
+    
     
     for (const c of obs_fitness) {
         c.send(JSON.stringify({act:"data", data:{
@@ -77,6 +77,7 @@ setInterval(()=>{
     // console.log(ga.population[0].nodeMask);
     console.log(`generation: ${ga.generation}`);
     
+    ga.nextGeneration();
     // console.log(ga.population.map(i=>i.nodeMask));
 },100);
 
