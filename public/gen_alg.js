@@ -1,8 +1,8 @@
 
-const populationSize = 15;
+const populationSize = 1000;
 const mutationRate = 0.8;
 const mutationSelectionRate = 0.3;
-const survivalRate = 0.5;
+const survivalRate = 0.25;
 const maxAge = 30;
 const hasMaxAge=true;
 const hasExtractionImprovement = true;

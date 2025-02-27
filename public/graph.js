@@ -258,6 +258,15 @@ class CliqueMask{
     return count;
   }
 
+  verifyInsertion(pos){
+    let nodes = this.graph.nodes;
+    let numNodes = nodes.length;
+    for (let i = 0; i < numNodes; i++) {
+      if (this.nodeMask[i]  && !this.graph.matAjd[i][pos]) return false;
+    }
+    return true;
+  }
+
   isNotEqual(clique){
     let numNodes = this.graph.nodes.length;
     for (let i = 0; i < numNodes; i++) {
@@ -268,12 +277,32 @@ class CliqueMask{
     return false;
   }
 
+  getConflicts(){
+    const nodes = this.graph.nodes;
+    const numNodes = nodes.length;
+    const conflicts = [];
+    
+    for (let i = 0; i < numNodes; i++) {
+      for (let j = i + 1; j < numNodes; j++) {
+          if (this.nodeMask[i] && this.nodeMask[j] && !this.graph.matAjd[i][j]) {
+              conflicts.push([i,j]);
+          }
+      }
+    }
+    return conflicts;
+  }
 
   extraction (){
+    const len = this.nodeMask.length;
     let i = 0;
-    //TODO: melhorar performance.
-    while (this.verifyClique()<0){
+    const conflicts = this.getConflicts();
+
+    while (conflicts.length>0) {
       i=Math.floor(Math.random()*this.nodeMask.length);
+      while (!i) { i = (i+1) % len; }
+      for(let j=conflicts.length-1;j>=0;j--) {
+        if(conflicts[j].indexOf(i)>=0) conflicts.splice(j,1);
+      }
       this.nodeMask[i]=0;
     }
     return this;
@@ -284,11 +313,8 @@ class CliqueMask{
     let cont = 0;
     while (cont<len){
       i = (i+1) % len;
-      cont++; 
-      this.nodeMask[i] = 1;
-      //TODO: melhorar performance.
-      if(this.verifyClique()>=0) continue;
-      this.nodeMask[i] = 0;
+      cont++;
+      if(this.verifyInsertion(i)) this.nodeMask[i] = 1;
     }
     return this;
   }
