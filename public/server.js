@@ -62,7 +62,7 @@ setInterval(()=>{
         }}));
     }
 
-    if(ga.generation % 1 === 0){
+    if(ga.generation % 2 === 0){
         for (const c of obs_individuals) {
             c.send(JSON.stringify({act:"data", data:{
                 population: ga.population.map(i=>i.nodeMask),
@@ -79,7 +79,7 @@ setInterval(()=>{
     
     ga.nextGeneration();
     // console.log(ga.population.map(i=>i.nodeMask));
-},100);
+},500);
 
 
 

@@ -1,5 +1,5 @@
 
-const populationSize = 1000;
+const populationSize = 500;
 const mutationRate = 0.8;
 const mutationSelectionRate = 0.3;
 const survivalRate = 0.25;
