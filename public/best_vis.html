@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<h3>Individual Visualization</h3>
+<p id="status">Aguardando dados...</p>
+<div id="container">
+    <canvas id="canvasMatrix"></canvas>
+</div>
+<script type="module">
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById("canvasMatrix");
+        const ctx = canvas.getContext("2d");
+
+
+        let num_of_generations = 10;
+
+
+        const width = 500;
+        const height = 300;
+        // let data = [];
+
+        
+
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.fillStyle = "black";
+
+
+        const socket = new WebSocket("ws://localhost:3214");
+
+
+        socket.onmessage = function (event) {
+            // console.log(event);
+            const message = JSON.parse(event.data);
+
+            switch (message.act) {
+                case "log":
+                    console.log(message.data);
+                    break;
+                case "data":
+                    document.getElementById("status").innerHTML =
+                        `Best Fitness: ${message.data.bestFitness} | Count ${message.data.bestIndividuals.length}`;
+                    drawMatrix(message.data.bestIndividuals);
+                    break;
+            }
+
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            socket.send(JSON.stringify({ act: "obs", data: "best_individuals" }));
+        };
+
+
+
+        function drawMatrix(matrix) {
+            if (!canvas) {
+                console.error("Canvas not found");
+                return;
+            }
+
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+
+            const cellWidth = width / cols;
+            const cellHeight = height / rows;
+
+            ctx.clearRect(0, 0, width, height);
+
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if(ctx.fillStyle = matrix[i][j] === 1)
+                        ctx.fillRect(j * cellWidth, i * cellHeight, cellWidth, cellHeight);
+                }
+            }
+        }
+    });
+
+
+
+
+</script>

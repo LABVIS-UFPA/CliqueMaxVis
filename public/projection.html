@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>t-SNE Visualização Binária</title>
+    <script src="https://raw.githack.com/karpathy/tsnejs/master/tsne.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .controls {
+            margin-bottom: 10px;
+        }
+        input {
+            width: 300px;
+            padding: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 5px 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <input type="text" id="binaryInput" placeholder="Digite um vetor binário (ex: 1010101010101010)">
+        <button onclick="updatePoints()">Atualizar Ponto</button>
+    </div>
+    <svg width="600" height="600"></svg>
+    <div class="tooltip"></div>
+
+    <script>
+        // Gerar dados binários aleatórios (100 amostras de 16 bits)
+        function generateBinaryData(numSamples, numBits) {
+            return Array.from({ length: numSamples }, () =>
+                Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0)
+            );
+        }
+
+        const numSamples = 500;
+        const numBits = 16;
+        let binaryData = generateBinaryData(numSamples, numBits);
+
+        // Inicializar t-SNE
+        const tsne = new tsnejs.tSNE({
+            dim: 2, // Reduzir para 2D
+            perplexity: 30, // Parâmetro que controla a forma da distribuição de probabilidade
+            epsilon: 10, // Taxa de aprendizado
+            metric: 'jaccard' // Usar distância euclidiana, mas você pode usar Hamming manualmente
+        });
+
+        // Função para converter binários para números decimais para t-SNE
+        function binToDecimal(bin) {
+            return bin.map(bit => bit === 1 ? 1 : 0); // Normaliza binários
+        }
+
+        // Transformar os dados binários para o formato esperado pelo t-SNE (vetores normais)
+        const tsneData = binaryData.map(binToDecimal);
+
+        tsne.initDataRaw(tsneData); // Inicializa os dados no t-SNE
+
+        // Rodar t-SNE
+        for (let i = 0; i < 500; i++) {  // Rodar por um número fixo de iterações
+            tsne.step();
+        }
+
+        const result = tsne.getSolution(); // Resultados do t-SNE (2D)
+
+        // Configuração do gráfico
+        const xScale = d3.scaleLinear().domain([d3.min(result, d => d[0]), d3.max(result, d => d[0])]).range([50, 550]);
+        const yScale = d3.scaleLinear().domain([d3.min(result, d => d[1]), d3.max(result, d => d[1])]).range([50, 550]);
+
+        const svg = d3.select("svg");
+        const tooltip = d3.select(".tooltip");
+
+        // Desenhar pontos no gráfico
+        function drawPoints() {
+            svg.selectAll("circle").remove();
+
+            svg.selectAll("circle")
+                .data(result)
+                .enter()
+                .append("circle")
+                .attr("cx", d => xScale(d[0]))
+                .attr("cy", d => yScale(d[1]))
+                .attr("r", 5)
+                .attr("fill", "steelblue")
+                .on("mouseover", function (event, d) {
+                    const index = result.indexOf(d);
+                    tooltip.style("visibility", "visible")
+                        .html(`Binário: ${binaryData[index].join("")}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", function (event) {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function () {
+                    tooltip.style("visibility", "hidden");
+                });
+        }
+
+        drawPoints();  // Desenha os pontos após o treinamento de t-SNE
+
+        // Função para projetar um novo vetor binário
+        function projectNewPoint(newBinaryVector) {
+            const binaryAsDecimal = binToDecimal(newBinaryVector);
+            const tsneResult = tsne.getSolution();
+            // Calcular a projeção 2D (simples aqui)
+            // Aqui você pode usar a distância Hamming se necessário para modificar a projeção
+            return tsneResult;
+        }
+
+        // Atualizar o gráfico com um novo ponto
+        function updatePoints() {
+            let inputText = document.getElementById("binaryInput").value.trim();
+
+            if (!/^[01]{16}$/.test(inputText)) {
+                alert("Por favor, insira um vetor binário de 16 bits (ex: 1010101010101010)");
+                return;
+            }
+
+            let newBinaryVector = inputText.split("").map(Number);
+
+            // Adicionar novo ponto em vermelho no gráfico
+            const newProjection = projectNewPoint(newBinaryVector);
+            svg.append("circle")
+                .attr("cx", xScale(newProjection[0][0]))  // Novo ponto no gráfico
+                .attr("cy", yScale(newProjection[0][1]))
+                .attr("r", 5)
+                .attr("fill", "red")
+                .on("mouseover", function (event) {
+                    tooltip.style("visibility", "visible")
+                        .html(`Novo binário: ${newBinaryVector.join("")}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", function (event) {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function () {
+                    tooltip.style("visibility", "hidden");
+                });
+        }
+    </script>
+</body>
+</html>
