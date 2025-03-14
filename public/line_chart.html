@@ -15,12 +15,21 @@
       .vega-actions a {
         margin-right: 5px;
       }
+      #bestInfos {
+        font-family: monospace;
+        margin-left: 20px;
+        font-size: 11pt;
+      }
     </style>
   </head>
   <body>
-    <h1>Line Chart Visualization</h1>
     <!-- Container for the visualization -->
     <p id="status">Aguardando dados...</p>
+    <div id="bestInfos">
+      Generation:&nbsp;<span id="infoGeneration">0</span> | 
+      Best&nbsp;Fitness:&nbsp;<span id="infoFitness">0</span> | 
+      Best&nbsp;Upper&nbsp;Bound:&nbsp;<span id="infoUpperBound">0</span>
+    </div>
     <div id="vis" style="width: 100%;"></div>
 
     <script>
@@ -56,9 +65,11 @@
                     console.log(message.data);
                     break;
                   case "data":
-                    document.getElementById("status").innerHTML = 
-                      `Geração: ${message.data.generation} | Melhor Fitness: ${message.data.bestFitness}`;
-
+                    document.getElementById("status").style.display = 'none';
+                    document.getElementById("infoGeneration").innerHTML = message.data.generation;
+                    document.getElementById("infoFitness").innerHTML = message.data.bestFitness;
+                    if(message.data.bestUpperBound)
+                      document.getElementById("infoUpperBound").innerHTML = message.data.bestUpperBound;
                     let data = [];
                     data.push({x:message.data.generation, y: message.data.bestFitness, category: "Best"})
                     data.push({x:message.data.generation, y: message.data.worstFitness, category: "Worst"})

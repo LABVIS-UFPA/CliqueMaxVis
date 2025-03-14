@@ -16,9 +16,10 @@ class GA {
         this.numNodes = numNodes;
         this.bestIndividuals = [];
         this.bestFitness = 0;
+        this.bestUpperBound = Number.MAX_SAFE_INTEGER;
 
 
-        this.populationSize = 300;
+        this.populationSize = 50;
         this.mutationRate = 0.2;
         this.mutationSelectionRate = 0.1;
         this.survivalRate = 0.25;
@@ -27,7 +28,7 @@ class GA {
         this.hasMaxAge = true;
         this.hasExtractionImprovement = true;
         this.preventEqualIndividuals = false;
-
+        this.calcUpperBound = false;
 
     }
 
@@ -67,12 +68,12 @@ class GA {
         const { 
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
             maxAge, hasMaxAge, hasExtractionImprovement, preventEqualIndividuals,
-            nodeIncludeProb
+            nodeIncludeProb,calcUpperBound
         } = this;
         return {
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
             maxAge, hasMaxAge, hasExtractionImprovement, preventEqualIndividuals,
-            nodeIncludeProb
+            nodeIncludeProb,calcUpperBound
         };
     }
     setParameters(params) {
@@ -91,6 +92,13 @@ class GA {
     __fitness(population) {
         for (const individual of population) {
             individual.fitness = individual.verifyClique();
+        }
+        if(this.calcUpperBound){
+            for (const individual of population) {
+                individual.upperBound = individual.colorir().colorCount;
+                if(individual.upperBound < this.bestUpperBound) 
+                    this.bestUpperBound = individual.upperBound;
+            }
         }
     }
     __crossover() {
@@ -181,104 +189,6 @@ class GA {
     }
 
 }
-// GA.fitness = {};
-// GA.fitness.std = (population) => {
-//     for (const individual of population) {
-//         individual.fitness = individual.verifyClique();
-//     }
-// }
-
-// GA.crossover = {};
-// GA.crossover.simples = () => {
-//     const population = this.population;
-//     const newIndividual = this.newIndividual;
-//     let newPopulation = [];
-//     while (newPopulation.length < this.populationSize) {
-//         let [p1, p2] = [population[Math.floor(Math.random() * population.length)],
-//         population[Math.floor(Math.random() * population.length)]];
-//         const midpoint = Math.floor(Math.random() * p1.nodeMask.length);
-//         let newMask = p1.nodeMask.slice(0, midpoint).concat(p2.nodeMask.slice(midpoint));
-
-//         let newI = newIndividual(newMask);
-//         if (this.hasExtractionImprovement) newI.extraction().improvement();
-
-//         if (this.preventEqualIndividuals) {
-//             let isEqual = false;
-//             for (const i of newPopulation) {
-//                 if (newI.isEqual(i)) {
-//                     isEqual = true;
-//                     break;
-//                 }
-//             }
-//             if (isEqual) continue;
-//             for (const i of population) {
-//                 if (newI.isEqual(i)) {
-//                     isEqual = true;
-//                     break;
-//                 }
-//             }
-//             if (isEqual) continue;
-//         }
-
-//         newPopulation.push(newI);
-//     }
-//     return newPopulation;
-// }
-
-
-// GA.mutate = {};
-// GA.mutate.simples = (population) => {
-//     for (const individual of population) {
-//         if (Math.random() < this.mutationSelectionRate) {
-//             for (let i = 0; i < individual.nodeMask.length; i++) {
-//                 if (Math.random() < this.mutationRate)
-//                     individual.nodeMask[i] = 1 - individual.nodeMask[i];
-//             }
-//             if (this.hasExtractionImprovement) individual.extraction().improvement();
-//         }
-//     }
-// }
-
-// GA.selection = {};
-// GA.selection.simples = (newPopulation) => {
-//     const oldPopulation = this.population;
-//     if (this.hasMaxAge) {
-//         for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
-//         for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
-//     }
-
-//     oldPopulation.sort((a, b) => b.fitness - a.fitness);
-//     newPopulation.sort((a, b) => b.fitness - a.fitness);
-//     let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
-//     let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
-
-//     nextPopulation.sort((a, b) => b.fitness - a.fitness);
-
-//     for (const individual of nextPopulation) {
-//         if (individual.age) individual.age++;
-//         else individual.age = 1;
-//     }
-//     return nextPopulation;
-// }
-
-// GA.generatePopulation = {};
-// GA.generatePopulation.simples = () => {
-//     console.log(this);
-//     const newIndividual = this.newIndividual, numNodes = this.numNodes;
-//     const population = [];
-//     for (let i = 0; i < this.populationSize; i++) {
-//         let individual = newIndividual(Array.from({ length: numNodes },
-//             () => Math.random() > 0.85 ? 1 : 0));
-
-//         if (this.hasExtractionImprovement) individual.extraction().improvement();
-//         population.push(individual);
-//     }
-//     return population;
-// }
-
-
-
-
 
 
 

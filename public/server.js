@@ -87,11 +87,13 @@ setInterval(()=>{
     
     
     for (const c of obs_fitness) {
-        c.send(JSON.stringify({act:"data", data:{
+        let data = {
             bestFitness: ga.population[0].fitness,
             worstFitness: ga.population[ga.population.length-1].fitness,
             generation: ga.generation
-        }}));
+        };
+        if(ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
+        c.send(JSON.stringify({act:"data", data}));
     }
 
     if(ga.generation % 2 === 0){
@@ -113,6 +115,8 @@ setInterval(()=>{
     console.log(`Best Fitness: ${ga.population[0].fitness}`);
     console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
     console.log(`Best age: ${ga.population[0].age}`);
+    console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
+
     // console.log(ga.population[0].nodeMask);
     console.log(`generation: ${ga.generation}`);
     

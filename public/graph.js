@@ -4,6 +4,7 @@ class Graph {
     this.nodes = [];
     this.nodesByKey = {};
     this.links = [];
+    this.indexAdj = [];
   }
 
   addNode(id) {
@@ -12,6 +13,7 @@ class Graph {
     this.nodes.push(n);
     this.nodesByKey[id] = n;
     this.adj[id] = {};
+    this.indexAdj.push([]);
     // this.matAjd = [];
   }
 
@@ -28,6 +30,8 @@ class Graph {
     }
     this.links.push(l);
     this.adj[source][target] = this.adj[target][source] = l;
+    this.indexAdj[this.nodesByKey[source].index].push(this.nodesByKey[target].index);
+    this.indexAdj[this.nodesByKey[target].index].push(this.nodesByKey[source].index);
   }
 
   getAdjs(node) {
@@ -319,22 +323,39 @@ class CliqueMask {
     return this;
   }
 
-  getAuxiliaryUpperBound() {
+  colorir() {
     let colorCount = 0;
-    let coloring = this.nodeMask.map(v => v ? colorCount++ : -1);
-    const len = this.nodeMask.length;
-    let i = Math.floor(Math.random() * len);
-    let j = Math.floor(Math.random() * colorCount);
-    let cont = 0;
-    while (cont < len) {
-      i = (i + 1) % len;
-      cont++;
-      if (coloring[i]<0){
-        for(let k=0;k<colorCount;k++){
-          
+    const cores = this.nodeMask.map(v => v ? colorCount++ : -1); // Inicializa todas as cores como -1 (não colorido)
+
+    // Cria uma lista com os índices dos vértices que ainda não tem cor
+    const ordem = cores.reduce((acc, v, i) => {
+      if(v<0) acc.push(i);return acc;
+    },[]);
+
+    ordem.sort(() => Math.random() - 0.5); // Embaralha a ordem de seleção dos vértices
+
+    for (const i of ordem) {
+        const coresUsadas = new Set();
+
+        // Verifica as cores dos vizinhos
+        
+        for (const vizinho of this.graph.indexAdj[i]) {
+            if (cores[vizinho] !== -1) {
+                coresUsadas.add(cores[vizinho]);
+            }
         }
-      }
+
+        // Encontra a menor cor disponível
+        let cor = 0;
+        while (coresUsadas.has(cor)) {
+            cor += 1;
+        }
+        
+        cores[i] = cor; // Atribui a cor ao vértice
+        if(cor===colorCount) colorCount++;
     }
+
+    return {cores, colorCount};
   }
 
 }

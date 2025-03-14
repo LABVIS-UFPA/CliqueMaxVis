@@ -79,6 +79,14 @@
             <input type="checkbox" id="preventEqualIndividuals"> Prevenir Indivíduos Iguais
         </label>
     </div>
+    
+    <div class="config-item">
+        <label>
+            <input type="checkbox" id="calcUpperBound"> Calc Upper Bound (Coloring)
+        </label>
+    </div>
+
+    
 
     <!-- <button onclick="getConfig()">Update</button> -->
     <div class="config-item">
@@ -149,6 +157,7 @@
             document.getElementById("hasMaxAge").checked = config.hasMaxAge;
             document.getElementById("hasExtractionImprovement").checked = config.hasExtractionImprovement;
             document.getElementById("preventEqualIndividuals").checked = config.preventEqualIndividuals;
+            document.getElementById("calcUpperBound").checked = config.calcUpperBound;
 
             // Atualiza os valores exibidos nos spans
             updateValue("populationSize", "populationSizeValue");
