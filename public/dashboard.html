@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Interativo</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css"
+      rel="stylesheet"
+    />
+    <link href="css/styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script
+      src="https://use.fontawesome.com/releases/v6.3.0/js/all.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body class="sb-nav-fixed">
+    <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+      <!-- Navbar Brand-->
+      <a class="navbar-brand ps-3" href="index.html">Max Click</a>
+      <!-- Sidebar Toggle-->
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNavDropdown"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNavDropdown">
+        <ul class="navbar-nav">
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle"
+              href="#"
+              id="navbarDropdown1"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Files
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="#">Subitem 1.1</a></li>
+              <li><a class="dropdown-item" href="#">Subitem 1.2</a></li>
+            </ul>
+          </li>
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle"
+              href="#"
+              id="navbarDropdown2"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Configurations
+            </a>
+            <ul class="dropdown-menu">
+              <li>
+                <a
+                  class="dropdown-item"
+                  href="#"
+                  onclick='window.open("parameter_setter.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  >Open parameter configurations</a
+                >
+              </li>
+            </ul>
+          </li>
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle"
+              href="#"
+              id="navbarDropdown3"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Graphs
+            </a>
+            <ul class="dropdown-menu">
+              <li>
+                <a
+                  class="dropdown-item"
+                  onclick='window.open("individuals_vis_canvas.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  href="#"
+                  >Individual Visualization</a
+                >
+              </li>
+              <li>
+                <a
+                  class="dropdown-item"
+                  onclick='window.open("line_chart.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  href="#"
+                  >Line chart</a
+                >
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
+    <div id="layoutSidenav">
+      <div id="layoutSidenav_nav">
+        <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+          <div class="sb-sidenav-menu">
+            <div class="nav">
+              <div class="sb-sidenav-menu-heading">Some metrics</div>
+              <div class="align-items-center d-flex flex-column">
+                <div class="gauge-container" id="gauge1"></div>
+                <div class="gauge-container" id="gauge2"></div>
+                <div class="gauge-container" id="gauge3"></div>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+      <div id="layoutSidenav_content">
+        <main>
+          <div class="infos-container row">
+            <div class="col-4">
+              <div class="card">
+                <div class="metric-title">Best age</div>
+                <div class="metric" id="infoAge">0</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="card">
+                <div class="metric-title">Current Generation</div>
+                <div class="metric" id="infoGeneration">0</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="card">
+                <div class="metric-title">Best Fitness</div>
+                <div class="metric" id="infoFitness">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dendro-container card" id="dendrogramChart">
+            <!-- D3 Dendrogram será renderizado aqui -->
+          </div>
+
+          <!-- Controles de Mídia -->
+          <div class="media-controls card">
+            <div class="media-buttons">
+              <button class="btn btn-primary btn-circle" id="btnPlay">
+                <i class="fas fa-play"></i>
+              </button>
+              <button class="btn btn-warning btn-circle" id="btnPause">
+                <i class="fas fa-pause"></i>
+              </button>
+              <button class="btn btn-danger btn-circle" id="btnStop">
+                <i class="fas fa-stop"></i>
+              </button>
+              <button class="btn btn-info btn-circle" id="btnNext">
+                <i class="fas fa-step-forward"></i>
+              </button>
+            </div>
+            <div
+              class="mediaSlider d-flex justify-content-center align-items-center gap-2"
+            >
+              <label for="#mediaSlider">Velocidade de execução: </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value="50"
+                class="slider"
+                id="mediaSlider"
+              />
+            </div>
+          </div>
+        </main>
+        <footer class="py-4 bg-light mt-auto">
+          <div class="container-fluid px-4">
+            <div
+              class="d-flex align-items-center justify-content-between small"
+            >
+              <div class="text-muted">Copyright &copy; LabVis-UFPA 2025</div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+      const socket = new WebSocket("ws://localhost:3214");
+
+      // Função para criar os medidores gauge
+      function createGauges() {
+        // Configuração dos gauges
+        const gaugeWidth =
+          document.querySelector(".gauge-container").offsetWidth;
+        const gaugeHeight =
+          document.querySelector(".gauge-container").offsetHeight;
+        const radius = Math.min(gaugeWidth, gaugeHeight) / 2;
+
+        // Configurações específicas para cada gauge
+        const gaugeConfigs = [
+          { id: "gauge1", title: "Medidor 1", value: 5, min: 0, max: 10 },
+          { id: "gauge2", title: "Medidor 2", value: 15, min: 0, max: 30 },
+          { id: "gauge3", title: "Medidor 3", value: 45, min: 0, max: 60 },
+        ];
+
+        // Criação de cada gauge
+        gaugeConfigs.forEach((config) => {
+          createGauge(
+            config.id,
+            config.title,
+            config.value,
+            config.min,
+            config.max,
+            radius
+          );
+        });
+      }
+
+      function createGauge(elementId, title, value, min, max, radius) {
+        const svg = d3
+          .select(`#${elementId}`)
+          .append("svg")
+          .attr("width", "100%")
+          .attr("height", "100%")
+          .append("g")
+          .attr("transform", `translate(${radius}, ${radius})`);
+
+        // Arco do gauge
+        const arc = d3
+          .arc()
+          .innerRadius(radius * 0.6)
+          .outerRadius(radius * 0.9)
+          .startAngle(-Math.PI / 2)
+          .endAngle(Math.PI / 2);
+
+        // Fundo do gauge
+        svg.append("path").attr("d", arc).style("fill", "#ffffff40");
+
+        // Escala para mapear o valor para o ângulo
+        const scale = d3
+          .scaleLinear()
+          .domain([min, max])
+          .range([-Math.PI / 2, Math.PI / 2]);
+
+        // Arco do valor
+        const valueArc = d3
+          .arc()
+          .innerRadius(radius * 0.6)
+          .outerRadius(radius * 0.9)
+          .startAngle(-Math.PI / 2)
+          .endAngle(scale(value));
+
+        svg.append("path").attr("d", valueArc).style("fill", "#4682b4");
+
+        // Ponteiro
+        const pointerLength = radius * 0.8;
+        const pointerWidth = radius * 0.04;
+
+        const angleInRadians = scale(value);
+        const pointerX = pointerLength * Math.cos(angleInRadians);
+        const pointerY = pointerLength * Math.sin(angleInRadians);
+
+        // Linha do ponteiro
+        svg
+          .append("line")
+          .attr("x1", 0)
+          .attr("y1", 0)
+          .attr("x2", pointerX)
+          .attr("y2", pointerY)
+          .attr("stroke", "#333")
+          .attr("stroke-width", pointerWidth)
+          .attr("stroke-linecap", "round");
+
+        // Círculo central do ponteiro
+        svg
+          .append("circle")
+          .attr("cx", 0)
+          .attr("cy", 0)
+          .attr("r", radius * 0.08)
+          .style("fill", "#333");
+
+        // Valor central
+        svg
+          .append("text")
+          .attr("text-anchor", "middle")
+          .attr("dy", radius * 0.4)
+          .style("font-size", `${radius * 0.2}px`)
+          .text(`${value} s`)
+          .attr("fill", "#ffffff");
+
+        // Título
+        svg
+          .append("text")
+          .attr("text-anchor", "middle")
+          .attr("dy", -radius * 0.2)
+          .style("fill", "#ffffff")
+          .style("font-size", `${radius * 0.15}px`)
+          .text(title);
+
+        // Legendas de mínimo e máximo
+        svg
+          .append("text")
+          .attr("text-anchor", "start")
+          .attr("x", -radius * 0.9)
+          .attr("y", radius * 0.1)
+          .style("fill", "#ffffff")
+          .style("font-size", `${radius * 0.12}px`)
+          .text(`${min} s`);
+
+        svg
+          .append("text")
+          .attr("text-anchor", "end")
+          .attr("x", radius * 0.9)
+          .attr("y", radius * 0.1)
+          .style("font-size", `${radius * 0.12}px`)
+          .style("fill", "#ffffff")
+          .text(`${max} s`);
+      }
+
+      // Função para criar o dendrograma
+      function createDendrogram(initialData) {
+        // Use provided data or default to an example
+        const data = initialData || {
+          generation: "Generation 1",
+          children: [
+            {
+              generation: "Generation 10",
+              children: [
+                { generation: "Generation 15" },
+                { generation: "Generation 23" },
+              ],
+            },
+            {
+              generation: "Generation 33",
+              children: [
+                { generation: "Generation 49" },
+                { generation: "Generation 57" },
+              ],
+            },
+          ],
+        };
+
+        const width = document.querySelector("#dendrogramChart").offsetWidth;
+        const height = document.querySelector("#dendrogramChart").offsetHeight;
+
+        // Clear existing SVG if any
+        d3.select("#dendrogramChart svg").remove();
+
+        // Add SVG
+        const svg = d3
+          .select("#dendrogramChart")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .append("g")
+          .attr("transform", `translate(${width / 2}, 40)`);
+
+        // Function to update the visualization
+        function update(source) {
+          // Cluster layout
+          const cluster = d3.cluster().size([width - 100, height - 100]);
+
+          // Create hierarchy and run layout
+          const root = d3.hierarchy(data);
+          cluster(root);
+
+          // Links
+          const links = svg
+            .selectAll("path.link")
+            .data(
+              root.links(),
+              (d) =>
+                d.target.id ||
+                (d.target.id = Math.random().toString(36).substr(2, 9))
+            );
+
+          // Enter new links
+          links
+            .enter()
+            .append("path")
+            .attr("class", "link")
+            .attr("d", (d) => {
+              return `M${d.source.x - width / 2},${d.source.y}
+                C${d.source.x - width / 2},${(d.source.y + d.target.y) / 2}
+                ${d.target.x - width / 2},${(d.source.y + d.target.y) / 2}
+                ${d.target.x - width / 2},${d.target.y}`;
+            })
+            .style("fill", "none")
+            .attr("stroke", "#4682b4");
+
+          // Update existing links
+          links.attr("d", (d) => {
+            return `M${d.source.x - width / 2},${d.source.y}
+              C${d.source.x - width / 2},${(d.source.y + d.target.y) / 2}
+              ${d.target.x - width / 2},${(d.source.y + d.target.y) / 2}
+              ${d.target.x - width / 2},${d.target.y}`;
+          });
+
+          // Remove old links
+          links.exit().remove();
+
+          // Nodes
+          const nodes = svg
+            .selectAll("g.node")
+            .data(
+              root.descendants(),
+              (d) => d.id || (d.id = Math.random().toString(36).substr(2, 9))
+            );
+
+          // Enter new nodes
+          const nodeEnter = nodes
+            .enter()
+            .append("g")
+            .attr("class", "node")
+            .attr("transform", (d) => `translate(${d.x - width / 2},${d.y})`)
+            .on("click", handleNodeClick);
+
+          nodeEnter
+            .append("circle")
+            .attr("r", 7)
+            .style("fill", "#4682b4")
+            .style("cursor", "pointer");
+
+          nodeEnter
+            .append("text")
+            .attr("dy", -15)
+            .attr("text-anchor", "middle")
+            .text((d) => d.data.generation);
+
+          // Update existing nodes
+          nodes.attr(
+            "transform",
+            (d) => `translate(${d.x - width / 2},${d.y})`
+          );
+
+          // Remove old nodes
+          nodes.exit().remove();
+        }
+
+        // Handle node clicks
+        function handleNodeClick(event, d) {
+          // Store the clicked node ID for reference
+          window.lastClickedNodeId = d.id;
+
+          console.log("Node clicked", d.data);
+
+          // Call the user-defined click handler if provided
+          if (typeof window.onNodeClick === "function") {
+            window.onNodeClick(d.data, d);
+          }
+        }
+
+        // Add a child to a specific node
+        window.addChild = function (parentId, childgeneration) {
+          if (!parentId) {
+            // If no parentId is provided, use the last clicked node
+            parentId = window.lastClickedNodeId;
+          }
+
+          // Find the parent node in the data structure
+          function findNode(node, id) {
+            if (node.id === id) return node;
+            if (node.children) {
+              for (let child of node.children) {
+                const found = findNode(child, id);
+                if (found) return found;
+              }
+            }
+            return null;
+          }
+
+          const hierarchyNode = d3
+            .selectAll("g.node")
+            .data()
+            .find((n) => n.id === parentId);
+          if (!hierarchyNode) return false;
+
+          // Get the original data node
+          const dataNode = hierarchyNode.data;
+
+          // Add child to the parent
+          if (!dataNode.children) dataNode.children = [];
+          dataNode.children.push({ generation: childgeneration });
+
+          // Update the visualization
+          update(hierarchyNode);
+          return true;
+        };
+
+        // Delete a node
+        window.deleteNode = function (nodeId) {
+          if (!nodeId) {
+            // If no nodeId is provided, use the last clicked node
+            nodeId = window.lastClickedNodeId;
+          }
+
+          // Can't delete the root
+          const hierarchyNode = d3
+            .selectAll("g.node")
+            .data()
+            .find((n) => n.id === nodeId);
+          if (!hierarchyNode || !hierarchyNode.parent) return false;
+
+          const parentNode = hierarchyNode.parent;
+          const dataParent = parentNode.data;
+
+          // Find the index of the child to remove
+          const childIndex = dataParent.children.findIndex(
+            (child) => child === hierarchyNode.data
+          );
+
+          if (childIndex !== -1) {
+            // Remove the child
+            dataParent.children.splice(childIndex, 1);
+
+            // If no children left, remove the children array
+            if (dataParent.children.length === 0) {
+              delete dataParent.children;
+            }
+
+            // Update the visualization
+            update(parentNode);
+            return true;
+          }
+
+          return false;
+        };
+
+        // Register a click handler
+        window.registerNodeClickHandler = function (callback) {
+          window.onNodeClick = callback;
+        };
+
+        // Initialize the visualization
+        update(d3.hierarchy(data));
+
+        // Return public methods
+        return {
+          addChild: window.addChild,
+          deleteNode: window.deleteNode,
+          registerNodeClickHandler: window.registerNodeClickHandler,
+          update: update,
+        };
+      }
+     
+      document.addEventListener("DOMContentLoaded", function () {
+        createGauges();
+        createDendrogram();
+
+        document
+          .getElementById("btnPlay")
+          .addEventListener("click", function () {
+            socket.send(JSON.stringify({ act: "command", data: "play" }));
+          });
+
+        document
+          .getElementById("btnPause")
+          .addEventListener("click", function () {
+            socket.send(JSON.stringify({ act: "command", data: "pause" }));
+          });
+
+        document
+          .getElementById("btnStop")
+          .addEventListener("click", function () {
+            socket.send(JSON.stringify({ act: "command", data: "stop" }));
+          });
+
+        document
+          .getElementById("btnNext")
+          .addEventListener("click", function () {
+            socket.send(JSON.stringify({ act: "command", data: "next" }));
+          });
+
+        // Controle de velocidade
+        document
+          .getElementById("mediaSlider")
+          .addEventListener("input", function () {
+            const speed = parseInt(this.value);
+            console.log(`Speed set to: ${speed}`);
+            socket.send(
+              JSON.stringify({ act: "command", data: "setSpeed", speed: speed })
+            );
+          });
+      });
+
+      // Redimensionar gráficos quando a janela mudar de tamanho
+      window.addEventListener("resize", function () {
+        d3.selectAll("svg").remove();
+        createGauges();
+        createDendrogram();
+      });
+
+      socket.onmessage = function (event) {
+        const message = JSON.parse(event.data);
+
+        switch (message.act) {
+          case "log":
+            console.log(message.data);
+            break;
+          case "data":
+            document.getElementById("infoGeneration").innerHTML =
+              message.data.generation;
+            document.getElementById("infoFitness").innerHTML =
+              message.data.bestFitness;
+            document.getElementById("infoAge").innerHTML = message.data.bestAge;
+        }
+      };
+
+      socket.onopen = function () {
+        console.log("Conectado ao servidor WebSocket");
+        socket.send(JSON.stringify({ act: "obs", data: "fitness" }));
+      };
+    </script>
+  </body>
+</html>

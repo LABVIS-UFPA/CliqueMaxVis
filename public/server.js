@@ -8,6 +8,11 @@ const { performance } = require('perf_hooks');
 
 let partialReset = false;
 
+let isRunning = false;  
+let runSingleStep = false;  
+let executionSpeed = 50; 
+
+
 
 console.log("WebSocket server running on ws://localhost:3214");
 
@@ -64,14 +69,36 @@ server.on('connection', ws => {
             case "set_parameters":
                 ga.setParameters(obj.data);
                 break;
-            case "command":
-                if(obj.data === "partialReset") partialReset = true;
-                else if(obj.data === "initial_individuals") 
-                    ws.send(JSON.stringify({act:"data", data: {
-                        population: ga.initialPopulation.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
-                        generation: 0
-                    }}));
-                break;
+                case "command":
+                    if(obj.data === "partialReset") partialReset = true;
+                    else if(obj.data === "initial_individuals") 
+                        ws.send(JSON.stringify({act:"data", data: {
+                            population: ga.initialPopulation.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
+                            generation: 0
+                        }}));
+                    else if(obj.data === "play") isRunning = true;
+                    else if(obj.data === "pause") isRunning = false;
+                    else if(obj.data === "stop") {
+                        isRunning = false;
+                        // Opcionalmente reiniciar o algoritmo
+                        ga.init();
+                        ga.generation = 0;
+                        ws.send(JSON.stringify({act:"status", data:"stopped"}));
+                    }
+                    else if(obj.data === "next") {
+                        runSingleStep = true;
+                    }
+                    else if(obj.data === "setSpeed" && obj.speed !== undefined) {
+                        // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
+                        executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
+                        if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
+                        
+                        // Reinicia o intervalo com a nova velocidade
+                        clearInterval(mainInterval);
+                        startMainLoop();
+                        ws.send(JSON.stringify({act:"status", data:`speed set to ${executionSpeed}ms`}));
+                    }
+                    break;
 
         }
     });
@@ -88,52 +115,53 @@ server.on('connection', ws => {
 ga.init();
 
 
-setInterval(()=>{
-    
-    
-    for (const c of obs_fitness) {
-        let data = {
-            bestFitness: ga.population[0].fitness,
-            worstFitness: ga.population[ga.population.length-1].fitness,
-            generation: ga.generation
-        };
-        if(ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
-        c.send(JSON.stringify({act:"data", data}));
-    }
+let mainInterval;
 
-    if(ga.generation % 1 === 0){
-        for (const c of obs_individuals) {
-            c.send(JSON.stringify({act:"data", data:{
-                population: ga.population.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
-                generation: ga.generation
-            }}));
+function startMainLoop() {
+    mainInterval = setInterval(() => {
+        // Só executa se estiver rodando ou se for solicitado um único passo
+        if (isRunning || runSingleStep) {
+            // Código existente para enviar dados aos clientes...
+            
+            for (const c of obs_fitness) {
+                let data = {
+                    bestFitness: ga.population[0].fitness,
+                    worstFitness: ga.population[ga.population.length-1].fitness,
+                    generation: ga.generation,
+                    bestAge: ga.population[0].age
+                };
+                if(ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
+                c.send(JSON.stringify({act:"data", data}));
+            }
+            
+            // Restante do código de envio de dados...
+            
+            console.log(`Best Fitness: ${ga.population[0].fitness}`);
+            console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
+            console.log(`Best age: ${ga.population[0].age}`);
+            console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
+            console.log(`generation: ${ga.generation}`);
+            
+            // Avança a geração
+            ga.nextGeneration();
+            if(partialReset){
+                ga.partialReset();
+                partialReset = false;
+            }
+            
+            // Se executou um único passo, desativa o flag
+            if (runSingleStep) {
+                runSingleStep = false;
+                
+                // Notifica todos os clientes que um passo foi executado
+                for (const client of clients) {
+                    client.send(JSON.stringify({act:"status", data:"step_executed"}));
+                }
+            }
         }
-    }
+    }, executionSpeed);
+}
 
-    for (const c of obs_best_individuals) {
-        c.send(JSON.stringify({act:"data", data:{
-            bestIndividuals: ga.bestIndividuals.map(i=>i.nodeMask),
-            bestFitness: ga.bestFitness
-        }}));
-    }
-    
-    console.log(`Best Fitness: ${ga.population[0].fitness}`);
-    console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
-    console.log(`Best age: ${ga.population[0].age}`);
-    console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
-
-    // console.log(ga.population[0].nodeMask);
-    console.log(`generation: ${ga.generation}`);
-    
-    
-    ga.nextGeneration();
-    if(partialReset){
-        ga.partialReset();
-        partialReset = false;
-    }
-    // console.log(ga.population.map(i=>i.nodeMask));
-},50);
-
-
-
+// Inicia o loop principal
+startMainLoop();
 
