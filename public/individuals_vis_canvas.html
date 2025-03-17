@@ -40,7 +40,7 @@
                 case "data":
                     document.getElementById("status").innerHTML =
                         `Geração: ${message.data.generation}`;
-                    drawMatrix(message.data.population);
+                    drawMatrix(message.data.population.map(i=>i.nodeMask));
                     break;
             }
 

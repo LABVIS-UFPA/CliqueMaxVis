@@ -37,6 +37,7 @@ class GA {
         this.__fitness(this.population);
         this.updateBest();
         this.generation = 1;
+        this.initialPopulation = this.population;
     }
 
     nextGeneration() {

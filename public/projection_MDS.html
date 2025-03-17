@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeção Linear de Bitstrings</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.0.1/math.min.js" type="text/javascript"></script>
+    <style>
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .dataPoint {
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- <svg width="600" height="600"></svg>
+    <div class="tooltip"></div>
+    <br>
+    <input type="text" id="bitstringInput" placeholder="Digite um bitstring">
+    <button onclick="addNewPoint()">Adicionar</button>
+    <br>
+    <button onclick="updatePos()">Move</button> -->
+    <canvas id="myCanvas" width="600" height="600" style="border: 1px solid black;"></canvas>
+    <svg id="legenda" width="70px" height="300px"></svg>
+
+
+
+    <script>
+
+        //função usada somente para teste. Gera bits aleatoriamente.
+        function generateBinaryData(numSamples, numBits) {
+            return Array.from({ length: numSamples }, () =>
+                Array.from({ length: numBits }, () => Math.random() < 0.5 ? 1 : 0)
+            );
+        }
+
+        function jaccardDistance(a, b) {
+            const intersection = a.filter((value, index) => value === 1 && b[index] === 1).length;
+            const union = a.filter((value, index) => value === 1 || b[index] === 1).length;
+            return union === 0 ? 0 : 1 - (intersection / union);
+        }
+
+        function jaccardDistanceMatrix(arrays) {
+            const n = arrays.length;
+            const distanceMatrix = Array.from({ length: n }, () => Array(n).fill(0));
+
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    distanceMatrix[i][j] = jaccardDistance(arrays[i], arrays[j]);
+                }
+            }
+
+            return distanceMatrix;
+        }
+
+        function classicalMDS(distanceMatrix, dimensions = 2) {
+            const n = distanceMatrix.length;
+
+            // Passo 1: Calcular a matriz de produtos escalares (B)
+            const D = distanceMatrix.map(row => row.map(val => val * val)); // Eleva as distâncias ao quadrado
+            const rowMeans = D.map(row => row.reduce((sum, val) => sum + val, 0) / n);
+            const totalMean = rowMeans.reduce((sum, val) => sum + val, 0) / n;
+
+            const B = Array.from({ length: n }, () => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    B[i][j] = -0.5 * (D[i][j] - rowMeans[i] - rowMeans[j] + totalMean);
+                }
+            }
+
+            // Passo 2: Decomposição em autovalores e autovetores
+            const { eigenvalues, eigenvectors } = eigenDecomposition(B);
+
+            // Passo 3: Selecionar os maiores autovalores e seus autovetores correspondentes
+            const sortedIndices = eigenvalues
+                .map((val, idx) => ({ val, idx }))
+                .sort((a, b) => b.val - a.val)
+                .map(obj => obj.idx);
+
+            const topEigenvalues = sortedIndices.slice(0, dimensions).map(idx => eigenvalues[idx]);
+            const topEigenvectors = sortedIndices.slice(0, dimensions).map(idx => eigenvectors[idx]);
+
+            // Passo 4: Calcular as coordenadas dos pontos no espaço reduzido
+            const coordinates = Array.from({ length: n }, () => Array(dimensions).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let d = 0; d < dimensions; d++) {
+                    coordinates[i][d] = topEigenvectors[d][i] * Math.sqrt(topEigenvalues[d]);
+                }
+            }
+
+            return coordinates;
+        }
+
+        // Função auxiliar para decomposição em autovalores e autovetores (simplificada)
+        function eigenDecomposition(matrix) {
+            // Usando uma biblioteca externa para decomposição (ex: math.js)
+
+            const eigs = math.eigs(matrix);
+            const { values: eigenvalues } = eigs;
+            const eigenvectors = eigs.eigenvectors.map(v => v.vector);
+            return { eigenvalues, eigenvectors };
+        }
+
+        // Função principal para projeção 2D usando MDS
+        function projectBinaryArraysTo2D(arrays) {
+            // Passo 1: Calcular a matriz de distância de Jaccard
+            const distanceMatrix = jaccardDistanceMatrix(arrays);
+
+            // Passo 2: Aplicar MDS para reduzir a 2D
+            const projectedPoints = classicalMDS(distanceMatrix);
+
+            return projectedPoints;
+        }
+
+        function findKIndices(arr, k) {
+            // Cria um array de objetos com o valor e o índice original
+            const indexedArr = arr.map((value, index) => ({ value, index }));
+
+            // Ordena o array com base nos valores
+            indexedArr.sort((a, b) => b.value - a.value);
+
+            // Pega os k primeiros índices
+            const kSmallestIndices = indexedArr.slice(0, k).map(obj => obj.index);
+
+            return kSmallestIndices;
+        }
+
+        function projectNewPoint(newPoint, initialPoints, projectedPoints, k = 3) {
+            const n = initialPoints.length;
+            const distances = initialPoints.map(point => 1 - jaccardDistance(newPoint, point));
+
+            const indices = findKIndices(distances, k);
+
+            if (distances[indices[0]] === 1) return [projectedPoints[indices[0]][0], projectedPoints[indices[0]][1]];
+            // Calcula as coordenadas do novo ponto no espaço 2D
+            const newProjectedPoint = [0, 0];
+            let distSum = 0;
+            for (let i of indices) {
+                const ajustedDistance = Math.pow(distances[i], 2);
+                distSum += ajustedDistance;
+                newProjectedPoint[0] += projectedPoints[i][0] * ajustedDistance;
+                newProjectedPoint[1] += projectedPoints[i][1] * ajustedDistance;
+            }
+
+            // Normaliza as coordenadas
+            // const totalDistance = distances.reduce((sum, val) => sum + val, 0);
+            newProjectedPoint[0] /= distSum;
+            newProjectedPoint[1] /= distSum;
+
+            // console.log("newPoint", newPoint, [xScale(newProjectedPoint[0]), yScale(newProjectedPoint[1])]);
+            return newProjectedPoint;
+        }
+
+
+        function drawCirclesOnCanvas(coordinates, colors, opacityThreshold = 0.45) {
+            // Obtém o elemento canvas e o contexto 2D
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.01)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // const data = imageData.data;
+
+            // for (let i = 3; i < data.length; i += 4) {
+            //     if (data[i] > 0) { // Verifica se o pixel não é totalmente transparente
+            //         data[i] = Math.max(data[i] - 10, opacityThreshold * 255); // Reduz a opacidade, mas não abaixo do limiar
+            //     }
+            // }
+            // ctx.putImageData(imageData, 0, 0);
+
+            
+            // Desenha os círculos nas coordenadas fornecidas
+            for (let i = 0; i < coordinates.length; i++) {
+                const [x, y] = coordinates[i];
+                // ctx.fillRect(x-2, y-2, 4, 4);
+                ctx.fillStyle = colors[i];
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, 2 * Math.PI); // Círculo de raio 3px
+                ctx.fill();
+            }
+        }
+
+
+        function drawLegenda(min, max) {
+            const width = 70, height = 300;
+
+            const svg = d3.select("#legenda")
+                .attr("width", width)
+                .attr("height", height);
+
+            colorScale = d3.scaleSequential(d3.interpolateYlGnBu)
+                .domain([min, max]);
+
+            const legend = svg.append("g")
+                .attr("transform", "translate(5,10)");
+
+            const gradient = legend.append("defs")
+                .append("linearGradient")
+                .attr("id", "legend-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "100%")
+                .attr("x2", "0%")
+                .attr("y2", "0%");
+
+            const stops = d3.range(0, 1.1, 0.1);
+            stops.forEach((d, i) => {
+                gradient.append("stop")
+                    .attr("offset", `${d * 100}%`)
+                    .attr("stop-color", colorScale(min + d * (max - min)));
+            });
+
+            legend.append("rect")
+                .attr("width", 20)
+                .attr("height", height - 20)
+                .style("fill", "url(#legend-gradient)");
+
+            const axisScale = d3.scaleLinear()
+                .domain([max, min])
+                .range([0, height - 20]);
+
+            const axis = d3.axisRight(axisScale).ticks(5);
+
+            legend.append("g")
+                .attr("transform", "translate(20,0)")
+                .call(axis);
+        }
+
+
+
+
+        const numSamples = 100;
+        const numBits = 10;
+        const rangeX = [50, 550];
+        const rangeY = [50, 550];
+        const center = [rangeX[0] + (rangeX[1] - rangeX[0]) / 2, rangeY[0] + (rangeY[1] - rangeY[0]) / 2];
+
+        let colorScale;
+
+
+
+        const canvas = document.getElementById("myCanvas");
+        if (!canvas) {
+            console.error("Canvas não encontrado!");
+        }
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Configurações do desenho
+        // Cor ciano com opacidade 0.4
+        ctx.imageSmoothingEnabled = false; // Desabilita o antialiasing
+
+
+
+        let xScale;
+        let yScale;
+        let projectedPoints;
+        let binaryData;
+
+
+
+
+
+
+
+        const socket = new WebSocket("ws://localhost:3214");
+
+
+        socket.onmessage = function (event) {
+            // console.log(event);
+            const message = JSON.parse(event.data);
+            switch (message.act) {
+                case "log":
+                    console.log(message.data);
+                    break;
+                case "data":
+                    let newPoints;
+                    let colors;
+                    if (message.data.generation === 0) {
+                        binaryData = message.data.population.map(i=>i.nodeMask);
+                        projectedPoints = projectBinaryArraysTo2D(binaryData);
+                        xScale = d3.scaleLinear()
+                            .domain([
+                                d3.min(projectedPoints, d => d[0]),
+                                d3.max(projectedPoints, d => d[0])
+                            ]).range(rangeX);
+                        yScale = d3.scaleLinear()
+                            .domain([
+                                d3.min(projectedPoints, d => d[1]),
+                                d3.max(projectedPoints, d => d[1])
+                            ]).range(rangeY);
+
+                        newPoints = projectedPoints;
+                        const arrFitness = message.data.population.map(i=>i.fitness);
+                        drawLegenda(Math.min(...arrFitness)/2,Math.max(...arrFitness)*2);
+                        
+                    } else {
+                        newPoints = message.data.population.map(bitarray => projectNewPoint(bitarray.nodeMask, binaryData, projectedPoints));
+                    }
+                    colors = message.data.population.map(i=>colorScale(i.fitness));
+                    drawCirclesOnCanvas(newPoints.map(p => [xScale(p[0]), yScale(p[1])]), colors);
+                    break;
+            }
+
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            socket.send(JSON.stringify({ act: "command", data: "initial_individuals" }));
+            socket.send(JSON.stringify({ act: "obs", data: "individuals" }));
+        };
+
+
+    </script>
+</body>
+
+</html>

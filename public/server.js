@@ -66,6 +66,11 @@ server.on('connection', ws => {
                 break;
             case "command":
                 if(obj.data === "partialReset") partialReset = true;
+                else if(obj.data === "initial_individuals") 
+                    ws.send(JSON.stringify({act:"data", data: {
+                        population: ga.initialPopulation.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
+                        generation: 0
+                    }}));
                 break;
 
         }
@@ -96,10 +101,10 @@ setInterval(()=>{
         c.send(JSON.stringify({act:"data", data}));
     }
 
-    if(ga.generation % 2 === 0){
+    if(ga.generation % 1 === 0){
         for (const c of obs_individuals) {
             c.send(JSON.stringify({act:"data", data:{
-                population: ga.population.map(i=>i.nodeMask),
+                population: ga.population.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
                 generation: ga.generation
             }}));
         }
