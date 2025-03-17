@@ -74,7 +74,7 @@
               role="button"
               data-bs-toggle="dropdown"
             >
-              Graphs
+              Visualizations
             </a>
             <ul class="dropdown-menu">
               <li>
@@ -91,6 +91,22 @@
                   onclick='window.open("line_chart.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
                   href="#"
                   >Line chart</a
+                >
+              </li>
+              <li>
+                <a
+                  class="dropdown-item"
+                  onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  href="#"
+                  >MDS Scatterplot</a
+                >
+              </li>
+              <li>
+                <a
+                  class="dropdown-item"
+                  onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  href="#"
+                  >Best Individuals</a
                 >
               </li>
             </ul>
@@ -159,10 +175,10 @@
             <div
               class="mediaSlider d-flex justify-content-center align-items-center gap-2"
             >
-              <label for="#mediaSlider">Velocidade de execução: </label>
+              <label for="#mediaSlider">Execution delay: </label>
               <input
                 type="range"
-                min="0"
+                min="5"
                 max="100"
                 value="50"
                 class="slider"
@@ -254,38 +270,38 @@
 
         svg.append("path").attr("d", valueArc).style("fill", "#4682b4");
 
-        // Ponteiro
-        const pointerLength = radius * 0.8;
-        const pointerWidth = radius * 0.04;
+        // // Ponteiro
+        // const pointerLength = radius * 0.8;
+        // const pointerWidth = radius * 0.04;
 
-        const angleInRadians = scale(value);
-        const pointerX = pointerLength * Math.cos(angleInRadians);
-        const pointerY = pointerLength * Math.sin(angleInRadians);
+        // const angleInRadians = scale(value);
+        // const pointerX = pointerLength * Math.cos(angleInRadians);
+        // const pointerY = pointerLength * Math.sin(angleInRadians);
 
-        // Linha do ponteiro
-        svg
-          .append("line")
-          .attr("x1", 0)
-          .attr("y1", 0)
-          .attr("x2", pointerX)
-          .attr("y2", pointerY)
-          .attr("stroke", "#333")
-          .attr("stroke-width", pointerWidth)
-          .attr("stroke-linecap", "round");
+        // // Linha do ponteiro
+        // svg
+        //   .append("line")
+        //   .attr("x1", 0)
+        //   .attr("y1", 0)
+        //   .attr("x2", pointerX)
+        //   .attr("y2", pointerY)
+        //   .attr("stroke", "#333")
+        //   .attr("stroke-width", pointerWidth)
+        //   .attr("stroke-linecap", "round");
 
-        // Círculo central do ponteiro
-        svg
-          .append("circle")
-          .attr("cx", 0)
-          .attr("cy", 0)
-          .attr("r", radius * 0.08)
-          .style("fill", "#333");
+        // // Círculo central do ponteiro
+        // svg
+        //   .append("circle")
+        //   .attr("cx", 0)
+        //   .attr("cy", 0)
+        //   .attr("r", radius * 0.08)
+        //   .style("fill", "#333");
 
         // Valor central
         svg
           .append("text")
           .attr("text-anchor", "middle")
-          .attr("dy", radius * 0.4)
+          .attr("dy", radius * 0)
           .style("font-size", `${radius * 0.2}px`)
           .text(`${value} s`)
           .attr("fill", "#ffffff");

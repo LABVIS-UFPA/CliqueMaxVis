@@ -121,8 +121,6 @@ function startMainLoop() {
     mainInterval = setInterval(() => {
         // Só executa se estiver rodando ou se for solicitado um único passo
         if (isRunning || runSingleStep) {
-            // Código existente para enviar dados aos clientes...
-            
             for (const c of obs_fitness) {
                 let data = {
                     bestFitness: ga.population[0].fitness,
@@ -133,8 +131,23 @@ function startMainLoop() {
                 if(ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
                 c.send(JSON.stringify({act:"data", data}));
             }
-            
-            // Restante do código de envio de dados...
+
+            if(ga.generation % 1 === 0){
+                for (const c of obs_individuals) {
+                    c.send(JSON.stringify({act:"data", data:{
+                        population: ga.population.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
+                        generation: ga.generation
+                    }}));
+                }
+            }
+        
+            for (const c of obs_best_individuals) {
+                c.send(JSON.stringify({act:"data", data:{
+                    bestIndividuals: ga.bestIndividuals.map(i=>i.nodeMask),
+                    bestFitness: ga.bestFitness
+                }}));
+            }
+        
             
             console.log(`Best Fitness: ${ga.population[0].fitness}`);
             console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
