@@ -50,7 +50,7 @@ class TreeSaveModel{
     }
     __getModel(){
         return {
-            id: __guidGenerator(),
+            id: this.__guidGenerator(),
             population: this.ga.population.map(i=>i.nodeMask),
             bestFitness: this.ga.bestFitness,
             bestUpperBound: this.ga.bestUpperBound,

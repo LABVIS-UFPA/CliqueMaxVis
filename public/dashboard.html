@@ -626,7 +626,7 @@
 
       socket.onopen = function () {
         console.log("Conectado ao servidor WebSocket");
-        socket.send(JSON.stringify({ act: "obs", data: "fitness" }));
+        socket.send(JSON.stringify({ act: "obs", data: ["fitness","running"] }));
       };
     </script>
   </body>

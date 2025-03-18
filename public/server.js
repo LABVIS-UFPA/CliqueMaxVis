@@ -2,9 +2,13 @@ const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
 const {TreeSaveModel} = require("./TreeSaveModel.js");
 const clients = [];
-const obs_fitness = [];
-const obs_individuals = [];
-const obs_best_individuals = [];
+const observers = {
+    obs_fitness: [],
+    obs_individuals: [],
+    obs_best_individuals: [],
+    obs_running: [],
+    obs_timings: []
+};
 
 
 let partialReset = false;
@@ -16,6 +20,10 @@ let executionSpeed = 50;
 
 
 console.log("WebSocket server running on ws://localhost:3214");
+
+
+require('node:child_process')
+    .exec('start http://127.0.0.1:5500/public/dashboard.html');
 
 
 
@@ -42,9 +50,9 @@ graph.calcMatAdjs();
 let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
 
 ga.setRunningObs((txt)=>{
-    // for (const c of observers.obj_running) {
-    //     c.send({act:"running_data", data:txt});
-    // }
+    for (const c of observers.obs_running) {
+        c.send(JSON.stringify({act:"running_data", data:txt}));
+    }
 });
 
 ga.init();
@@ -66,14 +74,8 @@ server.on('connection', ws => {
         const obj = JSON.parse(message);
         switch (obj.act){
             case "obs":
-                //obj.data.forach(d=>objs[`obs_${d}`].push(ws));
-                if(obj.data === "fitness"){
-                    obs_fitness.push(ws);
-                }else if(obj.data === "individuals"){
-                    obs_individuals.push(ws);
-                }else if(obj.data === "best_individuals"){
-                    obs_best_individuals.push(ws);
-                }
+                
+                obj.data.forEach(d=>observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
                 break;
             case "get_parameters":
                 ws.send(JSON.stringify({act:"data", data: ga.getParameters()}));
@@ -126,7 +128,7 @@ function startMainLoop() {
     mainInterval = setInterval(() => {
         // Só executa se estiver rodando ou se for solicitado um único passo
         if (isRunning || runSingleStep) {
-            for (const c of obs_fitness) {
+            for (const c of observers.obs_fitness) {
                 let data = {
                     bestFitness: ga.population[0].fitness,
                     worstFitness: ga.population[ga.population.length-1].fitness,
@@ -138,7 +140,7 @@ function startMainLoop() {
             }
 
             if(ga.generation % 1 === 0){
-                for (const c of obs_individuals) {
+                for (const c of observers.obs_individuals) {
                     c.send(JSON.stringify({act:"data", data:{
                         population: ga.population.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
                         generation: ga.generation
@@ -146,11 +148,15 @@ function startMainLoop() {
                 }
             }
         
-            for (const c of obs_best_individuals) {
+            for (const c of observers.obs_best_individuals) {
                 c.send(JSON.stringify({act:"data", data:{
                     bestIndividuals: ga.bestIndividuals.map(i=>i.nodeMask),
                     bestFitness: ga.bestFitness
                 }}));
+            }
+
+            for (const c of observers.obs_timings) {
+                c.send(JSON.stringify({act:"timings", data: ga.timings}));
             }
         
             
@@ -160,8 +166,8 @@ function startMainLoop() {
             console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
             console.log(`generation: ${ga.generation}`);
 
-            console.log('timings');
-            console.log(ga.timings);
+            // console.log('timings');
+            // console.log(ga.timings);
             
             // Avança a geração
             ga.nextGeneration();
