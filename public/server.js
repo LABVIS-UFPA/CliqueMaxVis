@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
+const {TreeSaveModel} = require("./TreeSaveModel.js");
 const clients = [];
 const obs_fitness = [];
 const obs_individuals = [];
@@ -39,6 +40,16 @@ graph.importFromText(txt);
 graph.calcMatAdjs();
 
 let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+
+ga.setRunningObs((txt)=>{
+    // for (const c of observers.obj_running) {
+    //     c.send({act:"running_data", data:txt});
+    // }
+});
+
+ga.init();
+
+const treeModel = new TreeSaveModel(ga);
 
 
 
@@ -107,17 +118,6 @@ server.on('connection', ws => {
     ws.send(JSON.stringify({act:"log", data:"Connected!"}));
 });
 
-
-
-
-
-ga.setRunningObs((txt)=>{
-    // for (const c of observers.obj_running) {
-    //     c.send({act:"running_data", data:txt});
-    // }
-});
-
-ga.init();
 
 
 let mainInterval;
