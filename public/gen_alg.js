@@ -1,5 +1,5 @@
 
-
+const { performance } = require('perf_hooks');
 
 
 
@@ -7,11 +7,9 @@ class GA {
 
     constructor(individualConstructor, numNodes) {
         this.newIndividual = individualConstructor
-        // this.generatePopulation = GA.generatePopulation.simples;
-        // this.fitness = GA.fitness.std;
-        // this.crossover = GA.crossover.simples//GA.crossover.sem_repeticao;
-        // this.mutate = GA.mutate.simples;
-        // this.selection = GA.selection.simples;
+        this.timings = {};
+        this.runningObs = ()=>{};
+
         this.generation = 0;
         this.numNodes = numNodes;
         this.bestIndividuals = [];
@@ -30,6 +28,11 @@ class GA {
         this.preventEqualIndividuals = false;
         this.calcUpperBound = false;
 
+    }
+
+    setRunningObs(func){
+        if(func instanceof Function)
+            this.runningObs = func;
     }
 
     init() {
@@ -83,6 +86,7 @@ class GA {
         }
     }
     partialReset() {
+        this.runningObs("Partial Reset");
         let midpoint = Math.floor(this.population.length * this.survivalRate);
         for (let i = midpoint; i < this.populationSize; i++) {
             this.population[i] = this.__generateIndividual();
@@ -91,6 +95,8 @@ class GA {
     }
 
     __fitness(population) {
+        this.runningObs("Calculating Fitness");
+        const t1 = performance.now();
         for (const individual of population) {
             individual.fitness = individual.verifyClique();
         }
@@ -101,8 +107,11 @@ class GA {
                     this.bestUpperBound = individual.upperBound;
             }
         }
+        this.timings.fitness = performance.now()-t1;
     }
     __crossover() {
+        this.runningObs("Making Crossover");
+        const t1 = performance.now();
         const population = this.population;
         const newIndividual = this.newIndividual;
         let newPopulation = [];
@@ -136,10 +145,13 @@ class GA {
 
             newPopulation.push(newI);
         }
+        this.timings.crossover = performance.now()-t1;
         return newPopulation;
     }
 
     __mutate(population) {
+        this.runningObs("Mutating");
+        const t1=performance.now();
         for (const individual of population) {
             if (Math.random() < this.mutationSelectionRate) {
                 for (let i = 0; i < individual.nodeMask.length; i++) {
@@ -149,9 +161,12 @@ class GA {
                 if (this.hasExtractionImprovement) individual.extraction().improvement();
             }
         }
+        this.timings.mutation = performance.now()-t1;
     }
 
     __selection(newPopulation) {
+        this.runningObs("Selecting Next Population");
+        const t1 = performance.now();
         const oldPopulation = this.population;
         if (this.hasMaxAge) {
             for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
@@ -169,10 +184,12 @@ class GA {
         for (const individual of nextPopulation) {
             individual.age++;
         }
+        this.timings.selection = performance.now()-t1;
         return nextPopulation;
     }
 
     __generatePopulation() {
+        this.runningObs("Generating Initial Population");
         const population = [];
         for (let i = 0; i < this.populationSize; i++) {
             population.push(this.__generateIndividual());

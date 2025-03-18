@@ -4,7 +4,7 @@ const clients = [];
 const obs_fitness = [];
 const obs_individuals = [];
 const obs_best_individuals = [];
-const { performance } = require('perf_hooks');
+
 
 let partialReset = false;
 
@@ -55,6 +55,7 @@ server.on('connection', ws => {
         const obj = JSON.parse(message);
         switch (obj.act){
             case "obs":
+                //obj.data.forach(d=>objs[`obs_${d}`].push(ws));
                 if(obj.data === "fitness"){
                     obs_fitness.push(ws);
                 }else if(obj.data === "individuals"){
@@ -110,7 +111,11 @@ server.on('connection', ws => {
 
 
 
-
+ga.setRunningObs((txt)=>{
+    // for (const c of observers.obj_running) {
+    //     c.send({act:"running_data", data:txt});
+    // }
+});
 
 ga.init();
 
@@ -154,6 +159,9 @@ function startMainLoop() {
             console.log(`Best age: ${ga.population[0].age}`);
             console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
             console.log(`generation: ${ga.generation}`);
+
+            console.log('timings');
+            console.log(ga.timings);
             
             // Avança a geração
             ga.nextGeneration();
