@@ -93,7 +93,7 @@ function loadGA(dbpath) {
     graph.importFromText(txt);
     graph.calcMatAdjs();
 
-    let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+    ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
 
     ga.setRunningObs((txt) => {
         for (const c of observers.obs_running) {
