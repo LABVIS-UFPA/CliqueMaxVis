@@ -18,7 +18,7 @@
   <body class="sb-nav-fixed">
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
       <!-- Navbar Brand-->
-      <a class="navbar-brand ps-3" href="index.html">Max Click</a>
+      <a class="navbar-brand ps-3" href="#">Max Clique</a>
       <!-- Sidebar Toggle-->
       <button
         class="navbar-toggler"
@@ -80,7 +80,7 @@
               <li>
                 <a
                   class="dropdown-item"
-                  onclick='window.open("individuals_vis_canvas.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  onclick='window.open("individuals_vis_canvas.html", "_blank", "width=550,height=700,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
                   href="#"
                   >Individual Visualization</a
                 >
@@ -96,7 +96,7 @@
               <li>
                 <a
                   class="dropdown-item"
-                  onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  onclick='window.open("projection_MDS.html", "_blank", "width=700,height=650,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
                   href="#"
                   >MDS Scatterplot</a
                 >
@@ -104,7 +104,7 @@
               <li>
                 <a
                   class="dropdown-item"
-                  onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                  onclick='window.open("best_vis.html", "_blank", "width=550,height=350,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
                   href="#"
                   >Best Individuals</a
                 >
@@ -116,75 +116,91 @@
     </nav>
     <div id="layoutSidenav">
       <div id="layoutSidenav_nav">
-        <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
-          <div class="sb-sidenav-menu">
-            <div class="nav">
-              <div class="sb-sidenav-menu-heading">Some metrics</div>
-              <div class="align-items-center d-flex flex-column">
-                <div class="gauge-container" id="gauge1"></div>
-                <div class="gauge-container" id="gauge2"></div>
-                <div class="gauge-container" id="gauge3"></div>
-              </div>
-            </div>
+        <div class="d-flex flex-column p-3 gap-2">
+          <div class="card">
+            <div class="metric-title">Best age</div>
+            <div class="metric" id="infoAge">0</div>
           </div>
-        </nav>
+
+          <div class="card">
+            <div class="metric-title">Current Generation</div>
+            <div class="metric" id="infoGeneration">0</div>
+          </div>
+
+          <div class="card">
+            <div class="metric-title">Best Fitness</div>
+            <div class="metric" id="infoFitness">0</div>
+          </div>
+        </div>
       </div>
       <div id="layoutSidenav_content">
         <main>
+          <!-- Controles de Mídia -->
+          <div class="media-controls card">
+            <div
+              class="d-flex justify-content-between align-items-center gap-2"
+            >
+              <div class="media-buttons">
+                <button class="btn btn-primary btn-circle" id="btnPlayPause">
+                  <i class="fas fa-play" id="playPauseIcon"></i>
+                </button>
+                <button class="btn btn-danger btn-circle" id="btnStop">
+                  <i class="fas fa-stop"></i>
+                </button>
+                <button class="btn btn-info btn-circle" id="btnNext" disabled>
+                  <i class="fas fa-step-forward"></i>
+                </button>
+              </div>
+              <div
+                class="mediaSlider d-flex justify-content-center align-items-center gap-2"
+              >
+                <label for="mediaSlider">Execution delay: </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  value="50"
+                  class="slider"
+                  id="mediaSlider"
+                />
+              </div>
+            </div>
+            <div id="running-label" style="width: 300px">Running:</div>
+          </div>
+
           <div class="infos-container row">
-            <div class="col-4">
+            <div class="col-3">
               <div class="card">
-                <div class="metric-title">Best age</div>
-                <div class="metric" id="infoAge">0</div>
+                <div class="gauge-container" id="fitness">
+                  <p>Click "play" to receive stats</p>
+                </div>
               </div>
             </div>
-            <div class="col-4">
+            <div class="col-3">
               <div class="card">
-                <div class="metric-title">Current Generation</div>
-                <div class="metric" id="infoGeneration">0</div>
+                <div class="gauge-container" id="crossover">
+                  <p>Click "play" to receive stats</p>
+                </div>
               </div>
             </div>
-            <div class="col-4">
+            <div class="col-3">
               <div class="card">
-                <div class="metric-title">Best Fitness</div>
-                <div class="metric" id="infoFitness">0</div>
+                <div class="gauge-container" id="mutation">
+                  <p>Click "play" to receive stats</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="card">
+                <div class="gauge-container" id="selection">
+                  <p>Click "play" to receive stats</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div class="dendro-container card" id="dendrogramChart">
             <!-- D3 Dendrogram será renderizado aqui -->
-          </div>
-
-          <!-- Controles de Mídia -->
-          <div class="media-controls card">
-            <div class="media-buttons">
-              <button class="btn btn-primary btn-circle" id="btnPlay">
-                <i class="fas fa-play"></i>
-              </button>
-              <button class="btn btn-warning btn-circle" id="btnPause">
-                <i class="fas fa-pause"></i>
-              </button>
-              <button class="btn btn-danger btn-circle" id="btnStop">
-                <i class="fas fa-stop"></i>
-              </button>
-              <button class="btn btn-info btn-circle" id="btnNext">
-                <i class="fas fa-step-forward"></i>
-              </button>
-            </div>
-            <div
-              class="mediaSlider d-flex justify-content-center align-items-center gap-2"
-            >
-              <label for="#mediaSlider">Execution delay: </label>
-              <input
-                type="range"
-                min="5"
-                max="100"
-                value="50"
-                class="slider"
-                id="mediaSlider"
-              />
-            </div>
           </div>
         </main>
         <footer class="py-4 bg-light mt-auto">
@@ -205,21 +221,21 @@
     <script>
       const socket = new WebSocket("ws://localhost:3214");
 
+      let gaugeConfigs = [
+        { id: "fitness", title: "fitness", value: 0, min: 0, max: 1000 },
+        { id: "crossover", title: "crossover", value: 0, min: 0, max: 1000 },
+        { id: "mutation", title: "mutation", value: 0, min: 0, max: 1000 },
+        { id: "selection", title: "selection", value: 0, min: 0, max: 1000 },
+      ];
+
       // Função para criar os medidores gauge
-      function createGauges() {
+      function createGauges(gaugeConfigs) {
         // Configuração dos gauges
         const gaugeWidth =
           document.querySelector(".gauge-container").offsetWidth;
         const gaugeHeight =
           document.querySelector(".gauge-container").offsetHeight;
-        const radius = Math.min(gaugeWidth, gaugeHeight) / 2;
-
-        // Configurações específicas para cada gauge
-        const gaugeConfigs = [
-          { id: "gauge1", title: "Medidor 1", value: 5, min: 0, max: 10 },
-          { id: "gauge2", title: "Medidor 2", value: 15, min: 0, max: 30 },
-          { id: "gauge3", title: "Medidor 3", value: 45, min: 0, max: 60 },
-        ];
+        const radius = gaugeHeight;
 
         // Criação de cada gauge
         gaugeConfigs.forEach((config) => {
@@ -238,8 +254,9 @@
         const svg = d3
           .select(`#${elementId}`)
           .append("svg")
-          .attr("width", "100%")
-          .attr("height", "100%")
+          .style("overflow", "visible")
+          .attr("width", "200px")
+          .attr("height", "100px")
           .append("g")
           .attr("transform", `translate(${radius}, ${radius})`);
 
@@ -268,7 +285,11 @@
           .startAngle(-Math.PI / 2)
           .endAngle(scale(value));
 
-        svg.append("path").attr("d", valueArc).style("fill", "#4682b4");
+        svg
+          .append("path")
+          .attr("d", valueArc)
+          .attr("class", "value-arc")
+          .style("fill", "#4682b4");
 
         // // Ponteiro
         // const pointerLength = radius * 0.8;
@@ -301,17 +322,18 @@
         svg
           .append("text")
           .attr("text-anchor", "middle")
+          .attr("class", "gauge-value")
           .attr("dy", radius * 0)
           .style("font-size", `${radius * 0.2}px`)
           .text(`${value} s`)
-          .attr("fill", "#ffffff");
+          .attr("fill", "#000");
 
         // Título
         svg
           .append("text")
           .attr("text-anchor", "middle")
           .attr("dy", -radius * 0.2)
-          .style("fill", "#ffffff")
+          .style("fill", "#000")
           .style("font-size", `${radius * 0.15}px`)
           .text(title);
 
@@ -321,7 +343,7 @@
           .attr("text-anchor", "start")
           .attr("x", -radius * 0.9)
           .attr("y", radius * 0.1)
-          .style("fill", "#ffffff")
+          .style("fill", "#000")
           .style("font-size", `${radius * 0.12}px`)
           .text(`${min} s`);
 
@@ -331,7 +353,7 @@
           .attr("x", radius * 0.9)
           .attr("y", radius * 0.1)
           .style("font-size", `${radius * 0.12}px`)
-          .style("fill", "#ffffff")
+          .style("fill", "#000")
           .text(`${max} s`);
       }
 
@@ -560,27 +582,64 @@
           update: update,
         };
       }
-     
+
+      let isFirstMessage = true;
+
       document.addEventListener("DOMContentLoaded", function () {
-        createGauges();
         createDendrogram();
 
-        document
-          .getElementById("btnPlay")
-          .addEventListener("click", function () {
-            socket.send(JSON.stringify({ act: "command", data: "play" }));
-          });
+        let isPlaying = false;
 
         document
-          .getElementById("btnPause")
+          .getElementById("btnPlayPause")
           .addEventListener("click", function () {
-            socket.send(JSON.stringify({ act: "command", data: "pause" }));
+            if (isPlaying) {
+              socket.send(JSON.stringify({ act: "command", data: "pause" }));
+              document
+                .getElementById("playPauseIcon")
+                .classList.remove("fa-pause");
+              document.getElementById("playPauseIcon").classList.add("fa-play");
+              document.getElementById("btnNext").removeAttribute("disabled");
+              isPlaying = false;
+            } else {
+              socket.send(JSON.stringify({ act: "command", data: "play" }));
+              document
+                .getElementById("playPauseIcon")
+                .classList.remove("fa-play");
+              document
+                .getElementById("playPauseIcon")
+                .classList.add("fa-pause");
+              document
+                .getElementById("btnNext")
+                .setAttribute("disabled", "disabled");
+              isPlaying = true;
+            }
           });
 
         document
           .getElementById("btnStop")
           .addEventListener("click", function () {
-            socket.send(JSON.stringify({ act: "command", data: "stop" }));
+            if (
+              confirm(
+                "Are you sure you want to stop? This will reset the simulation."
+              )
+            ) {
+              socket.send(JSON.stringify({ act: "command", data: "stop" }));
+              document.getElementById("infoGeneration").innerHTML = 0;
+              document.getElementById("infoFitness").innerHTML = 0;
+              document.getElementById("infoAge").innerHTML = 0;
+              isFirstMessage = true;
+
+              document
+                .getElementById("playPauseIcon")
+                .classList.remove("fa-pause");
+              document.getElementById("playPauseIcon").classList.add("fa-play");
+              isPlaying = false;
+
+              document
+                .getElementById("btnNext")
+                .setAttribute("disabled", "disabled");
+            }
           });
 
         document
@@ -589,7 +648,6 @@
             socket.send(JSON.stringify({ act: "command", data: "next" }));
           });
 
-        // Controle de velocidade
         document
           .getElementById("mediaSlider")
           .addEventListener("input", function () {
@@ -599,18 +657,44 @@
               JSON.stringify({ act: "command", data: "setSpeed", speed: speed })
             );
           });
+
+        // socket.addEventListener("message", function (event) {
+        //   try {
+        //     const message = JSON.parse(event.data);
+        //     if (message.status === "paused") {
+        //       document
+        //         .getElementById("playPauseIcon")
+        //         .classList.remove("fa-pause");
+        //       document.getElementById("playPauseIcon").classList.add("fa-play");
+        //       document.getElementById("btnNext").removeAttribute("disabled");
+        //       isPlaying = false;
+        //     } else if (message.status === "playing") {
+        //       document
+        //         .getElementById("playPauseIcon")
+        //         .classList.remove("fa-play");
+        //       document
+        //         .getElementById("playPauseIcon")
+        //         .classList.add("fa-pause");
+        //       document
+        //         .getElementById("btnNext")
+        //         .setAttribute("disabled", "disabled");
+        //       isPlaying = true;
+        //     }
+        //   } catch (e) {
+        //     console.error("Error parsing socket message:", e);
+        //   }
+        // });
       });
 
       // Redimensionar gráficos quando a janela mudar de tamanho
       window.addEventListener("resize", function () {
         d3.selectAll("svg").remove();
-        createGauges();
+        createGauges(gaugeConfigs);
         createDendrogram();
       });
 
       socket.onmessage = function (event) {
         const message = JSON.parse(event.data);
-
         switch (message.act) {
           case "log":
             console.log(message.data);
@@ -621,12 +705,118 @@
             document.getElementById("infoFitness").innerHTML =
               message.data.bestFitness;
             document.getElementById("infoAge").innerHTML = message.data.bestAge;
+            break;
+          case "timings":
+            if (isFirstMessage) {
+              let maxgauge =
+                (Math.round(
+                  Math.max(
+                    message.data.fitness,
+                    message.data.crossover,
+                    message.data.mutation,
+                    message.data.selection
+                  )
+                ) /
+                  1000) *
+                2;
+              gaugeConfigs = [
+                {
+                  id: "fitness",
+                  title: "fitness",
+                  value: Math.round(message.data.fitness) / 1000,
+                  min: 0,
+                  max: maxgauge,
+                },
+                {
+                  id: "crossover",
+                  title: "crossover",
+                  value: Math.round(message.data.crossover) / 1000,
+                  min: 0,
+                  max: maxgauge,
+                },
+                {
+                  id: "mutation",
+                  title: "mutation",
+                  value: Math.round(message.data.mutation) / 1000,
+                  min: 0,
+                  max: maxgauge,
+                },
+                {
+                  id: "selection",
+                  title: "selection",
+                  value: Math.round(message.data.selection) / 1000,
+                  min: 0,
+                  max: maxgauge,
+                },
+              ];
+              isFirstMessage = false;
+              document.querySelectorAll(".gauge-container *").forEach((el) => {
+                el.remove();
+              });
+              createGauges(gaugeConfigs);
+            }
+            Object.keys(message.data).forEach((timing, index) => {
+              const scale = d3
+                .scaleLinear()
+                .domain([0, gaugeConfigs[index].max])
+                .range([-Math.PI / 2, Math.PI / 2]);
+
+              d3.select(`#${timing} .gauge-value`).text(
+                `${Math.round(message.data[timing]) / 1000} s`
+              );
+
+              if (message.data[timing] > gaugeConfigs[index].max*1000) {
+                d3.select(`#${timing} .value-arc`).style("fill", "red");
+
+                // Use the maximum value for the end angle calculation
+                d3.select(`#${timing} .value-arc`)
+                  .transition()
+                  .duration(100)
+                  .attr(
+                    "d",
+                    d3
+                      .arc()
+                      .innerRadius(100 * 0.6)
+                      .outerRadius(100 * 0.9)
+                      .startAngle(-Math.PI / 2)
+                      .endAngle(scale(gaugeConfigs[index].max))
+                  );
+              } else {
+                d3.select(`#${timing} .value-arc`).style("fill", "#4682b4");
+
+                // Use the actual value for the end angle calculation
+                d3.select(`#${timing} .value-arc`)
+                  .transition()
+                  .duration(100)
+                  .attr(
+                    "d",
+                    d3
+                      .arc()
+                      .innerRadius(100 * 0.6)
+                      .outerRadius(100 * 0.9)
+                      .startAngle(-Math.PI / 2)
+                      .endAngle(scale(message.data[timing] / 1000))
+                  );
+              }
+            });
+            break;
+          case "running_data":
+            if (message.data) {
+              document.getElementById("running-label").innerHTML =
+                "Running: " + message.data;
+            }
+            break;
         }
       };
 
-      socket.onopen = function () {
+      socket.onopen = function (event) {
         console.log("Conectado ao servidor WebSocket");
-        socket.send(JSON.stringify({ act: "obs", data: ["fitness","running"] }));
+        socket.send(
+          JSON.stringify({
+            act: "obs",
+            data: ["fitness", "running", "timings"],
+          })
+        );
       };
     </script>
   </body>
