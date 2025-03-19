@@ -1,7 +1,8 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
-const {TreeSaveModel} = require("./TreeSaveModel.js");
+const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
+
 const observers = {
     obs_fitness: [],
     obs_individuals: [],
@@ -10,12 +11,53 @@ const observers = {
     obs_timings: []
 };
 
+const datasets = {
+    "C500.9.clq": {
+        name: "C500.9.clq",
+        url: "../exemplosGrafos/C500.9.clq.txt",
+        n_nodes: 500,
+        n_links: 112332
+    },
+    "C250.9.clq": {
+        name: "C250.9.clq",
+        url: "../exemplosGrafos/clique44.txt",
+        n_nodes: 250,
+        n_links: 27984
+    },
+    "C125.9.clq": {
+        name: "C125.9.clq",
+        url: "../exemplosGrafos/clique34.txt",
+        n_nodes: 150,
+        n_links: 6963
+    },
+    "p_hat1500-2.clq": {
+        name: "p_hat1500-2.clq",
+        url: "../exemplosGrafos/clique65.txt",
+        n_nodes: 1500,
+        n_links: 568960
+    },
+    "p_hat1500-3.clq": {
+        name: "p_hat1500-3.clq",
+        url: "../exemplosGrafos/clique94.txt",
+        n_nodes: 1500,
+        n_links: 847244
+    },
+    "p_hat700-3.clq": {
+        name: "p_hat700-3.clq",
+        url: "../exemplosGrafos/clique62.txt",
+        n_nodes: 700,
+        n_links: 183010
+    }
+}
+
+const saves = {};
+
 
 let partialReset = false;
 
-let isRunning = false;  
-let runSingleStep = false;  
-let executionSpeed = 50; 
+let isRunning = false;
+let runSingleStep = false;
+let executionSpeed = 50;
 
 
 
@@ -23,41 +65,47 @@ console.log("WebSocket server running on ws://localhost:3214");
 
 
 require('node:child_process')
-    .exec('start http://127.0.0.1:5500/public/dashboard.html');
+    .exec('start http://127.0.0.1:5500/public/html/dashboard.html');
 
 
 
 
 
 const fs = require("fs");
-const {Graph, CliqueBuilder, CliqueSolver, CliqueMask} = require("./graph.js");
-const {GA} = require("./gen_alg.js");
-
-// let dbpath = "../exemplosGrafos/grafoK5.txt";
-// let dbpath = "../exemplosGrafos/homer.col.txt";
-// let dbpath = "../exemplosGrafos/queen5_5.col.txt";
-// let dbpath = "../exemplosGrafos/clique34.txt";
-// let dbpath = "../exemplosGrafos/clique62.txt";
-let dbpath = "../exemplosGrafos/clique94.txt";
+const { Graph, CliqueBuilder, CliqueSolver, CliqueMask } = require("./js-server/graph.js");
+const { GA } = require("./js-server/gen_alg.js");
+let ga;
+let treeModel;
 
 
-let txt = fs.readFileSync(dbpath, {encoding:"utf-8"});
+function loadGA(dbpath) {
+    // let dbpath = "../exemplosGrafos/grafoK5.txt";
+    // let dbpath = "../exemplosGrafos/homer.col.txt";
+    // let dbpath = "../exemplosGrafos/queen5_5.col.txt";
+    // let dbpath = "../exemplosGrafos/clique34.txt";
+    // let dbpath = "../exemplosGrafos/clique62.txt";
+    // let dbpath = "../exemplosGrafos/clique94.txt";
 
-let graph = new Graph();
-graph.importFromText(txt);
-graph.calcMatAdjs();
 
-let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+    let txt = fs.readFileSync(dbpath, { encoding: "utf-8" });
 
-ga.setRunningObs((txt)=>{
-    for (const c of observers.obs_running) {
-        c.send(JSON.stringify({act:"running_data", data:txt}));
-    }
-});
+    let graph = new Graph();
+    graph.importFromText(txt);
+    graph.calcMatAdjs();
 
-ga.init();
+    let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
 
-const treeModel = new TreeSaveModel(ga);
+    ga.setRunningObs((txt) => {
+        for (const c of observers.obs_running) {
+            c.send(JSON.stringify({ act: "running_data", data: txt }));
+        }
+    });
+
+    ga.init();
+
+    treeModel = new TreeSaveModel(ga);
+}
+
 
 
 
@@ -66,58 +114,80 @@ const treeModel = new TreeSaveModel(ga);
 
 server.on('connection', ws => {
     console.log("Client connected");
-    
+
     clients.push(ws);
     ws.on('message', message => {
 
         // console.log(`Received: ${message}`);
         const obj = JSON.parse(message);
-        switch (obj.act){
+        switch (obj.act) {
             case "obs":
-                
-                obj.data.forEach(d=>observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
+
+                obj.data.forEach(d => observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
                 break;
             case "get_parameters":
-                ws.send(JSON.stringify({act:"data", data: ga.getParameters()}));
+                ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
                 break;
             case "set_parameters":
                 ga.setParameters(obj.data);
                 break;
-                case "command":
-                    if(obj.data === "partialReset") partialReset = true;
-                    else if(obj.data === "initial_individuals") 
-                        ws.send(JSON.stringify({act:"data", data: {
-                            population: ga.initialPopulation.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
+            case "command":
+                if (obj.data === "partialReset") partialReset = true;
+                else if (obj.data === "initial_individuals")
+                    ws.send(JSON.stringify({
+                        act: "data", data: {
+                            population: ga.initialPopulation.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
                             generation: 0
-                        }}));
-                    else if(obj.data === "play") isRunning = true;
-                    else if(obj.data === "pause") isRunning = false;
-                    else if(obj.data === "stop") {
-                        isRunning = false;
-                        // Opcionalmente reiniciar o algoritmo
-                        ga.init();
-                        ga.generation = 0;
-                        ws.send(JSON.stringify({act:"status", data:"stopped"}));
-                    }
-                    else if(obj.data === "next") {
-                        runSingleStep = true;
-                    }
-                    else if(obj.data === "setSpeed" && obj.speed !== undefined) {
-                        // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
-                        executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
-                        if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
-                        
-                        // Reinicia o intervalo com a nova velocidade
-                        clearInterval(mainInterval);
-                        startMainLoop();
-                        ws.send(JSON.stringify({act:"status", data:`speed set to ${executionSpeed}ms`}));
-                    }
-                    break;
+                        }
+                    }));
+                else if (obj.data === "play") isRunning = true;
+                else if (obj.data === "pause") isRunning = false;
+                else if (obj.data === "stop") {
+                    isRunning = false;
+                    // Opcionalmente reiniciar o algoritmo
+                    ga.init();
+                    ga.generation = 0;
+                    ws.send(JSON.stringify({ act: "status", data: "stopped" }));
+                }
+                else if (obj.data === "next") {
+                    runSingleStep = true;
+                }
+                else if (obj.data === "setSpeed" && obj.speed !== undefined) {
+                    // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
+                    executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
+                    if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
+
+                    // Reinicia o intervalo com a nova velocidade
+                    clearInterval(mainInterval);
+                    startMainLoop();
+                    ws.send(JSON.stringify({ act: "status", data: `speed set to ${executionSpeed}ms` }));
+                }
+                break;
+            case "new_save":
+                const { datasetName, saveName } = obj.data;
+                const dataset_url = datasets[datasetName].url;
+                if (saves[saveName]) break; //Melhorar o feedback quando o usuário já criou um arquivo com esse nome.
+                loadGA(dataset_url);
+
+                saves[saveName] = {
+                    name: saveName,
+                    dataset_url,
+                    datasetName,
+                    treeModel: treeModel.getTreeModel()
+                }
+                fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(saves[saveName]), (err) => {
+                    if(err) {console.log("Não salvou!!", err); return;}
+                    console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
+                });
+
+                break;
+            case "load_save":
+                break;
 
         }
     });
 
-    ws.send(JSON.stringify({act:"log", data:"Connected!"}));
+    ws.send(JSON.stringify({ act: "log", data: "Connected!" }));
 });
 
 
@@ -131,58 +201,62 @@ function startMainLoop() {
             for (const c of observers.obs_fitness) {
                 let data = {
                     bestFitness: ga.population[0].fitness,
-                    worstFitness: ga.population[ga.population.length-1].fitness,
+                    worstFitness: ga.population[ga.population.length - 1].fitness,
                     generation: ga.generation,
                     bestAge: ga.population[0].age
                 };
-                if(ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
-                c.send(JSON.stringify({act:"data", data}));
+                if (ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
+                c.send(JSON.stringify({ act: "data", data }));
             }
 
-            if(ga.generation % 1 === 0){
+            if (ga.generation % 1 === 0) {
                 for (const c of observers.obs_individuals) {
-                    c.send(JSON.stringify({act:"data", data:{
-                        population: ga.population.map(i=>{return {nodeMask:i.nodeMask, fitness: i.fitness}}),
-                        generation: ga.generation
-                    }}));
+                    c.send(JSON.stringify({
+                        act: "data", data: {
+                            population: ga.population.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
+                            generation: ga.generation
+                        }
+                    }));
                 }
             }
-        
+
             for (const c of observers.obs_best_individuals) {
-                c.send(JSON.stringify({act:"data", data:{
-                    bestIndividuals: ga.bestIndividuals.map(i=>i.nodeMask),
-                    bestFitness: ga.bestFitness
-                }}));
+                c.send(JSON.stringify({
+                    act: "data", data: {
+                        bestIndividuals: ga.bestIndividuals.map(i => i.nodeMask),
+                        bestFitness: ga.bestFitness
+                    }
+                }));
             }
 
             for (const c of observers.obs_timings) {
-                c.send(JSON.stringify({act:"timings", data: ga.timings}));
+                c.send(JSON.stringify({ act: "timings", data: ga.timings }));
             }
-        
-            
+
+
             console.log(`Best Fitness: ${ga.population[0].fitness}`);
-            console.log(`Worst Fitness: ${ga.population[ga.population.length-1].fitness}`);
+            console.log(`Worst Fitness: ${ga.population[ga.population.length - 1].fitness}`);
             console.log(`Best age: ${ga.population[0].age}`);
             console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
             console.log(`generation: ${ga.generation}`);
 
             // console.log('timings');
             // console.log(ga.timings);
-            
+
             // Avança a geração
             ga.nextGeneration();
-            if(partialReset){
+            if (partialReset) {
                 ga.partialReset();
                 partialReset = false;
             }
-            
+
             // Se executou um único passo, desativa o flag
             if (runSingleStep) {
                 runSingleStep = false;
-                
+
                 // Notifica todos os clientes que um passo foi executado
                 for (const client of clients) {
-                    client.send(JSON.stringify({act:"status", data:"step_executed"}));
+                    client.send(JSON.stringify({ act: "status", data: "step_executed" }));
                 }
             }
         }
