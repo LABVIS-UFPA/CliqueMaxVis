@@ -204,11 +204,10 @@ server.on('connection', ws => {
             case "load_save":
                 break;
             case "load_model":
-                treeModel.load(treeModel.selectByID(obj.data));
-
+                if(treeModel) treeModel.load(treeModel.selectByID(obj.data));
                 break;
             case "get_tree_model":
-                ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                if(treeModel) ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 break;
 
         }

@@ -10,6 +10,7 @@
 .block {
   display: block;
 }
+
 .column {
   flex: 1;
   display: inline-block;
@@ -184,12 +185,12 @@ h1 {
   margin: 0 auto;
 }
 
-#layoutSidenav_content{
+#layoutSidenav_content {
   overflow-x: hidden;
 }
 
 
-#layoutSidenav_content main{
+#layoutSidenav_content main {
   padding: 10px;
 }
 
@@ -240,9 +241,49 @@ h1 {
   font-weight: bold;
   color: #2c3e50;
 }
+
 .metric-title {
   font-size: 14px;
   color: #7f8c8d;
   margin-bottom: 5px;
 }
 
+
+.selectedSaveDen {
+  stroke: black;
+  stroke-width: 1px;
+}
+
+.runningSaveDen {
+  stroke: mediumspringgreen;
+  stroke-width: 2px;
+  stroke-dasharray: 45;
+  stroke-dashoffset: 45;
+  animation: dashanim 2s linear infinite;
+}
+
+@keyframes dashanim {
+  0% {
+    stroke-dasharray: 45;
+    /* stroke-dasharray: 40; */
+  }
+
+  50% {
+    stroke-dashoffset: 0;
+  }
+
+  100% {
+    stroke-dashoffset: -45;
+    /* stroke-dasharray: 0; */
+  }
+}
+
+
+#dentroButtons {
+  position: absolute;
+  right: 10px;
+  opacity: 0.1;
+}
+#dentroButtons:hover {
+  opacity: 1;
+}
