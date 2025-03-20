@@ -50,7 +50,7 @@ const datasets = {
     }
 }
 
-const saves = {};
+let currentSave;
 
 
 let partialReset = false;
@@ -64,8 +64,23 @@ let executionSpeed = 50;
 console.log("WebSocket server running on ws://localhost:3214");
 
 
+const express = require('express');
+const path = require('path');
+const app = express();
+const port = 3000;
+
+app.use(express.static(path.join(__dirname, '')));
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
+});
+
+
+
+
+
+
 require('node:child_process')
-    .exec('start http://127.0.0.1:5500/public/html/dashboard.html');
+    .exec('start http://127.0.0.1:3000/html/dashboard.html');
 
 
 
@@ -166,26 +181,47 @@ server.on('connection', ws => {
             case "new_save":
                 const { datasetName, saveName } = obj.data;
                 const dataset_url = datasets[datasetName].url;
-                if (saves[saveName]) break; //Melhorar o feedback quando o usuário já criou um arquivo com esse nome.
+                // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 loadGA(dataset_url);
 
-                saves[saveName] = {
+                
+
+                currentSave = {
                     name: saveName,
                     dataset_url,
                     datasetName,
-                    treeModel: treeModel.getTreeModel()
+                    treeModel: treeModel.root
                 }
-                fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(saves[saveName]), (err) => {
-                    if(err) {console.log("Não salvou!!", err); return;}
-                    console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
-                });
+                setTimeout(()=>{
+                    fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
+                        if(err) {console.log("Não salvou!!", err); return;}
+                        console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
+                    });
+                },1000);
+                
 
                 break;
             case "load_save":
                 break;
+            case "load_model":
+                treeModel.load(treeModel.selectByID(obj.data));
+
+                break;
+            case "get_tree_model":
+                ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                break;
 
         }
     });
+
+    ws.on('error', (err)=>{
+        console.log("ERROR:");
+        console.log(err);
+    });
+    ws.on('close', ()=>{
+        console.log("Client CLOSED");
+    });
+
 
     ws.send(JSON.stringify({ act: "log", data: "Connected!" }));
 });
@@ -203,16 +239,17 @@ function startMainLoop() {
                     bestFitness: ga.population[0].fitness,
                     worstFitness: ga.population[ga.population.length - 1].fitness,
                     generation: ga.generation,
-                    bestAge: ga.population[0].age
+                    bestAge: ga.population[0].age,
+                    bestCount: ga.bestIndividuals.length
                 };
                 if (ga.calcUpperBound) data.bestUpperBound = ga.bestUpperBound;
-                c.send(JSON.stringify({ act: "data", data }));
+                c.send(JSON.stringify({ act: "data", type: "fitness", data }));
             }
 
             if (ga.generation % 1 === 0) {
                 for (const c of observers.obs_individuals) {
                     c.send(JSON.stringify({
-                        act: "data", data: {
+                        act: "data", type: "individuals", data: {
                             population: ga.population.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
                             generation: ga.generation
                         }
@@ -222,7 +259,7 @@ function startMainLoop() {
 
             for (const c of observers.obs_best_individuals) {
                 c.send(JSON.stringify({
-                    act: "data", data: {
+                    act: "data", type: "best_individuals", data: {
                         bestIndividuals: ga.bestIndividuals.map(i => i.nodeMask),
                         bestFitness: ga.bestFitness
                     }
@@ -265,4 +302,6 @@ function startMainLoop() {
 
 // Inicia o loop principal
 startMainLoop();
+
+
 

@@ -90,7 +90,7 @@
       </nav>
     </div>
     <div id="layoutSidenav_content">
-      <main>
+      <main style="height: 100%;display: flex;flex-direction: column;">
 
         <!-- Controles de Mídia -->
         <div class="media-controls card">
@@ -118,33 +118,39 @@
         </div>
 
         <div style="margin-top: 15px;" class="infos-container row">
-          <div class="col-4">
+          <div class="col-3">
             <div class="card">
               <div class="metric-title">Best age</div>
               <div class="metric" id="infoAge">0</div>
             </div>
           </div>
-          <div class="col-4">
+          <div class="col-3">
             <div class="card">
               <div class="metric-title">Current Generation</div>
               <div class="metric" id="infoGeneration">0</div>
             </div>
           </div>
-          <div class="col-4">
+          <div class="col-3">
             <div class="card">
-              <div class="metric-title">Best Fitness</div>
-              <div class="metric" id="infoFitness">0</div>
+              <div class="metric-title">Best/Worst Fitness</div>
+              <div class="metric" id="infoFitness">0/0</div>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="card">
+              <div class="metric-title">Best Count</div>
+              <div class="metric" id="infoBestCount">0</div>
             </div>
           </div>
         </div>
 
-        <div style="max-height: fit-content;" class="dendro-container card" id="dendrogramChart">
+        <div class="dendro-container card" id="dendrogramChart">
           <!-- D3 Dendrogram será renderizado aqui -->
         </div>
 
 
       </main>
-      <footer class="py-4 bg-light mt-auto">
+      <footer style="padding-top: 0rem !important;padding-bottom: 0.5rem !important;" class="py-4 bg-light mt-auto">
         <div class="container-fluid px-4">
           <div class="d-flex align-items-center justify-content-between small">
             <div class="text-muted">Copyright &copy; LabVis-UFPA 2025</div>
@@ -159,6 +165,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script>
     const socket = new WebSocket("ws://localhost:3214");
+    let activeSaveTree;
 
     // Função para criar os medidores gauge
     function createGauges() {
@@ -308,13 +315,18 @@
             children: [
               { generation: "Generation 49" },
               { generation: "Generation 57" },
+              initialData
             ],
           },
         ],
       };
 
-      const width = document.querySelector("#dendrogramChart").offsetWidth;
-      const height = document.querySelector("#dendrogramChart").offsetHeight;
+      const chartArea = document.querySelector("#dendrogramChart");
+      let width = chartArea.clientWidth;
+      let height = chartArea.clientHeight;
+      const computedStyle = getComputedStyle(chartArea);
+      height -= parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom)
+      width -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight)
 
       // Clear existing SVG if any
       d3.select("#dendrogramChart svg").remove();
@@ -415,7 +427,14 @@
         // Store the clicked node ID for reference
         window.lastClickedNodeId = d.id;
 
-        console.log("Node clicked", d.data);
+        console.log("Node clicked", d.data, d.id);
+
+        socket.send(JSON.stringify({act: "load_model", data: d.data.id}));
+        document.getElementById("infoGeneration").textContent = d.data.generation;
+        document.getElementById("infoFitness").textContent = `${d.data.bestFitness}/${d.data.worstFitness}`;
+        document.getElementById("infoBestCount").textContent = d.data.infoBestCount;
+        document.getElementById("infoAge").textContent = d.data.bestAge;
+
 
         // Call the user-defined click handler if provided
         if (typeof window.onNodeClick === "function") {
@@ -518,7 +537,7 @@
 
     document.addEventListener("DOMContentLoaded", function () {
       createGauges();
-      createDendrogram();
+      // createDendrogram();
 
       document
         .getElementById("btnPlay")
@@ -546,10 +565,12 @@
 
       document
         .getElementById("menuNewSave")
-        .addEventListener("click", function () {
-          //TODO KEvin: Aqui deve abrir o dialog modal e perguntar para o usuário o nome do Save e qual a base será utilizada.
-          //Estou enviando um exemplo do que seria o resultado após essa escolha.
+        .addEventListener("click", function (e) {
+          // //TODO KEvin: Aqui deve abrir o dialog modal e perguntar para o usuário o nome do Save e qual a base será utilizada.
+          // //Estou enviando um exemplo do que seria o resultado após essa escolha.
           socket.send(JSON.stringify({ act: "new_save", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto" } }));
+          // setTimeout(()=>socket.send(JSON.stringify({ act: "get_tree_model"})), 1000);
+          socket.send(JSON.stringify({ act: "get_tree_model"}))
         });
 
       // Controle de velocidade
@@ -568,28 +589,42 @@
     window.addEventListener("resize", function () {
       d3.selectAll("svg").remove();
       createGauges();
-      createDendrogram();
+      // createDendrogram(activeSaveTree);
     });
 
     socket.onmessage = function (event) {
-      const message = JSON.parse(event.data);
+      const {act, data} = JSON.parse(event.data);
 
-      switch (message.act) {
+      switch (act) {
         case "log":
-          console.log(message.data);
+          console.log(data);
           break;
         case "data":
-          document.getElementById("infoGeneration").innerHTML =
-            message.data.generation;
-          document.getElementById("infoFitness").innerHTML =
-            message.data.bestFitness;
-          document.getElementById("infoAge").innerHTML = message.data.bestAge;
+          document.getElementById("infoGeneration").textContent = data.generation;
+          document.getElementById("infoFitness").textContent = `${data.bestFitness}/${data.worstFitness}`;
+          document.getElementById("infoBestCount").textContent = data.bestCount;
+          document.getElementById("infoAge").textContent = data.bestAge;
+          break;
+        case "timings":
+          break;
+        case "treeModel":
+          console.log("treeModel", data);
+          activeSaveTree = data;
+          createDendrogram(data);
+          break;
       }
     };
 
     socket.onopen = function () {
       console.log("Conectado ao servidor WebSocket");
       socket.send(JSON.stringify({ act: "obs", data: ["fitness", "running"] }));
+    };
+
+    socket.onclose = function () {
+      console.log("CLOSED!");
+    };
+    socket.onerror = function (e) {
+      console.log("ERROR!", e);
     };
   </script>
 </body>
