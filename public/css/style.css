@@ -255,8 +255,8 @@ h1 {
 }
 
 .runningSaveDen {
-  stroke: mediumspringgreen;
-  stroke-width: 2px;
+  stroke: mediumspringgreen !important;
+  stroke-width: 2px !important;
   stroke-dasharray: 45;
   stroke-dashoffset: 45;
   animation: dashanim 2s linear infinite;

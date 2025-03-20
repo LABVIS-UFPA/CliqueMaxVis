@@ -178,7 +178,7 @@ server.on('connection', ws => {
                     ws.send(JSON.stringify({ act: "status", data: `speed set to ${executionSpeed}ms` }));
                 }
                 break;
-            case "new_save":
+            case "new_project":
                 const { datasetName, saveName } = obj.data;
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
@@ -192,19 +192,38 @@ server.on('connection', ws => {
                     datasetName,
                     treeModel: treeModel.root
                 }
-                setTimeout(()=>{
-                    fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
-                        if(err) {console.log("Não salvou!!", err); return;}
-                        console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
-                    });
-                },1000);
-                
+                fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
+                    if(err) {console.log("Não salvou!!", err); return;}
+                    console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
+                });
+                ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                break;
+            case "save_project":
+                fs.writeFile(`./saves/${currentSave.saveName}.json`, JSON.stringify(currentSave), (err) => {
+                    if(err) {console.log("Não salvou!!", err); return;}
+                    console.log(`Arquivo de save salvo com sucesso em saves/${currentSave.saveName}.json`);
+                });
+                break;
+            case "load_project":
+                fs.readFile(`./saves/${obj.data.saveName}.json`, "utf8", (err, data) => {
+                    if(err) {console.log("Não abriu!!", err); return;}
+                    const objJSON = JSON.parse(data);
+                });
+                break;
+            case "save_state":
+                if(treeModel) {
+                    console.log("save_state")
+                    treeModel.save();
+                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                }
 
                 break;
-            case "load_save":
-                break;
             case "load_model":
-                if(treeModel) treeModel.load(treeModel.selectByID(obj.data));
+                if(treeModel){
+                    treeModel.save();
+                    treeModel.load(treeModel.selectByID(obj.data));
+                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }))
+                } 
                 break;
             case "get_tree_model":
                 if(treeModel) ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));

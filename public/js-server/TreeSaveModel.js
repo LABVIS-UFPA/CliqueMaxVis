@@ -5,16 +5,21 @@ class TreeSaveModel{
     constructor(ga){
         this.ga = ga;
         this.selected = this.root = this.__getModel();
+        this.selected.active = true;
     }
 
     save(){
         const child = this.__getModel();
         this.selected.children.push(child);
+        this.selected.active = false;
         this.selected = child;
+        this.selected.active = true;
     }
 
     load(selected){
+        this.selected.active = false;
         this.selected = selected;
+        this.selected.active = true;
         this.__setModel(selected);
     }
 
@@ -27,6 +32,7 @@ class TreeSaveModel{
         clonedNode.bestAge = node.bestAge;
         clonedNode.bestCount = node.bestCount;
         clonedNode.id = node.id;
+        clonedNode.active = node.active;
 
         // Clona os filhos recursivamente, se existirem
         if (node.children) {
@@ -76,6 +82,7 @@ class TreeSaveModel{
             bestIndividuals: compress(this.ga.bestIndividuals.map(i=>i.nodeMask)),
             bestCount: this.ga.bestIndividuals.length,
             parameters: this.ga.getParameters(),
+            active: false,
 
             __fitnesses: this.ga.population.map(i=>i.fitness),
             __ages: this.ga.population.map(i=>i.age),

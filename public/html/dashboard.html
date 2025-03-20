@@ -152,8 +152,11 @@
 
         <div class="dendro-container card" id="dendrogramChart">
           <div id="dentroButtons" class="media-buttons">
-            <button class="btn btn-primary btn-circle" id="btnNewSave">
-
+            <button class="btn btn-primary btn-circle" id="btnSaveActive">
+              S
+            </button>
+            <button class="btn btn-info btn-circle" id="btnChangeActive">
+              C
             </button>
             <!-- <button class="btn btn-warning btn-circle" id="btnPause">
               <i class="fas fa-pause"></i>
@@ -425,7 +428,8 @@
           .append("circle")
           .attr("r", 7)
           .style("fill", "#4682b4")
-          .style("cursor", "pointer");
+          .style("cursor", "pointer")
+          .attr("class", (d) => d.data.active?"node runningSaveDen":"node");
 
         nodeEnter
           .append("text")
@@ -434,11 +438,8 @@
           .text((d) => d.data.generation);
 
         // Update existing nodes
-        nodes.attr(
-          "transform",
-          (d) => `translate(${d.x - width / 2},${d.y})`
-        );
-
+        nodes
+          .attr("transform",(d) => `translate(${d.x - width / 2},${d.y})`)
         // Remove old nodes
         nodes.exit().remove();
       }
@@ -454,12 +455,6 @@
           .forEach(e=>e.classList.remove("selectedSaveDen"));
         event.target.classList.add("selectedSaveDen")
         // selectedSaveDen
-
-        // socket.send(JSON.stringify({ act: "load_model", data: d.data.id }));
-        // document.getElementById("infoGeneration").textContent = d.data.generation;
-        // document.getElementById("infoFitness").textContent = `${d.data.bestFitness}/${d.data.worstFitness}`;
-        // document.getElementById("infoBestCount").textContent = d.data.infoBestCount;
-        // document.getElementById("infoAge").textContent = d.data.bestAge;
 
 
         // Call the user-defined click handler if provided
@@ -594,10 +589,23 @@
         .addEventListener("click", function (e) {
           // //TODO KEvin: Aqui deve abrir o dialog modal e perguntar para o usuário o nome do Save e qual a base será utilizada.
           // //Estou enviando um exemplo do que seria o resultado após essa escolha.
-          socket.send(JSON.stringify({ act: "new_save", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto" } }));
+          socket.send(JSON.stringify({ act: "new_project", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto" } }));
           // setTimeout(()=>socket.send(JSON.stringify({ act: "get_tree_model"})), 1000);
-          socket.send(JSON.stringify({ act: "get_tree_model" }));
+          // socket.send(JSON.stringify({ act: "get_tree_model" }));
         });
+
+      document.getElementById("btnSaveActive")
+      .addEventListener("click", function (e) {
+        socket.send(JSON.stringify({ act: "save_state" }));
+      });
+      document.getElementById("btnChangeActive")
+      .addEventListener("click", function (e) {
+        socket.send(JSON.stringify({ act: "load_model", data: selectedSave.id }));
+        // document.getElementById("infoGeneration").textContent = d.data.generation;
+        // document.getElementById("infoFitness").textContent = `${d.data.bestFitness}/${d.data.worstFitness}`;
+        // document.getElementById("infoBestCount").textContent = d.data.infoBestCount;
+        // document.getElementById("infoAge").textContent = d.data.bestAge;
+      });
 
       // Controle de velocidade
       document
