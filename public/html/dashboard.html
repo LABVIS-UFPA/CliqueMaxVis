@@ -29,10 +29,10 @@
             Files
           </a>
           <ul class="dropdown-menu">
-            <li><a id="menuNewSave" class="dropdown-item" href="#">New</a></li>
-            <li><a class="dropdown-item" href="#">Open</a></li>
-            <li><a class="dropdown-item" href="#">Save</a></li>
-            <li><a class="dropdown-item" href="#">Save as Copy</a></li>
+            <li><a id="menuNewProject" class="dropdown-item" href="#">New</a></li>
+            <li><a id="menuOpenProject" class="dropdown-item" href="#">Open</a></li>
+            <li><a id="menuSaveProject" class="dropdown-item" href="#">Save</a></li>
+            <li><a id="menuSaveProjectCopy" class="dropdown-item" href="#">Save Copy</a></li>
           </ul>
         </li>
         <li class="nav-item dropdown">
@@ -85,7 +85,7 @@
       <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
         <div class="sb-sidenav-menu">
           <div class="nav">
-            <div class="sb-sidenav-menu-heading">Some metrics</div>
+            <div class="sb-sidenav-menu-heading">Timings</div>
             <div class="align-items-center d-flex flex-column">
               <div class="gauge-container" id="fitness">
                 <p>Click "play" to receive stats</p>
@@ -639,13 +639,30 @@
         });
 
       document
-        .getElementById("menuNewSave")
+        .getElementById("menuNewProject")
         .addEventListener("click", function (e) {
           // //TODO KEvin: Aqui deve abrir o dialog modal e perguntar para o usuário o nome do Save e qual a base será utilizada.
           // //Estou enviando um exemplo do que seria o resultado após essa escolha.
           socket.send(JSON.stringify({ act: "new_project", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto" } }));
           // setTimeout(()=>socket.send(JSON.stringify({ act: "get_tree_model"})), 1000);
           // socket.send(JSON.stringify({ act: "get_tree_model" }));
+        });
+
+        document
+        .getElementById("menuOpenProject")
+        .addEventListener("click", function (e) {
+          
+        });
+
+        document
+        .getElementById("menuSaveProject")
+        .addEventListener("click", function (e) {
+          socket.send(JSON.stringify({ act: "save_project" }));
+        });
+        document
+        .getElementById("menuSaveProjectCopy")
+        .addEventListener("click", function (e) {
+          
         });
 
       document.getElementById("btnSaveActive")

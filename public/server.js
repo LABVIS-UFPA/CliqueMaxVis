@@ -199,9 +199,9 @@ server.on('connection', ws => {
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 break;
             case "save_project":
-                fs.writeFile(`./saves/${currentSave.saveName}.json`, JSON.stringify(currentSave), (err) => {
+                fs.writeFile(`./saves/${currentSave.name}.json`, JSON.stringify(currentSave), (err) => {
                     if(err) {console.log("Não salvou!!", err); return;}
-                    console.log(`Arquivo de save salvo com sucesso em saves/${currentSave.saveName}.json`);
+                    console.log(`Arquivo de save salvo com sucesso em saves/${currentSave.name}.json`);
                 });
                 break;
             case "load_project":
