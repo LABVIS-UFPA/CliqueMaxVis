@@ -17,12 +17,12 @@
 <body class="sb-nav-fixed">
   <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
     <!-- Navbar Brand-->
-    <a class="navbar-brand ps-3" href="index.html">Max Click</a>
+    <a class="navbar-brand ps-3" href="index.html">Max Clique</a>
     <!-- Sidebar Toggle-->
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown">
       <span class="navbar-toggler-icon"></span>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+    <div class="collapse navbar-collapse d-flex justify-content-between" id="navbarNavDropdown">
       <ul class="navbar-nav">
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown1" role="button" data-bs-toggle="dropdown">
@@ -75,6 +75,9 @@
           </ul>
         </li>
       </ul>
+      <div class="connection-status d-flex align-items-center pe-3">
+        <span id="connection-text" class="text-light">Not Connected</span>
+      </div>
     </div>
   </nav>
   <div id="layoutSidenav">
@@ -84,9 +87,18 @@
           <div class="nav">
             <div class="sb-sidenav-menu-heading">Some metrics</div>
             <div class="align-items-center d-flex flex-column">
-              <div class="gauge-container" id="gauge1"></div>
-              <div class="gauge-container" id="gauge2"></div>
-              <div class="gauge-container" id="gauge3"></div>
+              <div class="gauge-container" id="fitness">
+                <p>Click "play" to receive stats</p>
+              </div>
+              <div class="gauge-container" id="crossover">
+                <p>Click "play" to receive stats</p>
+              </div>
+              <div class="gauge-container" id="mutation">
+                <p>Click "play" to receive stats</p>
+              </div>
+              <div class="gauge-container" id="selection">
+                <p>Click "play" to receive stats</p>
+              </div>
             </div>
           </div>
         </div>
@@ -97,23 +109,26 @@
 
         <!-- Controles de Mídia -->
         <div class="media-controls card">
-          <div class="media-buttons">
-            <button class="btn btn-primary btn-circle" id="btnPlay">
-              <i class="fas fa-play"></i>
-            </button>
-            <button class="btn btn-warning btn-circle" id="btnPause">
-              <i class="fas fa-pause"></i>
-            </button>
-            <button class="btn btn-danger btn-circle" id="btnStop">
-              <i class="fas fa-stop"></i>
-            </button>
-            <button class="btn btn-info btn-circle" id="btnNext">
-              <i class="fas fa-step-forward"></i>
-            </button>
-          </div>
-          <div style="margin-left: 10px;" class="d-flex gap-2">
-            <label for="#mediaSlider">Delay: </label>
-            <input type="range" min="5" max="100" value="50" class="slider" id="mediaSlider" />
+          <div
+            class="d-flex justify-content-between align-items-center gap-2"
+          >
+            <div class="media-buttons">
+              <button class="btn btn-primary btn-circle" id="btnPlayPause">
+                <i class="fas fa-play" id="playPauseIcon"></i>
+              </button>
+              <button class="btn btn-danger btn-circle" id="btnStop">
+                <i class="fas fa-stop"></i>
+              </button>
+              <button class="btn btn-info btn-circle" id="btnNext" disabled>
+                <i class="fas fa-step-forward"></i>
+              </button>
+            </div>
+            <div
+              class="mediaSlider d-flex justify-content-center align-items-center gap-2"
+            >
+              <label for="#mediaSlider">Delay: </label>
+              <input type="range" min="5" max="100" value="50" class="slider" id="mediaSlider" />
+            </div>
           </div>
           <div style="flex-grow: 1;margin-left: 10px;">
             <div style="text-overflow: ellipsis;
@@ -153,7 +168,7 @@
         <div class="dendro-container card" id="dendrogramChart">
           <div id="dentroButtons" class="media-buttons">
             <button class="btn btn-primary btn-circle" id="btnNewSave">
-
+              <i class="fas fa-save"></i>
             </button>
             <!-- <button class="btn btn-warning btn-circle" id="btnPause">
               <i class="fas fa-pause"></i>
@@ -187,22 +202,22 @@
     const socket = new WebSocket("ws://localhost:3214");
     let activeSaveTree;
     let selectedSave;
+    let gaugeConfigs = [
+      { id: "fitness", title: "fitness", value: 0, min: 0, max: 1000 },
+      { id: "crossover", title: "crossover", value: 0, min: 0, max: 1000 },
+      { id: "mutation", title: "mutation", value: 0, min: 0, max: 1000 },
+      { id: "selection", title: "selection", value: 0, min: 0, max: 1000 },
+    ];
+    let isConnectedText = document.getElementById("connection-text");
 
     // Função para criar os medidores gauge
-    function createGauges() {
+    function createGauges(gaugeConfigs) {
       // Configuração dos gauges
       const gaugeWidth =
         document.querySelector(".gauge-container").offsetWidth;
       const gaugeHeight =
         document.querySelector(".gauge-container").offsetHeight;
-      const radius = Math.min(gaugeWidth, gaugeHeight) / 2;
-
-      // Configurações específicas para cada gauge
-      const gaugeConfigs = [
-        { id: "gauge1", title: "Medidor 1", value: 5, min: 0, max: 10 },
-        { id: "gauge2", title: "Medidor 2", value: 15, min: 0, max: 30 },
-        { id: "gauge3", title: "Medidor 3", value: 45, min: 0, max: 60 },
-      ];
+      const radius = gaugeHeight;
 
       // Criação de cada gauge
       gaugeConfigs.forEach((config) => {
@@ -221,8 +236,9 @@
       const svg = d3
         .select(`#${elementId}`)
         .append("svg")
-        .attr("width", "100%")
-        .attr("height", "100%")
+        .style("overflow", "visible")
+        .attr("width", "200px")
+        .attr("height", "100px")
         .append("g")
         .attr("transform", `translate(${radius}, ${radius})`);
 
@@ -251,7 +267,7 @@
         .startAngle(-Math.PI / 2)
         .endAngle(scale(value));
 
-      svg.append("path").attr("d", valueArc).style("fill", "#4682b4");
+      svg.append("path").attr("d", valueArc).style("fill", "#4682b4").attr("class", "value-arc");
 
       // // Ponteiro
       // const pointerLength = radius * 0.8;
@@ -284,6 +300,7 @@
       svg
         .append("text")
         .attr("text-anchor", "middle")
+        .attr("class", "gauge-value")
         .attr("dy", radius * 0)
         .style("font-size", `${radius * 0.2}px`)
         .text(`${value} s`)
@@ -561,26 +578,63 @@
       };
     }
 
+    let isFirstMessage = true;
+
     document.addEventListener("DOMContentLoaded", function () {
-      createGauges();
       // createDendrogram();
 
-      document
-        .getElementById("btnPlay")
-        .addEventListener("click", function () {
-          socket.send(JSON.stringify({ act: "command", data: "play" }));
-        });
+      let isPlaying = false;
 
       document
-        .getElementById("btnPause")
+        .getElementById("btnPlayPause")
         .addEventListener("click", function () {
-          socket.send(JSON.stringify({ act: "command", data: "pause" }));
+          if (isPlaying) {
+            socket.send(JSON.stringify({ act: "command", data: "pause" }));
+            document
+              .getElementById("playPauseIcon")
+              .classList.remove("fa-pause");
+            document.getElementById("playPauseIcon").classList.add("fa-play");
+            document.getElementById("btnNext").removeAttribute("disabled");
+            isPlaying = false;
+          } else {
+            socket.send(JSON.stringify({ act: "command", data: "play" }));
+            document
+              .getElementById("playPauseIcon")
+              .classList.remove("fa-play");
+            document
+              .getElementById("playPauseIcon")
+              .classList.add("fa-pause");
+            document
+              .getElementById("btnNext")
+              .setAttribute("disabled", "disabled");
+            isPlaying = true;
+          }
         });
 
       document
         .getElementById("btnStop")
         .addEventListener("click", function () {
-          socket.send(JSON.stringify({ act: "command", data: "stop" }));
+          if (
+            confirm(
+              "Are you sure you want to stop? This will reset the simulation."
+            )
+          ) {
+            socket.send(JSON.stringify({ act: "command", data: "stop" }));
+            document.getElementById("infoGeneration").innerHTML = 0;
+            document.getElementById("infoFitness").innerHTML = 0;
+            document.getElementById("infoAge").innerHTML = 0;
+            isFirstMessage = true;
+
+            document
+              .getElementById("playPauseIcon")
+              .classList.remove("fa-pause");
+            document.getElementById("playPauseIcon").classList.add("fa-play");
+            isPlaying = false;
+
+            document
+              .getElementById("btnNext")
+              .setAttribute("disabled", "disabled");
+          }
         });
 
       document
@@ -613,8 +667,8 @@
 
     // Redimensionar gráficos quando a janela mudar de tamanho
     window.addEventListener("resize", function () {
-      d3.selectAll("svg").remove();
-      createGauges();
+      d3.selectAll("svg:not(.media-buttons svg)").remove();
+      createGauges(gaugeConfigs);
       createDendrogram(activeSaveTree);
     });
 
@@ -632,6 +686,104 @@
           document.getElementById("infoAge").textContent = data.bestAge;
           break;
         case "timings":
+          if (
+            data.fitness &&
+            data.crossover &&
+            data.mutation &&
+            data.selection &&
+            isFirstMessage
+          ) {
+            let maxgauge =
+              (Math.round(
+                Math.max(
+                  data.fitness,
+                  data.crossover,
+                  data.mutation,
+                  data.selection
+                )
+              ) /
+                1000) *
+              2;
+            gaugeConfigs = [
+              {
+                id: "fitness",
+                title: "fitness",
+                value: Math.round(data.fitness) / 1000,
+                min: 0,
+                max: maxgauge,
+              },
+              {
+                id: "crossover",
+                title: "crossover",
+                value: Math.round(data.crossover) / 1000,
+                min: 0,
+                max: maxgauge,
+              },
+              {
+                id: "mutation",
+                title: "mutation",
+                value: Math.round(data.mutation) / 1000,
+                min: 0,
+                max: maxgauge,
+              },
+              {
+                id: "selection",
+                title: "selection",
+                value: Math.round(data.selection) / 1000,
+                min: 0,
+                max: maxgauge,
+              },
+            ];
+            isFirstMessage = false;
+            document.querySelectorAll(".gauge-container *").forEach((el) => {
+              el.remove();
+            });
+            createGauges(gaugeConfigs);
+          }
+
+          Object.keys(data).forEach((timing, index) => {
+            const scale = d3
+              .scaleLinear()
+              .domain([0, gaugeConfigs[index].max])
+              .range([-Math.PI / 2, Math.PI / 2]);
+
+            d3.select(`#${timing} .gauge-value`).text(
+              `${Math.round(data[timing]) / 1000} s`
+            );
+
+            if (data[timing] > gaugeConfigs[index].max * 1000) {
+              d3.select(`#${timing} .value-arc`).style("fill", "red");
+
+              d3.select(`#${timing} .value-arc`)
+                .transition()
+                .duration(100)
+                .attr(
+                  "d",
+                  d3
+                    .arc()
+                    .innerRadius(100 * 0.6)
+                    .outerRadius(100 * 0.9)
+                    .startAngle(-Math.PI / 2)
+                    .endAngle(scale(gaugeConfigs[index].max))
+                );
+              console.log("red");
+            } else {
+              d3.select(`#${timing} .value-arc`).style("fill", "#4682b4");
+
+              d3.select(`#${timing} .value-arc`)
+                .transition()
+                .duration(100)
+                .attr(
+                  "d",
+                  d3
+                    .arc()
+                    .innerRadius(100 * 0.6)
+                    .outerRadius(100 * 0.9)
+                    .startAngle(-Math.PI / 2)
+                    .endAngle(scale(data[timing] / 1000))
+                );
+            }
+          });
           break;
         case "treeModel":
           console.log("treeModel", data);
@@ -645,12 +797,19 @@
     };
 
     socket.onopen = function () {
+      isConnectedText.textContent = "Connected";
       console.log("Conectado ao servidor WebSocket");
-      socket.send(JSON.stringify({ act: "obs", data: ["fitness", "running"] }));
-      socket.send(JSON.stringify({ act: "get_tree_model" }));
+      socket.send(
+        JSON.stringify({
+          act: "obs",
+          data: ["fitness", "running", "timings"],
+        })
+      );
+    socket.send(JSON.stringify({ act: "get_tree_model" }));
     };
 
     socket.onclose = function () {
+      isConnectedText.textContent = "Not Connected";
       console.log("CLOSED!");
     };
     socket.onerror = function (e) {
