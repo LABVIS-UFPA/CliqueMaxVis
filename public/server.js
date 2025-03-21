@@ -142,7 +142,8 @@ server.on('connection', ws => {
                 obj.data.forEach(d => observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
                 break;
             case "get_parameters":
-                ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
+                if(ga)
+                    ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
                 break;
             case "set_parameters":
                 logger.log("GA_setting", Object.keys(obj.data).join(","));
