@@ -195,6 +195,7 @@ server.on('connection', ws => {
                 const { datasetName, saveName, userName } = obj.data;
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
+                isRunning = false;
                 loadGA(dataset_url);
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
                 logger.log("projectCRUD","new_project");

@@ -171,7 +171,7 @@
               <i class="fas fa-save"></i>
             </button>
             <button class="btn btn-info btn-circle" id="btnChangeActive">
-              C
+              <i class="fa-solid fa-person-running"></i>
             </button>
             <!-- <button class="btn btn-warning btn-circle" id="btnPause">
               <i class="fas fa-pause"></i>
@@ -475,8 +475,7 @@
       width -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight)
 
       // Clear existing SVG if any
-      // d3.select("#dendrogramSVG").
-      // remove();
+      d3.select("#dendrogramSVG").remove();
 
       // Add SVG
       const svg = d3
@@ -559,7 +558,7 @@
           .append("text")
           .attr("dy", -15)
           .attr("text-anchor", "middle")
-          .text((d) => d.data.generation);
+          .text((d) => `${d.data.generation}(${d.data.bestFitness}/${d.data.worstFitness})`);
 
         // Update existing nodes
         nodes
@@ -761,14 +760,15 @@
 
       document.getElementById("confirmNewProject").addEventListener("click", function () {
         const saveName = document.getElementById("saveName").value.trim();
-        const datasetName = document.getElementById("dataset_select").value;
+        const datasetName = document.getElementById("dataset_select").value.trim();
+        const userName =  document.getElementById("saveUsername").value.trim();
 
         if (!saveName) {
           alerta("Por favor, insira um nome para o projeto.", "red");
           return;
         }
 
-        socket.send(JSON.stringify({ act: "new_project", data: { datasetName: datasetName, saveName: saveName } }));
+        socket.send(JSON.stringify({ act: "new_project", data: { datasetName, saveName, userName } }));
         alerta(`Projeto ${saveName} criado com sucesso!`, "green");
         document.getElementById("newProjectModal").style.display = "none";
       });
