@@ -17,7 +17,7 @@
 <body class="sb-nav-fixed">
   <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
     <!-- Navbar Brand-->
-    <a class="navbar-brand ps-3" href="index.html">Max Clique</a>
+    <a class="navbar-brand ps-3">Max Clique</a>
     <!-- Sidebar Toggle-->
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown">
       <span class="navbar-toggler-icon"></span>
@@ -42,8 +42,8 @@
           <ul class="dropdown-menu">
             <li>
               <a class="dropdown-item" href="#"
-                onclick='window.open("parameter_setter.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'>Open
-                parameter configurations</a>
+                onclick='openWindow("parameter_setter.html", 500,635);'>
+                Parameter Configurations</a>
             </li>
           </ul>
         </li>
@@ -54,22 +54,22 @@
           <ul class="dropdown-menu">
             <li>
               <a class="dropdown-item"
-                onclick='window.open("individuals_vis_canvas.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                onclick='openWindow("individuals_vis_canvas.html",530,700);'
                 href="#">Individual Visualization</a>
             </li>
             <li>
               <a class="dropdown-item"
-                onclick='window.open("line_chart.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                onclick='openWindow("line_chart.html", 550,350);'
                 href="#">Line chart</a>
             </li>
             <li>
               <a class="dropdown-item"
-                onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                onclick='openWindow("projection_MDS.html",720,635)'
                 href="#">MDS Scatterplot</a>
             </li>
             <li>
               <a class="dropdown-item"
-                onclick='window.open("projection_MDS.html", "_blank", "width=800,height=600,toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no");'
+                onclick='openWindow("best_vis.html",540,420)'
                 href="#">Best Individuals</a>
             </li>
           </ul>
@@ -573,6 +573,11 @@
       };
     }
 
+    function openWindow(windowName, width, height){
+      socket.send(JSON.stringify({ act: "log", data: {type:"window_open", log:windowName} }));
+      window.open(windowName, "_blank", `width=${width},height=${height},toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no`);
+    }
+
     let isFirstMessage = true;
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -643,7 +648,7 @@
         .addEventListener("click", function (e) {
           // //TODO KEvin: Aqui deve abrir o dialog modal e perguntar para o usuário o nome do Save e qual a base será utilizada.
           // //Estou enviando um exemplo do que seria o resultado após essa escolha.
-          socket.send(JSON.stringify({ act: "new_project", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto" } }));
+          socket.send(JSON.stringify({ act: "new_project", data: { datasetName: "p_hat1500-3.clq", saveName: "MeuProjeto", userName: "Usuário 1" } }));
           // setTimeout(()=>socket.send(JSON.stringify({ act: "get_tree_model"})), 1000);
           // socket.send(JSON.stringify({ act: "get_tree_model" }));
         });

@@ -2,6 +2,8 @@ const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
 const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
+const Logger = require("./js-server/logger.js");
+let logger;
 
 const observers = {
     obs_fitness: [],
@@ -137,27 +139,35 @@ server.on('connection', ws => {
         const obj = JSON.parse(message);
         switch (obj.act) {
             case "obs":
-
                 obj.data.forEach(d => observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
                 break;
             case "get_parameters":
                 ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
                 break;
             case "set_parameters":
+                logger.log("GA_setting", Object.keys(obj.data).join(","));
                 ga.setParameters(obj.data);
                 break;
             case "command":
-                if (obj.data === "partialReset") partialReset = true;
-                else if (obj.data === "initial_individuals")
+                if (obj.data === "partialReset") {
+                    logger.log("GA_setting","partialReset");
+                    partialReset = true;
+                } else if (obj.data === "initial_individuals") {
+                    
                     ws.send(JSON.stringify({
                         act: "data", data: {
                             population: ga.initialPopulation.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
                             generation: 0
                         }
                     }));
-                else if (obj.data === "play") isRunning = true;
-                else if (obj.data === "pause") isRunning = false;
-                else if (obj.data === "stop") {
+                } else if (obj.data === "play") { 
+                    logger.log("GA_running","play");
+                    isRunning = true;
+                } else if (obj.data === "pause"){
+                    logger.log("GA_running","pause");
+                    isRunning = false;
+                } else if (obj.data === "stop") {
+                    logger.log("GA_running","stop");
                     isRunning = false;
                     // Opcionalmente reiniciar o algoritmo
                     ga.init();
@@ -165,9 +175,11 @@ server.on('connection', ws => {
                     ws.send(JSON.stringify({ act: "status", data: "stopped" }));
                 }
                 else if (obj.data === "next") {
+                    logger.log("GA_running","next");
                     runSingleStep = true;
                 }
                 else if (obj.data === "setSpeed" && obj.speed !== undefined) {
+                    logger.log("GA_running","setSpeed");
                     // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
                     executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
                     if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
@@ -179,12 +191,12 @@ server.on('connection', ws => {
                 }
                 break;
             case "new_project":
-                const { datasetName, saveName } = obj.data;
+                const { datasetName, saveName, userName } = obj.data;
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 loadGA(dataset_url);
-
-                
+                logger = new Logger(`${saveName}[${userName}].log.tsv`);
+                logger.log("projectCRUD","new_project");
 
                 currentSave = {
                     name: saveName,
@@ -194,17 +206,19 @@ server.on('connection', ws => {
                 }
                 fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
                     if(err) {console.log("Não salvou!!", err); return;}
-                    console.log(`Arquivo de save salvo com sucesso em saves/${saveName}.json`);
+                    console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 break;
             case "save_project":
+                logger.log("projectCRUD","save_project");
                 fs.writeFile(`./saves/${currentSave.name}.json`, JSON.stringify(currentSave), (err) => {
                     if(err) {console.log("Não salvou!!", err); return;}
                     console.log(`Arquivo de save salvo com sucesso em saves/${currentSave.name}.json`);
                 });
                 break;
             case "load_project":
+                logger.log("projectCRUD","load_project");
                 fs.readFile(`./saves/${obj.data.saveName}.json`, "utf8", (err, data) => {
                     if(err) {console.log("Não abriu!!", err); return;}
                     const objJSON = JSON.parse(data);
@@ -212,6 +226,7 @@ server.on('connection', ws => {
                 break;
             case "save_state":
                 if(treeModel) {
+                    logger.log("GAStates","save_state");
                     console.log("save_state")
                     treeModel.save();
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
@@ -220,13 +235,20 @@ server.on('connection', ws => {
                 break;
             case "load_model":
                 if(treeModel){
+                    logger.log("GAStates","load_state");
                     treeModel.save();
                     treeModel.load(treeModel.selectByID(obj.data));
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }))
                 } 
                 break;
             case "get_tree_model":
-                if(treeModel) ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                if(treeModel){
+                    logger.log("GAStates","get_tree_model");
+                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                } 
+                break;
+            case "log":
+                if(logger) logger.log(obj.data.type,obj.data.log);
                 break;
 
         }
