@@ -218,10 +218,11 @@ server.on('connection', ws => {
                 });
                 break;
             case "load_project":
-                logger.log("projectCRUD","load_project");
-                fs.readFile(`./saves/${obj.data.saveName}.json`, "utf8", (err, data) => {
+                // logger.log("projectCRUD","load_project");
+                fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if(err) {console.log("Não abriu!!", err); return;}
                     const objJSON = JSON.parse(data);
+                    console.log(objJSON)
                 });
                 break;
             case "save_state":
@@ -249,6 +250,24 @@ server.on('connection', ws => {
                 break;
             case "log":
                 if(logger) logger.log(obj.data.type,obj.data.log);
+                break;
+            case "ls_dataset":
+                ws.send(JSON.stringify({ act: "ls_dataset", data: datasets }));
+                break;
+            case "ls_saves":
+                fs.readdir("./saves", (err, files) => {
+                    if(err) {console.log("Não abriu!!", err); return;}
+                    const fileData = files.map((file) => {
+                        const filePath = path.join("./saves", file);
+                        const stats = fs.statSync(filePath);
+                        return {
+                          name: file,
+                          modifiedAt: stats.mtime,
+                        };
+                      });
+                    
+                    ws.send(JSON.stringify({ act: "ls_saves", data: fileData }));
+                });
                 break;
 
         }
