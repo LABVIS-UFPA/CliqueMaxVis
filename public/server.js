@@ -120,7 +120,12 @@ function loadGA(dbpath) {
 
     ga.init();
 
-    treeModel = new TreeSaveModel(ga);
+    if(currentSave){
+        treeModel = TreeSaveModel.fromRoot(currentSave.treeModel,ga);
+    }else{
+        treeModel = new TreeSaveModel(ga);
+    }
+    
 }
 
 
@@ -151,7 +156,7 @@ server.on('connection', ws => {
                 break;
             case "command":
                 if (obj.data === "partialReset") {
-                    logger.log("GA_setting","partialReset");
+                    if(logger) logger.log("GA_setting","partialReset");
                     partialReset = true;
                 } else if (obj.data === "initial_individuals") {
                     
@@ -162,25 +167,24 @@ server.on('connection', ws => {
                         }
                     }));
                 } else if (obj.data === "play") { 
-                    logger.log("GA_running","play");
+                    if(logger) logger.log("GA_running","play");
                     isRunning = true;
                 } else if (obj.data === "pause"){
-                    logger.log("GA_running","pause");
+                    if(logger) logger.log("GA_running","pause");
                     isRunning = false;
                 } else if (obj.data === "stop") {
-                    logger.log("GA_running","stop");
+                    if(logger) logger.log("GA_running","stop");
                     isRunning = false;
                     // Opcionalmente reiniciar o algoritmo
-                    ga.init();
-                    ga.generation = 0;
+                    if(treeModel) treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "status", data: "stopped" }));
                 }
                 else if (obj.data === "next") {
-                    logger.log("GA_running","next");
+                    if(logger) logger.log("GA_running","next");
                     runSingleStep = true;
                 }
                 else if (obj.data === "setSpeed" && obj.speed !== undefined) {
-                    logger.log("GA_running","setSpeed");
+                    if(logger) logger.log("GA_running","setSpeed");
                     // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
                     executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
                     if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
@@ -196,12 +200,14 @@ server.on('connection', ws => {
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 isRunning = false;
+                currentSave=undefined;
                 loadGA(dataset_url);
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
                 logger.log("projectCRUD","new_project");
 
                 currentSave = {
                     name: saveName,
+                    userName,
                     dataset_url,
                     datasetName,
                     treeModel: treeModel.root
@@ -220,11 +226,15 @@ server.on('connection', ws => {
                 });
                 break;
             case "load_project":
-                // logger.log("projectCRUD","load_project");
+                isRunning = false;
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if(err) {console.log("Não abriu!!", err); return;}
-                    const objJSON = JSON.parse(data);
-                    console.log(objJSON)
+                    currentSave = JSON.parse(data);
+                    logger = new Logger(`${currentSave.saveName}[${currentSave.userName}].log.tsv`);
+                    logger.log("projectCRUD","load_project");
+                    loadGA(currentSave.dataset_url);
+                    treeModel.load(treeModel.getActive());
+                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 });
                 break;
             case "save_state":
@@ -242,7 +252,7 @@ server.on('connection', ws => {
                     treeModel.save();
                     treeModel.load(treeModel.selectByID(obj.data));
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }))
-                } 
+                }
                 break;
             case "get_tree_model":
                 if(treeModel){

@@ -9,11 +9,24 @@ class TreeSaveModel{
     }
 
     save(){
+        if(this.isSaved()) return;
         const child = this.__getModel();
         this.selected.children.push(child);
         this.selected.active = false;
         this.selected = child;
         this.selected.active = true;
+    }
+
+    getActive(node=this.root){
+        if(node.active) return node;
+        for (const c of node.children) {
+            const found = this.getActive(c);
+            if(found) return found;
+        }
+    }
+
+    isSaved(){
+        return this.selected.generation === this.ga.generation;
     }
 
     load(selected){
@@ -47,6 +60,13 @@ class TreeSaveModel{
             const found = this.selectByID(id, c);
             if(found) return found;
         }
+    }
+
+    static fromRoot(root, ga){
+        const newObj = new TreeSaveModel(ga);
+        newObj.root = root;
+        newObj.selected = newObj.getActive();
+        return newObj;
     }
 
 
@@ -97,6 +117,8 @@ class TreeSaveModel{
     }
 
 }
+
+
 function binaryMatrixToIndices(matrix) {
     let indices = [];
     for (let i = 0; i < matrix.length; i++) {

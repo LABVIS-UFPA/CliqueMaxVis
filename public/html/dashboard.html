@@ -141,12 +141,6 @@
         <div style="margin-top: 15px;" class="infos-container row">
           <div class="col-3">
             <div class="card">
-              <div class="metric-title">Best age</div>
-              <div class="metric" id="infoAge">0</div>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="card">
               <div class="metric-title">Current Generation</div>
               <div class="metric" id="infoGeneration">0</div>
             </div>
@@ -161,6 +155,12 @@
             <div class="card">
               <div class="metric-title">Best Count</div>
               <div class="metric" id="infoBestCount">0</div>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="card">
+              <div class="metric-title">Best age</div>
+              <div class="metric" id="infoAge">0</div>
             </div>
           </div>
         </div>
@@ -726,9 +726,10 @@
             )
           ) {
             socket.send(JSON.stringify({ act: "command", data: "stop" }));
-            document.getElementById("infoGeneration").innerHTML = 0;
-            document.getElementById("infoFitness").innerHTML = 0;
-            document.getElementById("infoAge").innerHTML = 0;
+            document.getElementById("infoGeneration").textContent = 0;
+            document.getElementById("infoFitness").textContent = 0;
+            document.getElementById("infoAge").textContent = 0;
+            document.getElementById("infoBestCount").textContent = 0;
             isFirstMessage = true;
 
             document
@@ -828,10 +829,10 @@
       .addEventListener("click", function (e) {
         console.log("change")
         socket.send(JSON.stringify({ act: "load_model", data: selectedSave.id }));
-        // document.getElementById("infoGeneration").textContent = d.data.generation;
-        // document.getElementById("infoFitness").textContent = `${d.data.bestFitness}/${d.data.worstFitness}`;
-        // document.getElementById("infoBestCount").textContent = d.data.infoBestCount;
-        // document.getElementById("infoAge").textContent = d.data.bestAge;
+        document.getElementById("infoGeneration").textContent = selectedSave.generation;
+        document.getElementById("infoFitness").textContent = `${selectedSave.bestFitness}/${selectedSave.worstFitness}`;
+        document.getElementById("infoBestCount").textContent = selectedSave.bestCount;
+        document.getElementById("infoAge").textContent = selectedSave.bestAge;
       });
 
       // Controle de velocidade
@@ -853,6 +854,13 @@
       createDendrogram(activeSaveTree);
     });
 
+    function getActiveState(treeModel){
+      if(treeModel.active) return treeModel;
+        for (const c of treeModel.children) {
+            const found = getActiveState(c);
+            if(found) return found;
+        }
+    }
     socket.onmessage = function (event) {
       const { act, data } = JSON.parse(event.data);
 
@@ -969,6 +977,11 @@
         case "treeModel":
           console.log("treeModel", data);
           activeSaveTree = data;
+          const active = getActiveState(data);
+          document.getElementById("infoGeneration").textContent = active.generation;
+          document.getElementById("infoFitness").textContent = `${active.bestFitness}/${active.worstFitness}`;
+          document.getElementById("infoBestCount").textContent = active.bestCount;
+          document.getElementById("infoAge").textContent = active.bestAge;
           createDendrogram(data);
           break;
         case "running_data":
