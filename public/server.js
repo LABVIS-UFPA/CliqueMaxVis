@@ -14,6 +14,150 @@ const observers = {
 };
 
 const datasets = {
+    "keller6.clq": {
+        name: "keller6.clq",
+        url: "../exemplosGrafos/keller6.clq.txt",
+        n_nodes: 3361,
+        n_links: 4619898
+    },
+    "keller5.clq": {
+        name: "keller5.clq",
+        url: "../exemplosGrafos/keller5.clq.txt",
+        n_nodes: 776,
+        n_links: 225990
+    },
+    "keller4.clq": {
+        name: "keller4.clq",
+        url: "../exemplosGrafos/keller4.clq.txt",
+        n_nodes: 171,
+        n_links: 9435
+    },
+    "hamming8-4.clq": {
+        name: "hamming8-4.clq",
+        url: "../exemplosGrafos/hamming8-4.clq.txt",
+        n_nodes: 256,
+        n_links: 20864
+    },
+    "hamming10-4.clq": {
+        name: "hamming10-4.clq",
+        url: "../exemplosGrafos/hamming10-4.clq.txt",
+        n_nodes: 1024,
+        n_links: 434176
+    },
+    "gen400_p0.9_75.clq": {
+        name: "gen400_p0.9_75.clq",
+        url: "../exemplosGrafos/gen400_p0.9_75.clq.txt",
+        n_nodes: 400,
+        n_links: 71820
+    },
+    "gen400_p0.9_65.clq": {
+        name: "gen400_p0.9_65.clq",
+        url: "../exemplosGrafos/gen400_p0.9_65.clq.txt",
+        n_nodes: 400,
+        n_links: 71820
+    },
+    "gen400_p0.9_55.clq": {
+        name: "gen400_p0.9_55.clq",
+        url: "../exemplosGrafos/gen400_p0.9_55.clq.txt",
+        n_nodes: 400,
+        n_links: 71820
+    },
+    "gen200_p0.9_55.clq": {
+        name: "gen200_p0.9_55.clq",
+        url: "../exemplosGrafos/gen200_p0.9_55.clq.txt",
+        n_nodes: 200,
+        n_links: 17910
+    },
+    "gen200_p0.9_44.clq": {
+        name: "gen200_p0.9_44.clq",
+        url: "../exemplosGrafos/gen200_p0.9_44.clq.txt",
+        n_nodes: 200,
+        n_links: 17910
+    },
+    "brock800_4.clq": {
+        name: "brock800_4.clq",
+        url: "../exemplosGrafos/brock800_4.clq.txt",
+        n_nodes: 800,
+        n_links: 207643
+    },
+    "brock800_2.clq": {
+        name: "brock800_2.clq",
+        url: "../exemplosGrafos/brock800_2.clq.txt",
+        n_nodes: 800,
+        n_links: 208166
+    },
+    "brock400_4.clq": {
+        name: "brock400_4.clq",
+        url: "../exemplosGrafos/brock400_4.clq.txt",
+        n_nodes: 400,
+        n_links: 59765
+    },
+    "brock400_2.clq": {
+        name: "brock400_2.clq",
+        url: "../exemplosGrafos/brock400_2.clq.txt",
+        n_nodes: 400,
+        n_links: 59786
+    },
+    "brock200_4.clq": {
+        name: "brock200_4.clq",
+        url: "../exemplosGrafos/brock200_4.clq.txt",
+        n_nodes: 200,
+        n_links: 13089
+    },
+    "brock200_2.clq": {
+        name: "brock200_2.clq",
+        url: "../exemplosGrafos/brock200_2.clq.txt",
+        n_nodes: 200,
+        n_links: 9876
+    },
+    "MANN_a81.clq": {
+        name: "MANN_a81.clq",
+        url: "../exemplosGrafos/MANN_a81.clq.txt",
+        n_nodes: 3321,
+        n_links: 5506380
+    },
+    "MANN_a45.clq": {
+        name: "MANN_a45.clq",
+        url: "../exemplosGrafos/MANN_a45.clq.txt",
+        n_nodes: 1035,
+        n_links: 533115
+    },
+    "MANN_a27.clq": {
+        name: "MANN_a27.clq",
+        url: "../exemplosGrafos/MANN_a27.clq.txt",
+        n_nodes: 378,
+        n_links: 70551
+    },
+    "DSJC1000_5.clq": {
+        name: "DSJC1000_5.clq",
+        url: "../exemplosGrafos/DSJC1000_5.clq.txt",
+        n_nodes: 1000,
+        n_links: 499652
+    },
+    "C4000.5.clq": {
+        name: "C4000.5.clq",
+        url: "../exemplosGrafos/C4000.5.clq.txt",
+        n_nodes: 4000,
+        n_links: 4000268
+    },
+    "C2000.5.clq": {
+        name: "C2000.5.clq",
+        url: "../exemplosGrafos/C2000.5.clq.txt",
+        n_nodes: 2000,
+        n_links: 999836
+    },
+    "C2000.9.clq": {
+        name: "C2000.9.clq",
+        url: "../exemplosGrafos/C2000.9.clq.txt",
+        n_nodes: 2000,
+        n_links: 1799532
+    },
+    "C1000.9.clq": {
+        name: "C1000.9.clq",
+        url: "../exemplosGrafos/C1000.9.clq.txt",
+        n_nodes: 1000,
+        n_links: 450079
+    },
     "C500.9.clq": {
         name: "C500.9.clq",
         url: "../exemplosGrafos/C500.9.clq.txt",
@@ -49,7 +193,43 @@ const datasets = {
         url: "../exemplosGrafos/clique62.txt",
         n_nodes: 700,
         n_links: 183010
-    }
+    },
+    "p_hat300-1.clq": {
+        name: "p_hat300-1.clq",
+        url: "../exemplosGrafos/p_hat300-1.clq.txt",
+        n_nodes: 300,
+        n_links: 10933
+    },
+    "p_hat300-2.clq": {
+        name: "p_hat300-2.clq",
+        url: "../exemplosGrafos/p_hat300-2.clq.txt",
+        n_nodes: 300,
+        n_links: 21928
+    },
+    "p_hat300-3.clq": {
+        name: "p_hat300-3.clq",
+        url: "../exemplosGrafos/p_hat300-3.clq.txt",
+        n_nodes: 300,
+        n_links: 33390
+    },
+    "p_hat700-1.clq": {
+        name: "p_hat700-1.clq",
+        url: "../exemplosGrafos/p_hat700-1.clq.txt",
+        n_nodes: 700,
+        n_links: 60999
+    },
+    "p_hat700-2.clq": {
+        name: "p_hat700-2.clq",
+        url: "../exemplosGrafos/p_hat700-2.clq.txt",
+        n_nodes: 700,
+        n_links: 121728
+    },
+    "p_hat1500-1.clq": {
+        name: "p_hat1500-1.clq",
+        url: "../exemplosGrafos/p_hat1500-1.clq.txt",
+        n_nodes: 1500,
+        n_links: 284923
+    },
 }
 
 let currentSave;
