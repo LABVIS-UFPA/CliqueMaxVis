@@ -883,7 +883,7 @@
       // Controle de velocidade
       document
         .getElementById("mediaSlider")
-        .addEventListener("input", function () {
+        .addEventListener("change", function () {
           const speed = parseInt(this.value);
           console.log(`Speed set to: ${speed}`);
           socket.send(
