@@ -546,7 +546,46 @@
           .append("g")
           .attr("class", "node")
           .attr("transform", (d) => `translate(${d.x - width / 2},${d.y})`)
-          .on("click", handleNodeClick);
+          .on("click", handleNodeClick)
+          .on("mouseover", function(event, d) {
+            let tooltip = d3.select("#tooltip");
+            if (tooltip.empty()) {
+              tooltip = d3.select("body")
+                .append("div")
+                .attr("id", "tooltip")
+                .style("position", "absolute")
+                .style("background", "white")
+                .style("padding", "10px")
+                .style("border", "1px solid #ccc")
+                .style("border-radius", "5px")
+                .style("pointer-events", "none")
+                .style("opacity", 0);
+            }
+            
+            const dataStr = `
+              Generation: ${d.data.generation}<br>
+              Best Fitness: ${d.data.bestFitness}<br>
+              Worst Fitness: ${d.data.worstFitness}<br>
+              Best Age: ${d.data.bestAge}<br>
+              Best Count: ${d.data.bestCount}<br>
+              Active: ${d.data.active}
+            `;
+
+            tooltip
+              .html(dataStr)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px")
+              .transition()
+              .duration(200)
+              .style("opacity", 0.9);
+          })
+          .on("mouseout", function() {
+            d3.select("#tooltip")
+              .transition()
+              .duration(200)
+              .style("opacity", 0);
+          });
+
 
         nodeEnter
           .append("circle")
@@ -950,8 +989,6 @@
               d3.select(`#${timing} .value-arc`).style("fill", "red");
 
               d3.select(`#${timing} .value-arc`)
-                .transition()
-                .duration(100)
                 .attr(
                   "d",
                   d3
@@ -966,8 +1003,6 @@
               d3.select(`#${timing} .value-arc`).style("fill", "#4682b4");
 
               d3.select(`#${timing} .value-arc`)
-                .transition()
-                .duration(100)
                 .attr(
                   "d",
                   d3
