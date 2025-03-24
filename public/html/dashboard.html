@@ -75,7 +75,8 @@
           </ul>
         </li>
       </ul>
-      <div class="connection-status d-flex align-items-center pe-3">
+      <div class="connection-status d-flex align-items-center pe-3 gap-1">
+        <i id="connection-icon" class="fa fa-circle" style="color: red;" aria-hidden="true"></i>
         <span id="connection-text" class="text-light">Not Connected</span>
       </div>
     </div>
@@ -207,14 +208,14 @@
       </div>
       <div class="modal-body d-flex flex-column gap-2">
         <label for="saveUsername">Username:</label>
-        <input class="p-2 border rounded" type="text" id="saveUsername" placeholder="Digite o nome do projeto" />
+        <input class="p-2 border rounded" type="text" id="saveUsername" placeholder="Enter username" />
 
         <label for="saveName">Name of project:</label>
-        <input class="p-2 border rounded" type="text" id="saveName" placeholder="Digite o nome do projeto" />
+        <input class="p-2 border rounded" type="text" id="saveName" placeholder="Enter the project name" />
 
         <label for="dataset">Choose base:</label>
         <select class="p-2 border rounded" id="dataset_select">
-
+          <option disabled selected value> -- select an option -- </option>
         </select>
         <div class="newProjectDetails">
           <p>Infos from dataset:</p>
@@ -769,6 +770,12 @@
           return;
         }
 
+
+        if (!datasetName) {
+          alerta("Por favor, escolha uma das bases para o projeto.", "red");
+          return;
+        }
+
         socket.send(JSON.stringify({ act: "new_project", data: { datasetName, saveName, userName } }));
         alerta(`Projeto ${saveName} criado com sucesso!`, "green");
         document.getElementById("newProjectModal").style.display = "none";
@@ -819,7 +826,6 @@
       });
 
         
-      console.log("btnSaveActive", document.getElementById("btnSaveActive"));
       document.getElementById("btnSaveActive")
       .addEventListener("click", function (e) {
         console.log({ act: "save_state" });
@@ -1046,6 +1052,7 @@
 
     socket.onopen = function () {
       isConnectedText.textContent = "Connected";
+      document.getElementById("connection-icon").style.color = "green";
       console.log("Conectado ao servidor WebSocket");
       socket.send(
         JSON.stringify({
@@ -1058,6 +1065,7 @@
 
     socket.onclose = function () {
       isConnectedText.textContent = "Not Connected";
+      document.getElementById("connection-icon").style.color = "red";
       console.log("CLOSED!");
     };
     socket.onerror = function (e) {
