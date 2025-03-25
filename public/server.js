@@ -10,7 +10,8 @@ const observers = {
     obs_individuals: [],
     obs_best_individuals: [],
     obs_running: [],
-    obs_timings: []
+    obs_timings: [],
+    obs_parameters: []
 };
 
 const datasets = {
@@ -240,6 +241,7 @@ let partialReset = false;
 let isRunning = false;
 let runSingleStep = false;
 let executionSpeed = 50;
+let globalBest = 0;
 
 
 
@@ -431,7 +433,10 @@ server.on('connection', ws => {
                     logger.log("GAStates","load_state");
                     treeModel.save();
                     treeModel.load(treeModel.selectByID(obj.data));
-                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }))
+                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    for (const p of observers.obs_parameters) {
+                        p.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
+                    }
                 }
                 break;
             case "get_tree_model":
@@ -519,6 +524,12 @@ function startMainLoop() {
 
             for (const c of observers.obs_timings) {
                 c.send(JSON.stringify({ act: "timings", data: ga.timings }));
+            }
+
+            if(globalBest<ga.population[0].fitness){
+                globalBest=ga.population[0].fitness;
+                console.log("Novo Best Global!");
+                logger.log("globalBest",`${globalBest}`);
             }
 
 
