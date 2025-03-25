@@ -40,6 +40,7 @@ class GA {
         this.__fitness(this.population);
         this.updateBest();
         this.generation = 1;
+        this.population.sort((a, b) => b.fitness - a.fitness);
         this.initialPopulation = this.population;
     }
 
