@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Tempo por Usuário</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .dot {
+            fill: black;
+            stroke: white;
+            stroke-width: 2px;
+        }
+
+        .user_line {
+            stroke: rgba(1, 1, 1, 0.1)
+        }
+    </style>
+</head>
+
+<body>
+    <svg width="600" height="80"></svg>
+    <script>
+
+        function parseTSV(tsvString, user) {
+            const lines = tsvString.trim().split("\n");
+            const headers = lines[0].split("\t");
+            let data = lines.slice(1).map(line => {
+                const values = line.split("\t");
+                return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+            });
+
+            // Filtrar globalBest consecutivos mantendo apenas o último
+            data = data.filter((log, index, arr) => {
+                if (log.Type !== "globalBest") return true;
+                return index === arr.length - 1 || arr[index + 1].Type !== "globalBest";
+            });
+
+            let startTime = new Date(data[0].Timestamp).getTime();
+            let lastGlobalBestIndex = -1;
+            let globalBestResults = [];
+            let totalElapsedTime =  (new Date(data[data.length-1].Timestamp).getTime()-new Date(data[0].Timestamp).getTime())/1000;
+
+            data.forEach((log, index) => {
+                if (log.Type === "globalBest") {
+                    let currentTime = new Date(log.Timestamp).getTime();
+                    let duration = (currentTime - startTime) / 1000; // em segundos
+                    let logsSinceLast = index - lastGlobalBestIndex-1;
+                    globalBestResults.push({
+                        tempo,
+                        logs,
+                        globalBest: log.Action,
+                        user
+                    });
+                    lastGlobalBestIndex = index;
+                }
+            });
+
+            return { globalBestResults, totalElapsedTime };
+        }
+
+        const tsvData = `Timestamp\tType\tAction
+2025-03-24T23:31:22.501Z\tprojectCRUD\tnew_project
+2025-03-24T23:31:31.718Z\tGA_running\tplay
+2025-03-24T23:31:31.719Z\tglobalBest\t8
+2025-03-24T23:31:31.784Z\tglobalBest\t9
+2025-03-24T23:31:31.901Z\tglobalBest\t10
+2025-03-24T23:31:36.705Z\twindow_open\tparameter_setter.html
+2025-03-24T23:31:40.649Z\twindow_open\tline_chart.html
+2025-03-24T23:31:43.901Z\tglobalBest\t12
+2025-03-24T23:31:44.752Z\twindow_open\tindividuals_vis_canvas.html`;
+
+        // console.log(parseTSV(tsvData));
+
+
+        const users = ["Gustavo", "Kevin", "Brynner"];
+        const data = [];
+        const durantion_by_user = [];
+        for(let u of users){
+            const tsv = await d3.tsv(`C125.9[${u}].log.tsv`);
+            const {globalBestResults, totalElapsedTime} = parseTSV(tsv);
+            data.concat(...globalBestResults);
+        }
+
+        console.log(data)
+
+        // const data = [
+        //     { tempo: 30, globalBest: 5, user: "Gustavo" },
+        //     { tempo: 50, globalBest: 3, user: "Gustavo" },
+        //     { tempo: 35, globalBest: 3, user: "Brynner" },
+        //     { tempo: 45, globalBest: 3, user: "Brynner" },
+        //     { tempo: 40, globalBest: 3, user: "Ana" },
+        //     { tempo: 55, globalBest: 3, user: "Ana" }
+        // ];
+
+        const margin = { top: 0, right: 30, bottom: 0, left: 50 },
+            width = 600 - margin.left - margin.right,
+            height = 50 - margin.top - margin.bottom;
+
+        const svg = d3.select("svg")
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // const users = [...new Set(data.map(d => d.user))];
+
+        const x = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.tempo) + 10])
+            .range([0, width]);
+
+        const y = d3.scaleBand()
+            .domain(users)
+            .range([5, height + 5])
+            .padding(0.5);
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x));
+
+        // svg.append("g")
+        //    .call(d3.axisLeft(y));
+
+
+        svg.selectAll(".user_line")
+            .data(users)
+            .enter().append("line")
+            .attr("class", "user_line")
+            .attr("x1", x.range()[0])
+            .attr("x2", x.range()[1])
+            .attr("y1", d => y(d) + y.bandwidth() / 2)
+            .attr("y2", d => y(d) + y.bandwidth() / 2)
+            .attr("stroke", "black");
+
+
+        svg.selectAll(".dot")
+            .data(data)
+            .enter().append("circle")
+            .attr("class", "dot")
+            .attr("cx", d => x(d.tempo))
+            .attr("cy", d => y(d.user) + y.bandwidth() / 2)
+            .attr("r", 3);
+
+        //    console.log(x.domain())
+
+    </script>
+</body>
+
+</html>
