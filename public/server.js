@@ -135,6 +135,12 @@ const datasets = {
         n_nodes: 1000,
         n_links: 499652
     },
+    "DSJC500_5.clq": {
+        name: "DSJC500_5.clq",
+        url: "../exemplosGrafos/DSJC500_5.clq.txt",
+        n_nodes: 500,
+        n_links: 125248
+    },
     "C4000.5.clq": {
         name: "C4000.5.clq",
         url: "../exemplosGrafos/C4000.5.clq.txt",
