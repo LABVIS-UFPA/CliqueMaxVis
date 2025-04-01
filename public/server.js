@@ -544,6 +544,7 @@ function startMainLoop() {
             console.log(`Best age: ${ga.population[0].age}`);
             console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
             console.log(`generation: ${ga.generation}`);
+            console.log(`entropy: ${ga.entropy}`);
 
             // console.log('timings');
             // console.log(ga.timings);

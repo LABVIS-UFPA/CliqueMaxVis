@@ -23,6 +23,7 @@ class GA {
         this.survivalRate = 0.25;
         this.nodeIncludeProb = 0.1
         this.maxAge = 30;
+        this.isBestImmortal = true;
         this.hasMaxAge = true;
         this.hasExtractionImprovement = true;
         this.preventEqualIndividuals = false;
@@ -38,6 +39,7 @@ class GA {
     init() {
         this.population = this.__generatePopulation();
         this.__fitness(this.population);
+        this.__calculateEntropy();
         this.updateBest();
         this.generation = 1;
         this.population.sort((a, b) => b.fitness - a.fitness);
@@ -48,6 +50,7 @@ class GA {
         let newPopulation = this.__crossover();
         this.__mutate(newPopulation);
         this.__fitness(newPopulation);
+        this.__calculateEntropy();
         this.oldPopulation = this.population;
         this.population = this.__selection(newPopulation);
         this.updateBest();
@@ -72,12 +75,12 @@ class GA {
     getParameters() {
         const { 
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
-            maxAge, hasMaxAge, hasExtractionImprovement, preventEqualIndividuals,
+            maxAge, hasMaxAge, isBestImmortal, hasExtractionImprovement, preventEqualIndividuals,
             nodeIncludeProb,calcUpperBound
         } = this;
         return {
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
-            maxAge, hasMaxAge, hasExtractionImprovement, preventEqualIndividuals,
+            maxAge, hasMaxAge, isBestImmortal, hasExtractionImprovement, preventEqualIndividuals,
             nodeIncludeProb,calcUpperBound
         };
     }
@@ -169,13 +172,16 @@ class GA {
         this.runningObs("Selecting Next Population");
         const t1 = performance.now();
         const oldPopulation = this.population;
+        let best;
+        if(this.isBestImmortal) best = oldPopulation.splice(0,1)[0];
         if (this.hasMaxAge) {
             for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
             for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
+            
             oldPopulation.sort((a, b) => b.fitness - a.fitness);
             newPopulation.sort((a, b) => b.fitness - a.fitness);
         }
-
+        if(this.isBestImmortal) oldPopulation.unshift(best);
         
         let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
         let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
@@ -206,6 +212,37 @@ class GA {
         individual.age=0;
         return individual;
     }
+
+    __calculateEntropy() {
+        const population = this.population;
+        const geneCount = population[0].nodeMask.length; // Número de genes por indivíduo
+        const populationSize = population.length;
+    
+        let totalEntropy = 0;
+    
+        for (let geneIndex = 0; geneIndex < geneCount; geneIndex++) {
+            let frequency = { 0: 0, 1: 0 };
+    
+            // Conta a frequência dos valores genéticos (0 ou 1) no gene atual
+            population.forEach(individual => {
+                frequency[individual.nodeMask[geneIndex]]++;
+            });
+    
+            // Calcula as probabilidades
+            const p0 = frequency[0] / populationSize;
+            const p1 = frequency[1] / populationSize;
+    
+            // Calcula a entropia para o gene atual
+            let entropy = 0;
+            if (p0 > 0) entropy -= p0 * Math.log2(p0);
+            if (p1 > 0) entropy -= p1 * Math.log2(p1);
+    
+            totalEntropy += entropy;
+        }
+    
+        this.entropy =  totalEntropy/populationSize;
+    }
+    
 
 }
 

@@ -70,7 +70,7 @@
 
 <body>
     <svg id="MeuSVG" width="600" height="80"></svg>
-    <button onclick="downloadSVG('MeuSVG')">download</button>
+    <button style="position: absolute; top: 0px;" onclick="downloadSVG('MeuSVG')">download</button>
 
 
 
@@ -96,6 +96,43 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
+        function criarLegenda(scale, width = 210, height = 50) {
+            const categorias = scale.domain(); // Obtém os rótulos das categorias
+            const espacamento = 25; // Espaço entre os itens da legenda
+
+            // Criar o SVG dentro do body
+            const svg = d3.select("body")
+                .append("svg")
+                .attr("id", "svgLegenda")
+                .attr("width", width)
+                .attr("height", categorias.length * espacamento + 20);
+
+            // Criar grupos para cada item da legenda
+            const legend = svg.selectAll(".legend")
+                .data(categorias)
+                .enter()
+                .append("g")
+                .attr("class", "legend")
+                .attr("transform", (d, i) => `translate(10, ${i * espacamento + 10})`);
+
+            // Criar os retângulos coloridos
+            // legend.append("rect")
+            //     .attr("width", 20)
+            //     .attr("height", 20)
+            //     .attr("fill", d => scale(d));
+            legend.append("circle")
+                .attr("r", 5)
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("fill", d => scale(d));
+
+            // Criar os textos da legenda
+            legend.append("text")
+                .attr("x", 8)
+                .attr("y", 3)
+                .style("font-size", "14px")
+                .text(d => d);
+        }
 
         (async () => {
 
@@ -120,10 +157,12 @@
                 let globalBestResults = [];
                 let interactions = []
                 let totalElapsedTime = (new Date(data[data.length - 1].Timestamp).getTime() - new Date(data[0].Timestamp).getTime()) / 1000;
+                totalElapsedTime /= 60; // em minutos
 
                 data.forEach((log, index) => {
                     const currentTime = new Date(log.Timestamp).getTime();
-                    const duration = (currentTime - startTime) / 1000; // em segundos
+                    let duration = (currentTime - startTime) / 1000; // em segundos
+                    duration /= 60; // em minutos
                     if (log.Type === "globalBest") {
                         const logsSinceLast = index - lastGlobalBestIndex - 1;
                         globalBestResults.push({
@@ -134,21 +173,30 @@
                             dataset
                         });
                         lastGlobalBestIndex = index;
-                    } else if (log.Type === "GA_setting" || log.Type === "window_open") {
+                    } else if (important_types.indexOf(log.Type) > -1) {
                         interactions.push({
                             tempo: duration,
-                            interaction: log.Type,
-                            user,
-                            dataset
-                        });
-                    } else if (log.Type === "GA_running") {
-                        interactions.push({
-                            tempo: duration,
+                            interaction_type: log.Type,
                             interaction: log.Action,
                             user,
                             dataset
                         });
-                    }
+                    };
+                    // } else if (log.Type === "GA_setting" || log.Type === "window_open") {
+                    //     interactions.push({
+                    //         tempo: duration,
+                    //         interaction: log.Type,
+                    //         user,
+                    //         dataset
+                    //     });
+                    // } else if (log.Type === "GA_running") {
+                    //     interactions.push({
+                    //         tempo: duration,
+                    //         interaction: log.Action,
+                    //         user,
+                    //         dataset
+                    //     });
+                    // }
                 });
 
                 return { globalBestResults, interactions, totalElapsedTime };
@@ -168,40 +216,40 @@
             // 2025-03-24T23:35:46.221Z\tprojectCRUD\tsave_project`;
 
             const datasets = [
-                "C125.9",
-                "C250.9",
+                // "C125.9",
+                // "C250.9",
                 "C500.9",
                 "C1000.9",
                 "C2000.9",
                 "DSJC1000_5",
                 "DSJC500_5",
-                "C2000.5",
+                // "C2000.5",
                 "C4000.5",
-                "MANN_a27",
-                "MANN_a45",
-                "MANN_a81",
-                "brock200_2",
-                "brock200_4",
+                // "MANN_a27",
+                // "MANN_a45",
+                // "MANN_a81",
+                // "brock200_2",
+                // "brock200_4",
                 "brock400_2",
-                "brock400_4",
-                "brock800_2",
+                // "brock400_4",
+                // "brock800_2",
                 "brock800_4",
-                "gen200_p0.9_44",
-                "gen200_p0.9_55",
+                // "gen200_p0.9_44",
+                // "gen200_p0.9_55",
                 "gen400_p0.9_55",
-                "gen400_p0.9_65",
-                "gen400_p0.9_75",
-                "hamming10-4",
-                "hamming8-4",
-                "keller4",
-                "keller5",
+                // "gen400_p0.9_65",
+                // "gen400_p0.9_75",
+                // "hamming10-4",
+                // "hamming8-4",
+                // "keller4",
+                // "keller5",
                 "keller6",
-                "p_hat300-1",
-                "p_hat300-2",
-                "p_hat300-3",
-                "p_hat700-1",
-                "p_hat700-2",
-                "p_hat700-3",
+                // "p_hat300-1",
+                // "p_hat300-2",
+                // "p_hat300-3",
+                // "p_hat700-1",
+                // "p_hat700-2",
+                // "p_hat700-3",
                 "p_hat1500-1",
                 "p_hat1500-2",
                 "p_hat1500-3"
@@ -210,19 +258,37 @@
 
             // console.log(parseTSV(tsvData));
 
-            const dIcons = {
-                play: "M15 12.3301L9 16.6603L9 8L15 12.3301Z",
-                pause: "M5 4h3v12H5V4zm7 0h3v12h-3V4z",
-                window_open: "M 4 3.25 C 2.4901003 3.25 1.25 4.4901003 1.25 6 L 1.25 14 C 1.25 15.509919 2.4901139 16.75 4 16.75 L 6.25 16.75 L 6.25 19 C 6.25 20.509919 7.4901139 21.75 9 21.75 L 20 21.75 C 21.509905 21.75 22.75 20.509905 22.75 19 L 22.75 11 C 22.75 9.4901139 21.509919 8.25 20 8.25 L 17.75 8.25 L 17.75 6 C 17.75 4.4901139 16.509919 3.25 15 3.25 L 4 3.25 z M 4 4.75 L 15 4.75 C 15.699281 4.75 16.25 5.3007461 16.25 6 L 16.25 8.25 L 9 8.25 C 7.4901003 8.25 6.25 9.4901003 6.25 11 L 6.25 15.25 L 4 15.25 C 3.3007461 15.25 2.75 14.699281 2.75 14 L 2.75 6 C 2.75 5.3007597 3.3007597 4.75 4 4.75 z M 5 6.25 A 0.75 0.75 0 0 0 4.25 7 A 0.75 0.75 0 0 0 5 7.75 L 6 7.75 A 0.75 0.75 0 0 0 6.75 7 A 0.75 0.75 0 0 0 6 6.25 L 5 6.25 z M 9 9.75 L 20 9.75 C 20.699281 9.75 21.25 10.300746 21.25 11 L 21.25 19 C 21.25 19.699295 20.699295 20.25 20 20.25 L 9 20.25 C 8.3007461 20.25 7.75 19.699281 7.75 19 L 7.75 11 C 7.75 10.30076 8.3007597 9.75 9 9.75 z M 10 11.25 A 0.75 0.75 0 0 0 9.25 12 A 0.75 0.75 0 0 0 10 12.75 L 11 12.75 A 0.75 0.75 0 0 0 11.75 12 A 0.75 0.75 0 0 0 11 11.25 L 10 11.25 z",
-                GA_setting: "M 8.2578125,2.5410156 A 0.693932,0.693932 0 0 0 7.5644531,3.2324219 l -0.00781,4.7988281 -0.00586,3.585938 C 7.4150645,11.482828 7.3835311,11.457513 7.1933594,11.267578 L 5.9980469,10.072266 a 0.693932,0.693932 0 0 0 -0.984375,0.002 l -0.1855469,0.1875 -0.1855469,0.1875 a 0.693932,0.693932 0 0 0 -0.1503906,0.74414 l 0.1503906,0.378907 a 0.693932,0.693932 0 0 0 0,0.002 c 0.4609844,1.154773 1.1145253,2.131557 1.9902344,2.972656 1.1005729,1.057076 1.195192,1.163219 1.4804687,1.732422 0.3198836,0.638252 0.4497998,1.22046 0.4511719,2.152344 v 0.333984 a 0.693932,0.693932 0 0 0 0.6933594,0.693359 h 2.2480465 2.246094 a 0.693932,0.693932 0 0 0 0.693359,-0.6875 l 0.01367,-1.492187 c 0.0064,-0.742195 0.01113,-1.117942 0.02149,-1.316406 0.01036,-0.198465 0.01382,-0.193316 0.05469,-0.363282 0.105641,-0.439334 0.166709,-0.607745 0.427735,-1.162109 0.206161,-0.437847 0.356247,-0.795725 0.423828,-1.253906 0.06758,-0.458181 0.06508,-0.972216 0.05859,-1.875 l -0.0098,-1.277344 A 0.693932,0.693932 0 0 0 14.960938,9.3789062 l -2.9375,-0.9804687 C 10.938873,8.037078 10.202662,7.7891025 9.7382812,7.6269531 9.6075,7.5812878 9.5472487,7.5575307 9.4589844,7.5253906 9.4526326,7.2122874 9.4511719,6.6549355 9.4511719,5.5898438 V 3.234375 A 0.693932,0.693932 0 0 0 8.7578125,2.5410156 h -0.25 z"
-            }
-
-            const margin = { top: 0, right: 30, bottom: 0, left: 50 },
+            const margin = { top: 0, right: 7, bottom: 0, left: 50 },
                 width = 600 - margin.left - margin.right,
                 height = 50 - margin.top - margin.bottom;
+            const spacing = 10;
+
+            const x = d3.scaleLinear()
+                .domain([0, 25])
+                .range([0, width]);
+
+            const color = d3.scaleOrdinal()
+                .range(d3.schemePaired).domain([
+                    "populationSize",
+                    "survivalRate",
+                    "mutationSelectionRate",
+                    "mutationRate",
+                    "partialReset",
+                    "nodeIncludeProb",
+                    "maxAge",
+                    "hasMaxAge",
+                    "hasExtractionImprovement",
+                    "preventEqualIndividuals",
+                    "calcUpperBound"
+                ]);
+
+            const important_types = ["GA_setting"/*, "GAStates"*/];
+
+
+
 
             const svg = d3.select("svg");
-            svg.attr("height", (height + 20) * datasets.length);
+            svg.attr("height", (height + spacing) * datasets.length + 15);
 
 
             for (let k = 0; k < datasets.length; k++) {
@@ -239,18 +305,18 @@
 
 
                 for (let u of users) {
-                    try{
+                    try {
                         const tsv = await d3.tsv(`../logs/${dataset}[${u}].log.tsv`);
-                    const { globalBestResults, interactions, totalElapsedTime } = parseTSV(tsv, u, dataset);
-                    data = data.concat(globalBestResults);
-                    users_durations.push(totalElapsedTime);
-                    interaction_data = interaction_data.concat(interactions);
-                    if (totalTime < totalElapsedTime) totalTime = totalElapsedTime;
-                    sumarized_data[`${dataset}_${u}`] = { tempo: Math.round(totalElapsedTime / 60), interactions: interaction_data.length };
-                    }catch(e){
+                        const { globalBestResults, interactions, totalElapsedTime } = parseTSV(tsv, u, dataset);
+                        data = data.concat(globalBestResults);
+                        users_durations.push(totalElapsedTime);
+                        interaction_data = interaction_data.concat(interactions);
+                        if (totalTime < totalElapsedTime) totalTime = totalElapsedTime;
+                        sumarized_data[`${dataset}_${u}`] = { tempo: Math.round(totalElapsedTime /*/ 60*/), interactions: interaction_data.length, best: +globalBestResults[globalBestResults.length - 1].globalBest };
+                    } catch (e) {
                         console.error(e);
                     }
-                    
+
                 }
 
                 console.log(data)
@@ -270,23 +336,30 @@
 
                 const g_chart = svg
                     .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top + (20 + 50) * k})`)
+                    .attr("transform", `translate(${margin.left},${margin.top + (spacing + 50) * k})`)
                     .attr("data-dataset", dataset);
+                g_chart.append("text")
+                    .attr("y", 10)
+                    .attr("transform", "translate(-34,47) rotate(-90)")
+                    .style("font", "6pt sans-serif")
+                    .text(dataset);
 
                 // const users = [...new Set(data.map(d => d.user))];
 
-                const x = d3.scaleLinear()
-                    .domain([0, totalTime])
-                    .range([0, width]);
+                // const x = d3.scaleLinear()
+                //     .domain([0, totalTime])
+                //     .range([0, width]);
 
                 const y = d3.scaleBand()
                     .domain(users)
                     .range([5, height + 5])
                     .padding(0.5);
 
-                g_chart.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x));
+
+                if (datasets.length - 1 === k)
+                    g_chart.append("g")
+                        .attr("transform", `translate(0,${height})`)
+                        .call(d3.axisBottom(x));
 
                 // svg.append("g")
                 //    .call(d3.axisLeft(y));
@@ -301,8 +374,16 @@
                     .attr("y1", d => y(d) + y.bandwidth() / 2)
                     .attr("y2", d => y(d) + y.bandwidth() / 2)
                     .attr("stroke", "black");
+                g_chart.selectAll(".user_text")
+                    .data(users)
+                    .enter().append("text")
+                    .attr("class", "user_text")
+                    .attr("x", -20)
+                    .attr("y", d => y(d) + 5)
+                    .style("font", "5pt sans-serif")
+                    .text((d, i) => `Ev. ${i + 1}`);
 
-                interaction_data
+
 
 
 
@@ -310,13 +391,20 @@
                     .data(interaction_data)
                     .enter().append("g")
                     .attr("class", "iconeInteraction")
-                    .attr("transform", d => `translate(${x(d.tempo) - 3.3},${y(d.user) - 4})`)
-                    .append("path")
-                    .attr("transform", "scale(0.5)")
-                    .attr("class", d => `icone_${d.interaction}`)
-                    .attr("d", d => dIcons[d.interaction])
-                // .attr("d", "M15 12.3301L9 16.6603L9 8L15 12.3301Z")
+                    .attr("transform", d => `translate(${x(d.tempo)},${y(d.user) + y.bandwidth() / 2})`)
 
+                    // .append("path")
+                    // .attr("transform", "scale(0.5)")
+                    // .attr("class", d => `icone_${d.interaction}`)
+                    // .attr("d", d => dIcons[d.interaction])
+                    // .attr("d", "M15 12.3301L9 16.6603L9 8L15 12.3301Z")
+
+                    .append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", d => Math.random() * 5 - 2.5)
+                    .attr("opacity", 0.5)
+                    .attr("r", 2)
+                    .attr("fill", d => color(d.interaction));
 
 
 
@@ -363,13 +451,14 @@
             }
 
             console.log(sumarized_data);
+            criarLegenda(color);
 
 
 
             const styles = [
                 { selector: ".dot", styles: { fill: "black", stroke: "white", strokeWidth: "1px" } },
                 { selector: ".user_line", styles: { stroke: "rgb(1, 1, 1)", "stroke-opacity": "0.1" } },
-                { selector: ".number", styles: { font: "10px monospace", stroke: "#FFFFFF", strokeWidth: "0.05px" } },
+                { selector: ".number", styles: { font: "10px monospace" } },
                 { selector: ".back", styles: { fill: "#FFFFFF" } },
                 { selector: ".icone_GA_setting", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.5", stroke: "none", strokeLinecap: "round", strokeLinejoin: "round" } },
                 { selector: ".icone_window_open", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.9", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } },

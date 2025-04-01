@@ -70,6 +70,12 @@
 
     <div class="config-item">
         <label>
+            <input type="checkbox" id="isBestImmortal" checked> Immortal Best
+        </label>
+    </div>
+    
+    <div class="config-item">
+        <label>
             <input type="checkbox" id="hasExtractionImprovement" checked> Improve Individuals
         </label>
     </div>
@@ -85,7 +91,7 @@
             <input type="checkbox" id="calcUpperBound"> Calc Upper Bound (Coloring)
         </label>
     </div>
-
+    
     
 
     <!-- <button onclick="getConfig()">Update</button> -->
@@ -155,6 +161,7 @@
             document.getElementById("nodeIncludeProb").value = config.nodeIncludeProb;
 
             document.getElementById("hasMaxAge").checked = config.hasMaxAge;
+            document.getElementById("isBestImmortal").checked = config.isBestImmortal;
             document.getElementById("hasExtractionImprovement").checked = config.hasExtractionImprovement;
             document.getElementById("preventEqualIndividuals").checked = config.preventEqualIndividuals;
             document.getElementById("calcUpperBound").checked = config.calcUpperBound;
