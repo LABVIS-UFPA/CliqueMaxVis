@@ -312,14 +312,19 @@ class CliqueMask {
     return this;
   }
   improvement() {
-    const len = this.nodeMask.length;
-    let i = Math.floor(Math.random() * len);
-    let cont = 0;
-    while (cont < len) {
-      i = (i + 1) % len;
-      cont++;
+    
+    const path = CliqueMask.shuffleArray(this.nodeMask.map((_,i)=>i));
+    for (const i of path) {
       if (this.verifyInsertion(i)) this.nodeMask[i] = 1;
     }
+    // const len = this.nodeMask.length;
+    // let i = Math.floor(Math.random() * len);
+    // let cont = 0;
+    // while (cont < len) {
+    //   i = (i + 1) % len;
+    //   cont++;
+    //   if (this.verifyInsertion(i)) this.nodeMask[i] = 1;
+    // }
     return this;
   }
 
@@ -329,35 +334,42 @@ class CliqueMask {
 
     // Cria uma lista com os índices dos vértices que ainda não tem cor
     const ordem = cores.reduce((acc, v, i) => {
-      if(v<0) acc.push(i);return acc;
-    },[]);
+      if (v < 0) acc.push(i); return acc;
+    }, []);
 
     ordem.sort(() => Math.random() - 0.5); // Embaralha a ordem de seleção dos vértices
 
     for (const i of ordem) {
-        const coresUsadas = new Set();
+      const coresUsadas = new Set();
 
-        // Verifica as cores dos vizinhos
-        
-        for (const vizinho of this.graph.indexAdj[i]) {
-            if (cores[vizinho] !== -1) {
-                coresUsadas.add(cores[vizinho]);
-            }
-        }
+      // Verifica as cores dos vizinhos
 
-        // Encontra a menor cor disponível
-        let cor = 0;
-        while (coresUsadas.has(cor)) {
-            cor += 1;
+      for (const vizinho of this.graph.indexAdj[i]) {
+        if (cores[vizinho] !== -1) {
+          coresUsadas.add(cores[vizinho]);
         }
-        
-        cores[i] = cor; // Atribui a cor ao vértice
-        if(cor===colorCount) colorCount++;
+      }
+
+      // Encontra a menor cor disponível
+      let cor = 0;
+      while (coresUsadas.has(cor)) {
+        cor += 1;
+      }
+
+      cores[i] = cor; // Atribui a cor ao vértice
+      if (cor === colorCount) colorCount++;
     }
 
-    return {cores, colorCount};
+    return { cores, colorCount };
   }
 
+  static shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
 }
 
 CliqueMask.getConstructor = (graph) => {

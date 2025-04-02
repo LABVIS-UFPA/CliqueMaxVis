@@ -8,7 +8,7 @@ class GA {
     constructor(individualConstructor, numNodes) {
         this.newIndividual = individualConstructor
         this.timings = {};
-        this.runningObs = ()=>{};
+        this.runningObs = () => { };
 
         this.generation = 0;
         this.numNodes = numNodes;
@@ -29,10 +29,14 @@ class GA {
         this.preventEqualIndividuals = false;
         this.calcUpperBound = false;
 
+        this.mutationType = "bitSwap"; //["bitSwap", "bitFlip"]
+
+        // this.tabuTRIE = new TabuTRIE();
+
     }
 
-    setRunningObs(func){
-        if(func instanceof Function)
+    setRunningObs(func) {
+        if (func instanceof Function)
             this.runningObs = func;
     }
 
@@ -53,6 +57,17 @@ class GA {
         this.__calculateEntropy();
         this.oldPopulation = this.population;
         this.population = this.__selection(newPopulation);
+
+
+        // for (const i of this.population) {
+        //     if(!this.tabuTRIE.verify(i.nodeMask)){
+        //         this.tabuTRIE.add(i.nodeMask);
+        //     }else{
+        //         console.log("VELHO!!!!!!!!!!!!!!");
+        //     }
+            
+        // }
+
         this.updateBest();
         this.generation++;
     }
@@ -73,15 +88,15 @@ class GA {
     }
 
     getParameters() {
-        const { 
+        const {
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
             maxAge, hasMaxAge, isBestImmortal, hasExtractionImprovement, preventEqualIndividuals,
-            nodeIncludeProb,calcUpperBound
+            nodeIncludeProb, calcUpperBound
         } = this;
         return {
             populationSize, mutationRate, mutationSelectionRate, survivalRate,
             maxAge, hasMaxAge, isBestImmortal, hasExtractionImprovement, preventEqualIndividuals,
-            nodeIncludeProb,calcUpperBound
+            nodeIncludeProb, calcUpperBound
         };
     }
     setParameters(params) {
@@ -104,14 +119,14 @@ class GA {
         for (const individual of population) {
             individual.fitness = individual.verifyClique();
         }
-        if(this.calcUpperBound){
+        if (this.calcUpperBound) {
             for (const individual of population) {
                 individual.upperBound = individual.colorir().colorCount;
-                if(individual.upperBound < this.bestUpperBound) 
+                if (individual.upperBound < this.bestUpperBound)
                     this.bestUpperBound = individual.upperBound;
             }
         }
-        this.timings.fitness = performance.now()-t1;
+        this.timings.fitness = performance.now() - t1;
     }
     __crossover() {
         this.runningObs("Making Crossover");
@@ -127,8 +142,8 @@ class GA {
 
             let newI = newIndividual(newMask);
             if (this.hasExtractionImprovement) newI.extraction().improvement();
-            newI.age=0;
-            
+            newI.age = 0;
+
             if (this.preventEqualIndividuals) {
                 let isEqual = false;
                 for (const i of newPopulation) {
@@ -149,23 +164,24 @@ class GA {
 
             newPopulation.push(newI);
         }
-        this.timings.crossover = performance.now()-t1;
+        this.timings.crossover = performance.now() - t1;
         return newPopulation;
     }
 
     __mutate(population) {
         this.runningObs("Mutating");
-        const t1=performance.now();
+        const t1 = performance.now();
+        const len = population[0].nodeMask.length;
+        const mutations = Math.floor(this.mutationRate * len);
         for (const individual of population) {
             if (Math.random() < this.mutationSelectionRate) {
-                for (let i = 0; i < individual.nodeMask.length; i++) {
-                    if (Math.random() < this.mutationRate)
-                        individual.nodeMask[i] = 1 - individual.nodeMask[i];
+                for (let i = 0; i < mutations; i++) {
+                    GA.strategies.mutation[this.mutationType](individual);
                 }
                 if (this.hasExtractionImprovement) individual.extraction().improvement();
             }
         }
-        this.timings.mutation = performance.now()-t1;
+        this.timings.mutation = performance.now() - t1;
     }
 
     __selection(newPopulation) {
@@ -173,16 +189,16 @@ class GA {
         const t1 = performance.now();
         const oldPopulation = this.population;
         let best;
-        if(this.isBestImmortal) best = oldPopulation.splice(0,1)[0];
+        if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
         if (this.hasMaxAge) {
             for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
             for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
-            
+
             oldPopulation.sort((a, b) => b.fitness - a.fitness);
             newPopulation.sort((a, b) => b.fitness - a.fitness);
         }
-        if(this.isBestImmortal) oldPopulation.unshift(best);
-        
+        if (this.isBestImmortal) oldPopulation.unshift(best);
+
         let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
         let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
 
@@ -191,7 +207,7 @@ class GA {
         for (const individual of nextPopulation) {
             individual.age++;
         }
-        this.timings.selection = performance.now()-t1;
+        this.timings.selection = performance.now() - t1;
         return nextPopulation;
     }
 
@@ -209,7 +225,7 @@ class GA {
             () => Math.random() > this.nodeIncludeProb ? 0 : 1));
 
         if (this.hasExtractionImprovement) individual.extraction().improvement();
-        individual.age=0;
+        individual.age = 0;
         return individual;
     }
 
@@ -217,32 +233,72 @@ class GA {
         const population = this.population;
         const geneCount = population[0].nodeMask.length; // Número de genes por indivíduo
         const populationSize = population.length;
-    
+
         let totalEntropy = 0;
-    
+
         for (let geneIndex = 0; geneIndex < geneCount; geneIndex++) {
             let frequency = { 0: 0, 1: 0 };
-    
+
             // Conta a frequência dos valores genéticos (0 ou 1) no gene atual
             population.forEach(individual => {
                 frequency[individual.nodeMask[geneIndex]]++;
             });
-    
+
             // Calcula as probabilidades
             const p0 = frequency[0] / populationSize;
             const p1 = frequency[1] / populationSize;
-    
+
             // Calcula a entropia para o gene atual
             let entropy = 0;
             if (p0 > 0) entropy -= p0 * Math.log2(p0);
             if (p1 > 0) entropy -= p1 * Math.log2(p1);
-    
+
             totalEntropy += entropy;
         }
-    
-        this.entropy =  totalEntropy/populationSize;
+
+        this.entropy = totalEntropy / populationSize;
     }
-    
+
+
+}
+
+GA.strategies = {
+    mutation: {
+        bitFlip: (individual) => {
+            const i = Math.floor(Math.random() * individual.nodeMask.length);
+            individual.nodeMask[i] = 1 - individual.nodeMask[i];
+        },
+        bitSwap: (individual) => {
+            const len = individual.nodeMask.length;
+            const j = Math.floor(Math.random() * len);
+            const k = Math.floor(Math.random() * len);
+            const aux = individual.nodeMask[j];
+            individual.nodeMask[j] = individual.nodeMask[k];
+            individual.nodeMask[k] = aux;
+        }
+    }
+}
+
+class TabuTRIE{
+
+    constructor(){
+        this.root = new Array(2);
+    }
+
+    add(bitarray, i=0, treeNode=this.root){
+        if(i<bitarray.length){
+            this.add(bitarray, i+1, treeNode[bitarray[i]]=treeNode[bitarray[i]]||new Array(2));
+        }else{
+            treeNode.final=true;
+        }
+    }
+
+    verify(bitarray, i=0, treeNode=this.root){
+        if(i<bitarray.length){
+            return treeNode[bitarray[i]]?this.verify(bitarray, i+1, treeNode[bitarray[i]]):false;
+        }
+        return treeNode.final||false;
+    }
 
 }
 
