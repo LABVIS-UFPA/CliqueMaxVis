@@ -3,12 +3,13 @@
 
 const fs = require("fs");
 const {Graph, CliqueBuilder, CliqueSolver, CliqueMask} = require("./graph.js");
-const {GA} = require("./gen_alg.js");
+const {PermutGA, GA, GRASP} = require("./gen_alg.js");
 
 // let dbpath = "../exemplosGrafos/grafoK5.txt";
 // let dbpath = "../exemplosGrafos/homer.col.txt";
-let dbpath = "../exemplosGrafos/queen5_5.col.txt";
-// let dbpath = "../exemplosGrafos/clique34.txt";
+// let dbpath = "../../exemplosGrafos/queen5_5.col.txt";
+// let dbpath = "../../exemplosGrafos/clique34.txt";
+let dbpath = "../../exemplosGrafos/keller6.clq.txt";
 // let dbpath = "../exemplosGrafos/clique34.txt";
 
 
@@ -18,21 +19,37 @@ let graph = new Graph();
 graph.importFromText(txt);
 graph.calcMatAdjs();
 
-let ga = new GA(CliqueMask.getConstructor(graph));
+// let ga = new PermutGA(CliqueMask.getConstructor(graph), graph.nodes.length);
+// let ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+let ga = new GRASP(CliqueMask.getConstructor(graph), graph.nodes.length);
 
-
+console.log("init");
 ga.init();
-ga.nextGeneration();
-ga.nextGeneration();
-ga.nextGeneration();
-ga.nextGeneration();
-ga.nextGeneration();
-ga.nextGeneration();
+// console.log("next");
+// ga.nextGeneration();
+// console.log("clique", ga.maxCliqueSize);
+// ga.nextGeneration();
+// console.log("clique", ga.maxCliqueSize);
+// ga.nextGeneration();
+// ga.nextGeneration();
+// ga.nextGeneration();
+// ga.nextGeneration();
+// console.log("clique", ga.maxCliqueSize);
 
-console.log(ga.population[0].nodeMask);
-console.log(ga.population[0].fitness);
-console.log(ga.population[0].age);
 
+
+// console.log(ga.population[0].nodeMask);
+// console.log(ga.population[0].fitness);
+// console.log(ga.population[0].age);
+// console.log("clique", ga.maxCliqueSize);
+console.log(`fitness(${ga.population[0].fitness}/${ga.population[ga.population.length-1].fitness})`);
+while (true){
+    ga.nextGeneration();
+// console.log(`clique(${ga.maxCliqueSize}), fitness(${ga.population[0].fitness}/${ga.population[ga.population.length-1].fitness})`);
+    console.log(`fitness(${ga.population[0].fitness}/${ga.population[ga.population.length-1].fitness})`);
+// console.log(ga.population[0].fitness);
+// console.log(ga.population[0].age);
+}
 
 
 

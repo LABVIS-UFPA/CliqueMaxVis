@@ -65,7 +65,7 @@ class GA {
         //     }else{
         //         console.log("VELHO!!!!!!!!!!!!!!");
         //     }
-            
+
         // }
 
         this.updateBest();
@@ -279,29 +279,350 @@ GA.strategies = {
     }
 }
 
-class TabuTRIE{
 
-    constructor(){
-        this.root = new Array(2);
+class PermutGA {
+    constructor(individualConstructor, numNodes) {
+        this.newIndividual = individualConstructor
+        this.maxCliqueSize = 1;
+        this.numNodes = numNodes;
+        this.bestIndividuals = [];
+        this.epoch = 1;
+
+        this.survivalRate = 0.25;
+        this.populationSize = 500;
     }
 
-    add(bitarray, i=0, treeNode=this.root){
-        if(i<bitarray.length){
-            this.add(bitarray, i+1, treeNode[bitarray[i]]=treeNode[bitarray[i]]||new Array(2));
-        }else{
-            treeNode.final=true;
+    init() {
+        this.population = this.__generatePopulation();
+        this.__fitness(this.population);
+        this.updateBest();
+        this.generation = 1;
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        this.initialPopulation = this.population;
+    }
+    nextGeneration() {
+        let newPopulation = this.__crossover();
+        this.__mutate(newPopulation);
+        this.__fitness(newPopulation);
+        // this.__calculateEntropy();
+        this.oldPopulation = this.population;
+        this.population = this.__selection(newPopulation);
+
+
+        // for (const i of this.population) {
+        //     if(!this.tabuTRIE.verify(i.nodeMask)){
+        //         this.tabuTRIE.add(i.nodeMask);
+        //     }else{
+        //         console.log("VELHO!!!!!!!!!!!!!!");
+        //     }
+
+        // }
+
+        this.updateBest();
+
+        if (this.population[0].fitness >= 0) {
+            this.maxCliqueSize++;
+            this.epoch++;
+            this.init();
+        } else {
+            this.generation++;
+        }
+
+
+    }
+
+    __crossover() {
+        return this.population.map(i => this.newIndividual(i.nodeMask));
+    }
+    __mutate(population) {
+        for (let individual of population) {
+            const mutated = individual.nodeMask;
+
+            const selectedIndices = [];
+            const unselectedIndices = [];
+
+            // Separa os índices selecionados e não selecionados
+            for (let i = 0; i < mutated.length; i++) {
+                if (mutated[i] === 1) selectedIndices.push(i);
+                else unselectedIndices.push(i);
+            }
+
+            // Só faz swap se tiver vértices selecionados e não selecionados
+            if (selectedIndices.length > 0 && unselectedIndices.length > 0) {
+                const randomSelected = selectedIndices[Math.floor(Math.random() * selectedIndices.length)];
+                const randomUnselected = unselectedIndices[Math.floor(Math.random() * unselectedIndices.length)];
+
+                // Faz o swap
+                mutated[randomSelected] = 0;
+                mutated[randomUnselected] = 1;
+            }
         }
     }
 
-    verify(bitarray, i=0, treeNode=this.root){
-        if(i<bitarray.length){
-            return treeNode[bitarray[i]]?this.verify(bitarray, i+1, treeNode[bitarray[i]]):false;
+    updateBest() {
+        if (this.bestFitness < this.population[0].fitness) {
+            this.bestFitness = this.population[0].fitness;
+            this.bestIndividuals = [];
         }
-        return treeNode.final||false;
+        for (const individual of this.population) {
+            if (individual.fitness < this.bestFitness) break;
+            let isEqual = false;
+            for (const b of this.bestIndividuals) {
+                if (b.isEqual(individual)) { isEqual = true; break; }
+            }
+            if (!isEqual) this.bestIndividuals.push(individual);
+        }
+    }
+
+    __selection(newPopulation) {
+        // this.runningObs("Selecting Next Population");
+        // const t1 = performance.now();
+        const oldPopulation = this.population;
+        // let best;
+        // if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
+        // if (this.hasMaxAge) {
+        //     for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
+        //     for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
+
+        //     oldPopulation.sort((a, b) => b.fitness - a.fitness);
+        //     newPopulation.sort((a, b) => b.fitness - a.fitness);
+        // }
+        // if (this.isBestImmortal) oldPopulation.unshift(best);
+
+        let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
+        let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
+
+        nextPopulation.sort((a, b) => b.fitness - a.fitness);
+
+        for (const individual of nextPopulation) {
+            individual.age++;
+        }
+        // this.timings.selection = performance.now() - t1;
+        return nextPopulation;
+    }
+    __generatePopulation() {
+        // this.runningObs("Generating Initial Population");
+        const population = [];
+        for (let i = 0; i < this.populationSize; i++) {
+            population.push(this.__generateIndividual());
+        }
+        return population;
+    }
+
+    __generateIndividual() {
+        const newIndividual = this.newIndividual, numNodes = this.numNodes;
+        let individual = newIndividual(Array(numNodes).fill(0));
+
+        let count = 0;
+        while (count < this.maxCliqueSize) {
+            const randomPos = Math.floor(Math.random() * individual.nodeMask.length);
+            if (individual.nodeMask[randomPos] === 0) {
+                individual.nodeMask[randomPos] = 1;
+                count++;
+            }
+        }
+        individual.age = 0;
+        return individual;
+    }
+
+    __fitness(population) {
+        // this.runningObs("Calculating Fitness");
+        // const t1 = performance.now();
+        for (const individual of population) {
+            individual.fitness = individual.verifyClique();
+        }
+        // if (this.calcUpperBound) {
+        //     for (const individual of population) {
+        //         individual.upperBound = individual.colorir().colorCount;
+        //         if (individual.upperBound < this.bestUpperBound)
+        //             this.bestUpperBound = individual.upperBound;
+        //     }
+        // }
+        // this.timings.fitness = performance.now() - t1;
     }
 
 }
 
 
 
-if (typeof module !== "undefined") module.exports = { GA };
+class GRASP {
+    constructor(individualConstructor, numNodes) {
+        this.newIndividual = individualConstructor;
+        this.numNodes = numNodes;
+        this.runningObs = () => { };
+        this.generation = 0;
+        this.populationSize = 10;
+        this.alpha = 0.7; // parâmetro de aleatoriedade do GRASP
+        this.greedyInsert = true;
+        this.population = [];
+        this.bestIndividuals = [];
+        this.bestFitness = 0;
+        this.entropy = 0;
+    }
+
+    setRunningObs(func) {
+        if (func instanceof Function)
+            this.runningObs = func;
+    }
+
+    getParameters() {
+        const { populationSize, alpha } = this;
+        return { populationSize, alpha };
+    }
+
+    setParameters(params) {
+        for (let attr in params) {
+            this[attr] = params[attr];
+        }
+    }
+
+    init() {
+        this.population = [];
+        for (let i = 0; i < this.populationSize; i++) {
+            const individual = this.__constructGreedyRandomized();
+            individual.fitness = individual.verifyClique();
+            this.population.push(individual);
+        }
+        this.updateBest();
+        this.generation = 1;
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        this.initialPopulation = this.population;
+    }
+
+    nextGeneration() {
+        // No GRASP clássico, cada iteração constrói uma nova solução e faz busca local
+        this.runningObs("GRASP Iteration");
+        //  = [];
+        // for (let i = 0; i < this.populationSize; i++) {
+        let individual = this.__constructGreedyRandomized();
+        individual.fitness = individual.verifyClique();
+        const newPopulation = this.__localSearch(individual);
+        newPopulation.push(individual);
+        // }
+        this.population = this.population.concat(newPopulation);
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        this.population = this.population.slice(0, this.populationSize);
+        this.updateBest();
+        this.generation++;
+    }
+
+    updateBest() {
+        if (this.bestFitness < this.population[0].fitness) {
+            this.bestFitness = this.population[0].fitness;
+            this.bestIndividuals = [];
+        }
+        for (const individual of this.population) {
+            if (individual.fitness < this.bestFitness) break;
+            let isEqual = false;
+            for (const b of this.bestIndividuals) {
+                if (b.isEqual(individual)) { isEqual = true; break; }
+            }
+            if (!isEqual) this.bestIndividuals.push(individual);
+        }
+    }
+
+    partialReset() {
+        this.runningObs("Partial Reset");
+        this.init();
+    }
+
+    // --- Métodos internos do GRASP ---
+
+    __constructGreedyRandomized() {
+        const nodeMask = Array(this.numNodes).fill(0);
+        let available = Array.from({ length: this.numNodes }, (_, i) => i);
+
+        //escolhe o primeiro vértice aleatoriamente.
+        let chosen = Math.floor(Math.random() * available.length);
+        nodeMask[chosen] = 1;
+        // Filtra available mantendo apenas vértices adjacentes ao novo escolhido
+        available = available.filter(i => i !== chosen &&
+            this.newIndividual.graph.indexAdj[chosen][i]);
+
+        while (available.length > 0) {
+            // Ordena e seleciona RCL como antes
+            available.sort(() => Math.random() - 0.5);
+            const rclSize = Math.max(1, Math.floor(this.alpha * available.length));
+            const rcl = available.slice(0, rclSize);
+
+
+            if (this.greedyInsert) {
+                // Heurística gulosa: escolhe o vértice do RCL com mais conexões em available
+                let best = rcl[0];
+                let maxConnections = -1;
+                for (const v of rcl) {
+                    let connections = 0;
+                    for (const u of available) {
+                        if (u !== v && this.newIndividual.graph.indexAdj[v][u]) {
+                            connections++;
+                        }
+                    }
+                    if (connections > maxConnections) {
+                        maxConnections = connections;
+                        best = v;
+                    }
+                }
+                chosen = best;
+            } else {
+                // Escolhe aleatoriamente do RCL
+                chosen = rcl[Math.floor(Math.random() * rcl.length)];
+            }
+
+            nodeMask[chosen] = 1;
+
+            // Filtra available mantendo apenas vértices adjacentes ao novo escolhido
+            available = available.filter(i => i !== chosen &&
+                this.newIndividual.graph.indexAdj[chosen][i]
+            );
+        }
+
+        const individual = this.newIndividual(nodeMask);
+        individual.age = 0;
+        return individual;
+    }
+
+    __localSearch(individual) {
+        const results = [];
+        for (const other of this.population) {
+            const newMask = individual.nodeMask.map((bit, idx) => bit & other.nodeMask[idx]);
+            const newIndividual = this.newIndividual(newMask);
+            newIndividual.age = individual.age;
+            newIndividual.fitness = newIndividual.verifyClique();
+            newIndividual.improvement();
+            results.push(newIndividual);
+        }
+        return results;
+    }
+}
+
+
+
+
+
+
+class TabuTRIE {
+
+    constructor() {
+        this.root = new Array(2);
+    }
+
+    add(bitarray, i = 0, treeNode = this.root) {
+        if (i < bitarray.length) {
+            this.add(bitarray, i + 1, treeNode[bitarray[i]] = treeNode[bitarray[i]] || new Array(2));
+        } else {
+            treeNode.final = true;
+        }
+    }
+
+    verify(bitarray, i = 0, treeNode = this.root) {
+        if (i < bitarray.length) {
+            return treeNode[bitarray[i]] ? this.verify(bitarray, i + 1, treeNode[bitarray[i]]) : false;
+        }
+        return treeNode.final || false;
+    }
+
+}
+
+
+
+if (typeof module !== "undefined") module.exports = { GA, PermutGA, GRASP };

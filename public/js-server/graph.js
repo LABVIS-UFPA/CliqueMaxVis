@@ -30,8 +30,9 @@ class Graph {
     }
     this.links.push(l);
     this.adj[source][target] = this.adj[target][source] = l;
-    this.indexAdj[this.nodesByKey[source].index].push(this.nodesByKey[target].index);
-    this.indexAdj[this.nodesByKey[target].index].push(this.nodesByKey[source].index);
+    const sourceIndex = this.nodesByKey[source].index;
+    const targetIndex = this.nodesByKey[target].index;
+    this.indexAdj[sourceIndex][targetIndex] = this.indexAdj[targetIndex][sourceIndex] = l;
   }
 
   getAdjs(node) {
@@ -210,29 +211,28 @@ class Graph {
 
 }
 
-function calculateCompleteGraph() {
-  const completeGraph = new Graph();
-  for (let i = 1; i <= graph.nodes.length; i++) {
-    completeGraph.addNode(i);
-  }
+// function calculateCompleteGraph() {
+//   const completeGraph = new Graph();
+//   const complementGraph = new Graph();
+//   for (let i = 1; i <= this.nodes.length; i++) {
+//     completeGraph.addNode(this.nodes[i].id);
+//     complementGraph.addNode(this.nodes[i].id);
+//   }
 
-  for (let i = 1; i <= graph.nodes.length; i++) {
-    for (let j = i + 1; j <= graph.nodes.length; j++) {
-      const existingLink = graph.links.find(
-        (link) =>
-          (link.source === i && link.target === j) ||
-          (link.source === j && link.target === i)
-      );
+//   for (let i = 1; i <= this.nodes.length; i++) {
+//     for (let j = i + 1; j <= this.nodes.length; j++) {
 
-      if (existingLink) {
-        completeGraph.addLink(i, j, existingLink.originalLink);
-      } else {
-        completeGraph.addLink(i, j, false);
-      }
-    }
-  }
-  graph = completeGraph;
-}
+//       if (this.indexAdj[i][j]) {
+//         completeGraph.addLink(this.nodes[i].id, this.nodes[j].id, existingLink.originalLink);
+//       } else {
+//         completeGraph.addLink(this.nodes[i].id, this.nodes[j].id, false);
+//         complementGraph.addLink(this.nodes[i].id, this.nodes[j].id, true);
+//       }
+//     }
+//   }
+//   this.completeGraph = completeGraph;
+//   this.complementGraph = complementGraph;
+// }
 
 
 
@@ -373,7 +373,9 @@ class CliqueMask {
 }
 
 CliqueMask.getConstructor = (graph) => {
-  return (nodeMask) => { return new CliqueMask(graph, nodeMask) }
+  let _constructor = (nodeMask) => { return new CliqueMask(graph, nodeMask) };
+  _constructor.graph = graph;
+  return _constructor;
 }
 
 
