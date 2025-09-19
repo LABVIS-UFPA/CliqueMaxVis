@@ -451,9 +451,12 @@ class GRASP {
         this.numNodes = numNodes;
         this.runningObs = () => { };
         this.generation = 0;
-        this.populationSize = 10;
-        this.alpha = 0.7; // parâmetro de aleatoriedade do GRASP
-        this.greedyInsert = true;
+        
+        this.populationSize = 20;
+        this.alpha = 0.8; // parâmetro de aleatoriedade do GRASP
+        this.beta = 0.5; // parâmetro de path relinking
+        this.greedyInsert = true;//false;//true;
+        
         this.population = [];
         this.bestIndividuals = [];
         this.bestFitness = 0;
@@ -479,9 +482,7 @@ class GRASP {
     init() {
         this.population = [];
         for (let i = 0; i < this.populationSize; i++) {
-            const individual = this.__constructGreedyRandomized();
-            individual.fitness = individual.verifyClique();
-            this.population.push(individual);
+            this.population.push(this.__constructGreedyRandomized());
         }
         this.updateBest();
         this.generation = 1;
@@ -492,12 +493,19 @@ class GRASP {
     nextGeneration() {
         // No GRASP clássico, cada iteração constrói uma nova solução e faz busca local
         this.runningObs("GRASP Iteration");
-        //  = [];
-        // for (let i = 0; i < this.populationSize; i++) {
+        
+        const newPopulation = [];
         let individual = this.__constructGreedyRandomized();
-        individual.fitness = individual.verifyClique();
-        const newPopulation = this.__localSearch(individual);
         newPopulation.push(individual);
+        while (newPopulation.length < this.populationSize) {
+            //em this.beta% dos casos, faz path relinking com a última solução gerada
+            // nos outros casos, gera uma nova solução via GRASP
+            if (Math.random() < this.beta) {
+                newPopulation.push(this.__pathRelinking(individual));
+            }else{
+                newPopulation.push(this.__constructGreedyRandomized());
+            }
+        }
         // }
         this.population = this.population.concat(newPopulation);
         this.population.sort((a, b) => b.fitness - a.fitness);
@@ -531,67 +539,90 @@ class GRASP {
     __constructGreedyRandomized() {
         const nodeMask = Array(this.numNodes).fill(0);
         let available = Array.from({ length: this.numNodes }, (_, i) => i);
+        let connections = this.newIndividual.graph.getDegrees();
 
         //escolhe o primeiro vértice aleatoriamente.
         let chosen = Math.floor(Math.random() * available.length);
         nodeMask[chosen] = 1;
-        // Filtra available mantendo apenas vértices adjacentes ao novo escolhido
-        available = available.filter(i => i !== chosen &&
-            this.newIndividual.graph.indexAdj[chosen][i]);
+
+        available = this.__filterAvailable(available, connections, chosen);
 
         while (available.length > 0) {
-            // Ordena e seleciona RCL como antes
-            available.sort(() => Math.random() - 0.5);
+
+            // available.sort(() => Math.random() - 0.5);
+            
             const rclSize = Math.max(1, Math.floor(this.alpha * available.length));
-            const rcl = available.slice(0, rclSize);
+            // const rcl = available.slice(0, rclSize);
 
 
             if (this.greedyInsert) {
                 // Heurística gulosa: escolhe o vértice do RCL com mais conexões em available
-                let best = rcl[0];
-                let maxConnections = -1;
-                for (const v of rcl) {
-                    let connections = 0;
-                    for (const u of available) {
-                        if (u !== v && this.newIndividual.graph.indexAdj[v][u]) {
-                            connections++;
-                        }
-                    }
-                    if (connections > maxConnections) {
-                        maxConnections = connections;
-                        best = v;
+                const indexAvailable = available.map((_, i) => i);
+                GRASP.shuffleArray(indexAvailable);
+                
+                let best = available[indexAvailable[0]];
+                for (let i = 1; i < rclSize; i++) {
+                    if (connections[available[indexAvailable[i]]] > connections[best]) {
+                        best = available[indexAvailable[i]];
                     }
                 }
                 chosen = best;
             } else {
                 // Escolhe aleatoriamente do RCL
-                chosen = rcl[Math.floor(Math.random() * rcl.length)];
+                chosen = available[Math.floor(Math.random() * rclSize)];
             }
 
             nodeMask[chosen] = 1;
 
             // Filtra available mantendo apenas vértices adjacentes ao novo escolhido
-            available = available.filter(i => i !== chosen &&
-                this.newIndividual.graph.indexAdj[chosen][i]
-            );
+            available = this.__filterAvailable(available, connections, chosen);
         }
 
         const individual = this.newIndividual(nodeMask);
         individual.age = 0;
+        individual.fitness = individual.verifyClique();
         return individual;
     }
 
-    __localSearch(individual) {
-        const results = [];
-        for (const other of this.population) {
-            const newMask = individual.nodeMask.map((bit, idx) => bit & other.nodeMask[idx]);
-            const newIndividual = this.newIndividual(newMask);
-            newIndividual.age = individual.age;
-            newIndividual.fitness = newIndividual.verifyClique();
-            newIndividual.improvement();
-            results.push(newIndividual);
+    __filterAvailable(available, connections, chosen) {
+        // Filtra available mantendo apenas vértices adjacentes ao novo escolhido
+        const newAvailable = [];
+        const removed = []
+        for (let i = 0; i < available.length; i++) {
+            if (available[i] === chosen) continue;
+            if (this.newIndividual.graph.indexAdj[chosen][available[i]]) {
+                newAvailable.push(available[i]);
+            } else {
+                removed.push(available[i])
+            }
         }
-        return results;
+        for (const r of removed) {
+            const adjs = this.newIndividual.graph.indexAdj[r];
+            for(let iadj = 0; iadj< adjs.length; iadj++){
+                if(adjs[iadj])
+                    connections[iadj]--;
+            }
+        }
+        return newAvailable;
+    }
+
+    __pathRelinking(individual) {
+        const rand = Math.floor(Math.random()*this.population.length);
+        const other = this.population[rand];
+        const newMask = individual.nodeMask.map((bit, idx) => bit & other.nodeMask[idx]);
+        const newIndividual = this.newIndividual(newMask);
+        newIndividual.age = individual.age;
+        newIndividual.fitness = newIndividual.verifyClique();
+        newIndividual.improvement();
+        return newIndividual;
+    }
+
+    static shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
     }
 }
 

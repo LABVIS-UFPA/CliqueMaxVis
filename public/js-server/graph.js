@@ -47,6 +47,10 @@ class Graph {
     return Object.keys(this.adj[node.id]).length;
   }
 
+  getDegrees() {
+    return this.indexAdj.map(adjs => adjs.length);
+  }
+
   importFromText(text) {
     let arr;
     let regex = /\ne\s(\d+)\s(\d+)/g;
