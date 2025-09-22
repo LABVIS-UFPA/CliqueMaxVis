@@ -261,7 +261,7 @@ const port = 3000;
 
 app.use(express.static(path.join(__dirname, '')));
 app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+    console.log(`Server is running at http://localhost:${port}`);
 });
 
 
@@ -312,12 +312,12 @@ function loadGA(dbpath, metaheuristic = 'GA') {
 
     ga.init();
 
-    if(currentSave){
-        treeModel = TreeSaveModel.fromRoot(currentSave.treeModel,ga);
-    }else{
+    if (currentSave) {
+        treeModel = TreeSaveModel.fromRoot(currentSave.treeModel, ga);
+    } else {
         treeModel = new TreeSaveModel(ga);
     }
-    
+
 }
 
 
@@ -339,7 +339,7 @@ server.on('connection', ws => {
                 obj.data.forEach(d => observers[`obs_${d}`] ? observers[`obs_${d}`].push(ws) : false);
                 break;
             case "get_parameters":
-                if(ga)
+                if (ga)
                     ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
                 break;
             case "set_parameters":
@@ -348,35 +348,35 @@ server.on('connection', ws => {
                 break;
             case "command":
                 if (obj.data === "partialReset") {
-                    if(logger) logger.log("GA_setting","partialReset");
+                    if (logger) logger.log("GA_setting", "partialReset");
                     partialReset = true;
                 } else if (obj.data === "initial_individuals") {
-                    
+
                     ws.send(JSON.stringify({
                         act: "data", data: {
                             population: ga.initialPopulation.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
                             generation: 0
                         }
                     }));
-                } else if (obj.data === "play") { 
-                    if(logger) logger.log("GA_running","play");
+                } else if (obj.data === "play") {
+                    if (logger) logger.log("GA_running", "play");
                     isRunning = true;
-                } else if (obj.data === "pause"){
-                    if(logger) logger.log("GA_running","pause");
+                } else if (obj.data === "pause") {
+                    if (logger) logger.log("GA_running", "pause");
                     isRunning = false;
                 } else if (obj.data === "stop") {
-                    if(logger) logger.log("GA_running","stop");
+                    if (logger) logger.log("GA_running", "stop");
                     isRunning = false;
                     // Opcionalmente reiniciar o algoritmo
-                    if(treeModel) treeModel.load(treeModel.getActive());
+                    if (treeModel) treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "status", data: "stopped" }));
                 }
                 else if (obj.data === "next") {
-                    if(logger) logger.log("GA_running","next");
+                    if (logger) logger.log("GA_running", "next");
                     runSingleStep = true;
                 }
                 else if (obj.data === "setSpeed" && obj.speed !== undefined) {
-                    if(logger) logger.log("GA_running","setSpeed");
+                    if (logger) logger.log("GA_running", "setSpeed");
                     // Converter o valor do slider (0-100) para um intervalo adequado (por exemplo, 10-200ms)
                     executionSpeed = 210 - obj.speed * 2; // Inverte a lógica (100 = rápido, 0 = lento)
                     if (executionSpeed < 10) executionSpeed = 10; // Limite mínimo
@@ -392,10 +392,10 @@ server.on('connection', ws => {
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 isRunning = false;
-                currentSave=undefined;
+                currentSave = undefined;
                 loadGA(dataset_url, metaheuristic);
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
-                logger.log("projectCRUD","new_project");
+                logger.log("projectCRUD", "new_project");
 
                 currentSave = {
                     name: saveName,
@@ -405,35 +405,41 @@ server.on('connection', ws => {
                     datasetName,
                     treeModel: treeModel.root
                 }
+                if (!fs.existsSync('./saves')) {              
+                    fs.mkdirSync('./saves', { recursive: true });
+                }
                 fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
-                    if(err) {console.log("Não salvou!!", err); return;}
+                    if (err) { console.log("Não salvou!!", err); return; }
                     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 break;
             case "save_project":
-                logger.log("projectCRUD","save_project");
+                logger.log("projectCRUD", "save_project");
+                if (!fs.existsSync('./saves')) {              
+                    fs.mkdirSync('./saves', { recursive: true });
+                }
                 fs.writeFile(`./saves/${currentSave.name}.json`, JSON.stringify(currentSave), (err) => {
-                    if(err) {console.log("Não salvou!!", err); return;}
+                    if (err) { console.log("Não salvou!!", err); return; }
                     console.log(`Arquivo de save salvo com sucesso em saves/${currentSave.name}.json`);
                 });
                 break;
             case "load_project":
                 isRunning = false;
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
-                    if(err) {console.log("Não abriu!!", err); return;}
+                    if (err) { console.log("Não abriu!!", err); return; }
                     currentSave = JSON.parse(data);
                     const metaheuristicOnLoad = obj.data.metaheuristic;
                     logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
-                    logger.log("projectCRUD","load_project");
+                    logger.log("projectCRUD", "load_project");
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 });
                 break;
             case "save_state":
-                if(treeModel) {
-                    logger.log("GAStates","save_state");
+                if (treeModel) {
+                    logger.log("GAStates", "save_state");
                     console.log("save_state")
                     treeModel.save();
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
@@ -441,8 +447,8 @@ server.on('connection', ws => {
 
                 break;
             case "load_model":
-                if(treeModel){
-                    logger.log("GAStates","load_state");
+                if (treeModel) {
+                    logger.log("GAStates", "load_state");
                     treeModel.save();
                     treeModel.load(treeModel.selectByID(obj.data));
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
@@ -452,29 +458,29 @@ server.on('connection', ws => {
                 }
                 break;
             case "get_tree_model":
-                if(treeModel){
-                    logger.log("GAStates","get_tree_model");
+                if (treeModel) {
+                    logger.log("GAStates", "get_tree_model");
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
-                } 
+                }
                 break;
             case "log":
-                if(logger) logger.log(obj.data.type,obj.data.log);
+                if (logger) logger.log(obj.data.type, obj.data.log);
                 break;
             case "ls_dataset":
                 ws.send(JSON.stringify({ act: "ls_dataset", data: datasets }));
                 break;
             case "ls_saves":
                 fs.readdir("./saves", (err, files) => {
-                    if(err) {console.log("Não abriu!!", err); return;}
+                    if (err) { console.log("Não abriu!!", err); return; }
                     const fileData = files.map((file) => {
                         const filePath = path.join("./saves", file);
                         const stats = fs.statSync(filePath);
                         return {
-                          name: file,
-                          modifiedAt: stats.mtime,
+                            name: file,
+                            modifiedAt: stats.mtime,
                         };
-                      });
-                    
+                    });
+
                     ws.send(JSON.stringify({ act: "ls_saves", data: fileData }));
                 });
                 break;
@@ -482,11 +488,11 @@ server.on('connection', ws => {
         }
     });
 
-    ws.on('error', (err)=>{
+    ws.on('error', (err) => {
         console.log("ERROR:");
         console.log(err);
     });
-    ws.on('close', ()=>{
+    ws.on('close', () => {
         console.log("Client CLOSED");
     });
 
@@ -538,10 +544,10 @@ function startMainLoop() {
                 c.send(JSON.stringify({ act: "timings", data: ga.timings }));
             }
 
-            if(globalBest<ga.population[0].fitness){
-                globalBest=ga.population[0].fitness;
+            if (globalBest < ga.population[0].fitness) {
+                globalBest = ga.population[0].fitness;
                 console.log("Novo Best Global!");
-                logger.log("globalBest",`${globalBest}`);
+                logger.log("globalBest", `${globalBest}`);
             }
 
 
