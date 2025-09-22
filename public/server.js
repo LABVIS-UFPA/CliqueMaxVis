@@ -278,12 +278,12 @@ require('node:child_process')
 
 const fs = require("fs");
 const { Graph, CliqueBuilder, CliqueSolver, CliqueMask } = require("./js-server/graph.js");
-const { GA } = require("./js-server/gen_alg.js");
+const { GA, GRASP } = require("./js-server/gen_alg.js");
 let ga;
 let treeModel;
 
 
-function loadGA(dbpath) {
+function loadGA(dbpath, metaheuristic = 'GA') {
     // let dbpath = "../exemplosGrafos/grafoK5.txt";
     // let dbpath = "../exemplosGrafos/homer.col.txt";
     // let dbpath = "../exemplosGrafos/queen5_5.col.txt";
@@ -298,7 +298,11 @@ function loadGA(dbpath) {
     graph.importFromText(txt);
     graph.calcMatAdjs();
 
-    ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+    if (metaheuristic === 'GRASP') {
+        ga = new GRASP(CliqueMask.getConstructor(graph), graph.nodes.length);
+    } else { // Default to GA
+        ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
+    }
 
     ga.setRunningObs((txt) => {
         for (const c of observers.obs_running) {
@@ -384,18 +388,19 @@ server.on('connection', ws => {
                 }
                 break;
             case "new_project":
-                const { datasetName, saveName, userName } = obj.data;
+                const { datasetName, saveName, userName, metaheuristic } = obj.data;
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 isRunning = false;
                 currentSave=undefined;
-                loadGA(dataset_url);
+                loadGA(dataset_url, metaheuristic);
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
                 logger.log("projectCRUD","new_project");
 
                 currentSave = {
                     name: saveName,
                     userName,
+                    metaheuristic,
                     dataset_url,
                     datasetName,
                     treeModel: treeModel.root
@@ -418,9 +423,10 @@ server.on('connection', ws => {
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if(err) {console.log("Não abriu!!", err); return;}
                     currentSave = JSON.parse(data);
-                    logger = new Logger(`${currentSave.saveName}[${currentSave.userName}].log.tsv`);
+                    const metaheuristicOnLoad = obj.data.metaheuristic;
+                    logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
                     logger.log("projectCRUD","load_project");
-                    loadGA(currentSave.dataset_url);
+                    loadGA(currentSave.dataset_url, metaheuristicOnLoad);
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 });
@@ -571,6 +577,3 @@ function startMainLoop() {
 
 // Inicia o loop principal
 startMainLoop();
-
-
-

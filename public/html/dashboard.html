@@ -217,6 +217,12 @@
         <select class="p-2 border rounded" id="dataset_select">
           <option disabled selected value> -- select an option -- </option>
         </select>
+
+        <label for="metaheuristic_select_new">Choose metaheuristic:</label>
+        <select class="p-2 border rounded" id="metaheuristic_select_new">
+            <option value="GA">GA</option>
+            <option value="GRASP">GRASP</option>
+        </select>
         <div class="newProjectDetails">
           <p>Infos from dataset:</p>
           <ul>
@@ -238,6 +244,12 @@
       </div>
       <div class="modal-body d-flex flex-column gap-2">
         <h5>Saves</h5>
+
+        <label for="metaheuristic_select_open">Choose metaheuristic:</label>
+        <select class="p-2 border rounded" id="metaheuristic_select_open">
+            <option value="GA">GA</option>
+            <option value="GRASP">GRASP</option>
+        </select>
 
         <table  class="p-2 border rounded">
           <thead>
@@ -803,6 +815,7 @@
         const saveName = document.getElementById("saveName").value.trim();
         const datasetName = document.getElementById("dataset_select").value.trim();
         const userName =  document.getElementById("saveUsername").value.trim();
+        const metaheuristic = document.getElementById("metaheuristic_select_new").value.trim();
 
         if (!saveName) {
           alerta("Por favor, insira um nome para o projeto.", "red");
@@ -815,7 +828,7 @@
           return;
         }
 
-        socket.send(JSON.stringify({ act: "new_project", data: { datasetName, saveName, userName } }));
+        socket.send(JSON.stringify({ act: "new_project", data: { datasetName, saveName, userName, metaheuristic } }));
         alerta(`Projeto ${saveName} criado com sucesso!`, "green");
         document.getElementById("newProjectModal").style.display = "none";
       });
@@ -1072,7 +1085,8 @@
 
             openButton.addEventListener("click", function () {
               const fileName = this.dataset.filename;
-              socket.send(JSON.stringify({ act: "load_project", data: { saveName: fileName } }));
+              const metaheuristic = document.getElementById("metaheuristic_select_open").value.trim();
+              socket.send(JSON.stringify({ act: "load_project", data: { saveName: fileName, metaheuristic } }));
               document.getElementById("openProjectModal").style.display = "none";
             });
             

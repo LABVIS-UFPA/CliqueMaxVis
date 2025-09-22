@@ -6,7 +6,12 @@ const path = require('path');
 
 class Logger {
     constructor(logFileName) {
-        this.logFilePath = path.resolve(`logs/${logFileName}`);
+        const logDir = path.resolve(__dirname, '..', 'logs');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+
+        this.logFilePath = path.join(logDir, logFileName);
         this.fields = ['Timestamp', 'Type', 'Action'];
         
         // Verifica se o arquivo já existe, se não, adiciona o cabeçalho

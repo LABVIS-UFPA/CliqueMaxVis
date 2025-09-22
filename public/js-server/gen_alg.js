@@ -451,6 +451,7 @@ class GRASP {
         this.numNodes = numNodes;
         this.runningObs = () => { };
         this.generation = 0;
+        this.timings = {};
         
         this.populationSize = 20;
         this.alpha = 0.8; // parâmetro de aleatoriedade do GRASP
