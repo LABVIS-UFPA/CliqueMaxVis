@@ -86,18 +86,18 @@
       <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
         <div class="sb-sidenav-menu">
           <div class="nav">
-            <div class="sb-sidenav-menu-heading">Timings</div>
+            <div class="sb-sidenav-menu-heading">System Metrics</div>
             <div class="align-items-center d-flex flex-column">
+              <div class="gauge-container" id="cpu">
+                <p>Click "play" to receive stats</p>
+              </div>
+              <div class="gauge-container" id="memory">
+                <p>Click "play" to receive stats</p>
+              </div>
+              <div class="gauge-container" id="loop">
+                <p>Click "play" to receive stats</p>
+              </div>
               <div class="gauge-container" id="fitness">
-                <p>Click "play" to receive stats</p>
-              </div>
-              <div class="gauge-container" id="crossover">
-                <p>Click "play" to receive stats</p>
-              </div>
-              <div class="gauge-container" id="mutation">
-                <p>Click "play" to receive stats</p>
-              </div>
-              <div class="gauge-container" id="selection">
                 <p>Click "play" to receive stats</p>
               </div>
             </div>
@@ -291,12 +291,13 @@
     const socket = new WebSocket("ws://localhost:3214");
     let activeSaveTree;
     let selectedSave;
-    let gaugeConfigs = [
-      { id: "fitness", title: "fitness", value: 0, min: 0, max: 1000 },
-      { id: "crossover", title: "crossover", value: 0, min: 0, max: 1000 },
-      { id: "mutation", title: "mutation", value: 0, min: 0, max: 1000 },
-      { id: "selection", title: "selection", value: 0, min: 0, max: 1000 },
+    let lineChartConfigs = [
+      { id: "cpu", title: "CPU Usage (%)", data: [], max: 100, maxPoints: 50, unit: "%", decimals: 0 },
+      { id: "memory", title: "Memory Usage (MB)", data: [], max: 100, maxPoints: 50, unit: "MB", decimals: 0 },
+      { id: "loop", title: "Interaction Time (s)", data: [], max: 0.1, maxPoints: 50, unit: "s", decimals: 2 },
+      { id: "fitness", title: "Fitness Time (s)", data: [], max: 0.05, maxPoints: 50, unit: "s", decimals: 2 },
     ];
+    let currentGeneration = 0;
     let isConnectedText = document.getElementById("connection-text");
     const nNodesSpan = document.getElementById("n_nodes");
     const nLinksSpan = document.getElementById("n_links");
@@ -330,129 +331,118 @@
       }, 5000);
     }
 
-    // Função para criar os medidores gauge
-    function createGauges(gaugeConfigs) {
-      // Configuração dos gauges
-      const gaugeWidth =
-        document.querySelector(".gauge-container").offsetWidth;
-      const gaugeHeight =
-        document.querySelector(".gauge-container").offsetHeight;
-      const radius = gaugeHeight;
-
-      // Criação de cada gauge
-      gaugeConfigs.forEach((config) => {
-        createGauge(
-          config.id,
-          config.title,
-          config.value,
-          config.min,
-          config.max,
-          radius
-        );
+    // Função para criar os gráficos de linha
+    function createLineCharts(configs) {
+      configs.forEach((config) => {
+        createLineChart(config);
       });
     }
 
-    function createGauge(elementId, title, value, min, max, radius) {
-      const svg = d3
-        .select(`#${elementId}`)
+    function createLineChart(config) {
+      const container = d3.select(`#${config.id}`);
+      container.select("p").remove(); // Remove "Click 'play'..." text
+
+      const margin = { top: 20, right: 10, bottom: 20, left: 45 };
+      const width = 200 - margin.left - margin.right;
+      const height = 100 - margin.top - margin.bottom;
+
+      const svg = container
         .append("svg")
-        .style("overflow", "visible")
-        .attr("width", "200px")
-        .attr("height", "100px")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
         .append("g")
-        .attr("transform", `translate(${radius}, ${radius})`);
-
-      // Arco do gauge
-      const arc = d3
-        .arc()
-        .innerRadius(radius * 0.6)
-        .outerRadius(radius * 0.9)
-        .startAngle(-Math.PI / 2)
-        .endAngle(Math.PI / 2);
-
-      // Fundo do gauge
-      svg.append("path").attr("d", arc).style("fill", "#ffffff40");
-
-      // Escala para mapear o valor para o ângulo
-      const scale = d3
-        .scaleLinear()
-        .domain([min, max])
-        .range([-Math.PI / 2, Math.PI / 2]);
-
-      // Arco do valor
-      const valueArc = d3
-        .arc()
-        .innerRadius(radius * 0.6)
-        .outerRadius(radius * 0.9)
-        .startAngle(-Math.PI / 2)
-        .endAngle(scale(value));
-
-      svg.append("path").attr("d", valueArc).style("fill", "#4682b4").attr("class", "value-arc");
-
-      // // Ponteiro
-      // const pointerLength = radius * 0.8;
-      // const pointerWidth = radius * 0.04;
-
-      // const angleInRadians = scale(value);
-      // const pointerX = pointerLength * Math.cos(angleInRadians);
-      // const pointerY = pointerLength * Math.sin(angleInRadians);
-
-      // // Linha do ponteiro
-      // svg
-      //   .append("line")
-      //   .attr("x1", 0)
-      //   .attr("y1", 0)
-      //   .attr("x2", pointerX)
-      //   .attr("y2", pointerY)
-      //   .attr("stroke", "#333")
-      //   .attr("stroke-width", pointerWidth)
-      //   .attr("stroke-linecap", "round");
-
-      // // Círculo central do ponteiro
-      // svg
-      //   .append("circle")
-      //   .attr("cx", 0)
-      //   .attr("cy", 0)
-      //   .attr("r", radius * 0.08)
-      //   .style("fill", "#333");
-
-      // Valor central
-      svg
-        .append("text")
-        .attr("text-anchor", "middle")
-        .attr("class", "gauge-value")
-        .attr("dy", radius * 0)
-        .style("font-size", `${radius * 0.2}px`)
-        .text(`${value} s`)
-        .attr("fill", "#ffffff");
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
       // Título
       svg
         .append("text")
+        .attr("x", width / 2)
+        .attr("y", -10)
         .attr("text-anchor", "middle")
-        .attr("dy", -radius * 0.2)
+        .style("font-size", "12px")
         .style("fill", "#ffffff")
-        .style("font-size", `${radius * 0.15}px`)
-        .text(title);
+        .text(config.title);
 
-      // Legendas de mínimo e máximo
-      svg
-        .append("text")
-        .attr("text-anchor", "start")
-        .attr("x", -radius * 0.9)
-        .attr("y", radius * 0.1)
-        .style("fill", "#ffffff")
-        .style("font-size", `${radius * 0.12}px`)
-        .text(`${min} s`);
+      // Escalas X e Y
+      const x = d3.scaleLinear().range([0, width]);
+      const y = d3.scaleLinear().range([height, 0]);
 
-      svg
-        .append("text")
-        .attr("text-anchor", "end")
-        .attr("x", radius * 0.9)
-        .attr("y", radius * 0.1)
-        .style("font-size", `${radius * 0.12}px`)
-        .style("fill", "#ffffff")
-        .text(`${max} s`);
+      // Eixos
+      svg.append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(3));
+
+      svg.append("g")
+        .attr("class", "y-axis")
+        .call(d3.axisLeft(y).ticks(3).tickFormat(d => `${d.toFixed(config.decimals)}`));
+
+      // Gerador de linha
+      svg.append("path")
+        .attr("class", "line")
+        .attr("fill", "none")
+        .attr("stroke", "#4682b4")
+        .attr("stroke-width", 1.5);
+
+    //   // Texto do valor atual
+    //   svg
+    //     .append("text")
+    //     .attr("class", "current-value")
+    //     .attr("x", width-30)
+    //     .attr("y", 0)
+    //     .attr("text-anchor", "middle")
+    //     .style("font-size", "10px")
+    //     .style("fill", "#ffffff");
+    // }
+
+    function updateLineChart(config, newDataPoint) {
+      config.data.push(newDataPoint);
+      if (config.data.length > config.maxPoints) {
+        config.data.shift();
+      }
+
+      const yValue = newDataPoint.y;
+      // Apenas atualiza o máximo para gráficos com eixos dinâmicos
+      if (config.id !== 'cpu' && yValue > config.max) {
+        config.max = yValue * 1.0; // Aumenta o máximo com alguma folga
+      }
+
+      const svg = d3.select(`#${config.id} svg g`);
+      const margin = { top: 20, right: 10, bottom: 20, left: 45 };
+      const width = 200 - margin.left - margin.right;
+      const height = 100 - margin.top - margin.bottom;
+
+      const x = d3.scaleLinear()
+        .domain(d3.extent(config.data, d => d.x))
+        .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([0, config.max])
+        .range([height, 0]);
+
+      // Atualiza eixos
+      svg.select(".x-axis")
+        .transition().duration(100)
+        .call(d3.axisBottom(x).ticks(3));
+      svg.select(".y-axis")
+        .transition().duration(100)
+        .call(d3.axisLeft(y).ticks(3).tickFormat(d => `${d.toFixed(config.decimals)}`));
+
+      svg.selectAll(".tick line").attr("stroke", "#ffffff40");
+
+      // Atualiza linha
+      const line = d3.line()
+        .x(d => x(d.x))
+        .y(d => y(d.y));
+
+      svg.select(".line")
+        .datum(config.data)
+        .transition().duration(100)
+        .attr("d", line);
+
+      // Atualiza texto do valor atual
+      svg.select(".current-value")
+        .text(`${yValue.toFixed(config.decimals)}`);
     }
 
     // Função para criar o dendrograma
@@ -907,8 +897,8 @@
 
     // Redimensionar gráficos quando a janela mudar de tamanho
     window.addEventListener("resize", function () {
-      
-      // createGauges(gaugeConfigs);
+      document.querySelectorAll(".gauge-container svg").forEach((el) => { el.remove(); });
+      createLineCharts(lineChartConfigs);
       createDendrogram(activeSaveTree);
     });
 
@@ -927,6 +917,7 @@
           console.log(data);
           break;
         case "data":
+          currentGeneration = data.generation;
           document.getElementById("infoGeneration").textContent = data.generation;
           document.getElementById("infoFitness").textContent = `${data.bestFitness}/${data.worstFitness}`;
           document.getElementById("infoBestCount").textContent = data.bestCount;
@@ -934,98 +925,26 @@
           break;
         case "timings":
           if (
-            data.fitness &&
-            data.crossover &&
-            data.mutation &&
-            data.selection &&
             isFirstMessage
           ) {
-            let maxgauge =
-              (Math.round(
-                Math.max(
-                  data.fitness,
-                  data.crossover,
-                  data.mutation,
-                  data.selection
-                )
-              ) /
-                1000) *
-              2;
-            gaugeConfigs = [
-              {
-                id: "fitness",
-                title: "fitness",
-                value: Math.round(data.fitness) / 1000,
-                min: 0,
-                max: maxgauge,
-              },
-              {
-                id: "crossover",
-                title: "crossover",
-                value: Math.round(data.crossover) / 1000,
-                min: 0,
-                max: maxgauge,
-              },
-              {
-                id: "mutation",
-                title: "mutation",
-                value: Math.round(data.mutation) / 1000,
-                min: 0,
-                max: maxgauge,
-              },
-              {
-                id: "selection",
-                title: "selection",
-                value: Math.round(data.selection) / 1000,
-                min: 0,
-                max: maxgauge,
-              },
-            ];
-            isFirstMessage = false;
             document.querySelectorAll(".gauge-container *").forEach((el) => {
               el.remove();
             });
-            createGauges(gaugeConfigs);
+            createLineCharts(lineChartConfigs);
+            isFirstMessage = false;
           }
+          
+          const chartMapping = {
+            cpu: data.cpu,
+            memory: data.memory,
+            loop: data.loop,
+            fitness: data.fitness
+          };
 
-          Object.keys(data).forEach((timing, index) => {
-            const scale = d3
-              .scaleLinear()
-              .domain([0, gaugeConfigs[index].max])
-              .range([-Math.PI / 2, Math.PI / 2]);
-
-            d3.select(`#${timing} .gauge-value`).text(
-              `${Math.round(data[timing]) / 1000} s`
-            );
-
-            if (data[timing] > gaugeConfigs[index].max * 1000) {
-              d3.select(`#${timing} .value-arc`).style("fill", "red");
-
-              d3.select(`#${timing} .value-arc`)
-                .attr(
-                  "d",
-                  d3
-                    .arc()
-                    .innerRadius(100 * 0.6)
-                    .outerRadius(100 * 0.9)
-                    .startAngle(-Math.PI / 2)
-                    .endAngle(scale(gaugeConfigs[index].max))
-                );
-              console.log("red");
-            } else {
-              d3.select(`#${timing} .value-arc`).style("fill", "#4682b4");
-
-              d3.select(`#${timing} .value-arc`)
-                .attr(
-                  "d",
-                  d3
-                    .arc()
-                    .innerRadius(100 * 0.6)
-                    .outerRadius(100 * 0.9)
-                    .startAngle(-Math.PI / 2)
-                    .endAngle(scale(data[timing] / 1000))
-                );
-            }
+          Object.entries(chartMapping).forEach(([key, value]) => {
+            const config = lineChartConfigs.find(c => c.id === key);
+            if (config && value !== undefined)
+              updateLineChart(config, { x: currentGeneration, y: value });
           });
           break;
         case "treeModel":

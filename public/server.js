@@ -280,6 +280,8 @@ const fs = require("fs");
 const { Graph, CliqueBuilder, CliqueSolver, CliqueMask } = require("./js-server/graph.js");
 const { GA, GRASP } = require("./js-server/gen_alg.js");
 let ga;
+let lastCpuUsage;
+let lastHrTime;
 let treeModel;
 
 
@@ -311,6 +313,8 @@ function loadGA(dbpath, metaheuristic = 'GA') {
     });
 
     ga.init();
+    lastCpuUsage = process.cpuUsage();
+    lastHrTime = process.hrtime.bigint();
 
     if (currentSave) {
         treeModel = TreeSaveModel.fromRoot(currentSave.treeModel, ga);
@@ -540,10 +544,6 @@ function startMainLoop() {
                 }));
             }
 
-            for (const c of observers.obs_timings) {
-                c.send(JSON.stringify({ act: "timings", data: ga.timings }));
-            }
-
             if (globalBest < ga.population[0].fitness) {
                 globalBest = ga.population[0].fitness;
                 console.log("Novo Best Global!");
@@ -563,6 +563,31 @@ function startMainLoop() {
 
             // Avança a geração
             ga.nextGeneration();
+
+            // Métricas de Performance
+            const now = process.hrtime.bigint();
+            const elapsed = now - lastHrTime; // nanoseconds
+            lastHrTime = now;
+
+            const usage = process.cpuUsage();
+            // elapsedUsage é em microsegundos
+            const elapsedUsage = (usage.user - (lastCpuUsage.user || 0)) + (usage.system - (lastCpuUsage.system || 0));
+            lastCpuUsage = usage;
+
+            const cpuPercent = Math.min(100, elapsed > 0 ? (100 * elapsedUsage * 1000) / Number(elapsed) : 0); // Trava em 100%
+            const memUsage = process.memoryUsage().heapUsed / 1024 / 1024; // em MB
+            
+            const metrics = {
+                cpu: cpuPercent,
+                memory: memUsage,
+                loop: Object.values(ga.timings).reduce((a, b) => a + b, 0) / 1000, // em segundos
+                fitness: ga.timings.fitness / 1000 // em segundos
+            };
+
+            for (const c of observers.obs_timings) {
+                c.send(JSON.stringify({ act: "timings", data: metrics }));
+            }
+
             if (partialReset) {
                 ga.partialReset();
                 partialReset = false;
