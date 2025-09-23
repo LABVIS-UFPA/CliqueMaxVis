@@ -452,12 +452,19 @@ class GRASP {
         this.runningObs = () => { };
         this.generation = 0;
         this.timings = {};
-        
+
         this.populationSize = 20;
         this.alpha = 0.8; // parâmetro de aleatoriedade do GRASP
         this.beta = 0.5; // parâmetro de path relinking
+        this.elitismFactor = 0.1; // taxa de elitismo no path relinking. Quanto maior, mais elitista.
         this.greedyInsert = true;//false;//true;
-        
+        this.survivalRate = 0.25; // taxa de sobrevivência da população anterior
+        this.maxAge = 30; // número máximo de iterações permitidas para uma mesma solução
+        this.hasMaxAge = true; // habilita/desabilita maxAge
+        this.isBestImmortal = true; // melhor solução é imortal
+        this.preventEqualIndividuals = false; // previne duplicatas na população
+
+
         this.population = [];
         this.bestIndividuals = [];
         this.bestFitness = 0;
@@ -494,23 +501,29 @@ class GRASP {
     nextGeneration() {
         // No GRASP clássico, cada iteração constrói uma nova solução e faz busca local
         this.runningObs("GRASP Iteration");
-        
+
         const newPopulation = [];
         let individual = this.__constructGreedyRandomized();
         newPopulation.push(individual);
         while (newPopulation.length < this.populationSize) {
             //em this.beta% dos casos, faz path relinking com a última solução gerada
             // nos outros casos, gera uma nova solução via GRASP
+            let newI;
             if (Math.random() < this.beta) {
-                newPopulation.push(this.__pathRelinking(individual));
-            }else{
-                newPopulation.push(this.__constructGreedyRandomized());
+                newI = this.__pathRelinking(individual);
+            } else {
+                newI = this.__constructGreedyRandomized();
             }
+            // Caso haja prevenção de duplicatas, verifica se a nova solução já existe
+            if(!this.preventEqualIndividuals || !this.__verifyEqual(newI))
+                    newPopulation.push(newI);
         }
         // }
-        this.population = this.population.concat(newPopulation);
-        this.population.sort((a, b) => b.fitness - a.fitness);
-        this.population = this.population.slice(0, this.populationSize);
+        // this.population = this.population.concat(newPopulation);
+        // this.population.sort((a, b) => b.fitness - a.fitness);
+        // this.population = this.population.slice(0, this.populationSize);
+
+        this.population = this.__selection(newPopulation);
         this.updateBest();
         this.generation++;
     }
@@ -551,7 +564,7 @@ class GRASP {
         while (available.length > 0) {
 
             // available.sort(() => Math.random() - 0.5);
-            
+
             const rclSize = Math.max(1, Math.floor(this.alpha * available.length));
             // const rcl = available.slice(0, rclSize);
 
@@ -560,7 +573,7 @@ class GRASP {
                 // Heurística gulosa: escolhe o vértice do RCL com mais conexões em available
                 const indexAvailable = available.map((_, i) => i);
                 GRASP.shuffleArray(indexAvailable);
-                
+
                 let best = available[indexAvailable[0]];
                 for (let i = 1; i < rclSize; i++) {
                     if (connections[available[indexAvailable[i]]] > connections[best]) {
@@ -599,8 +612,8 @@ class GRASP {
         }
         for (const r of removed) {
             const adjs = this.newIndividual.graph.indexAdj[r];
-            for(let iadj = 0; iadj< adjs.length; iadj++){
-                if(adjs[iadj])
+            for (let iadj = 0; iadj < adjs.length; iadj++) {
+                if (adjs[iadj])
                     connections[iadj]--;
             }
         }
@@ -608,14 +621,53 @@ class GRASP {
     }
 
     __pathRelinking(individual) {
-        const rand = Math.floor(Math.random()*this.population.length);
+        const rand = Math.floor(Math.random() * this.population.length * (1-this.elitismFactor));
         const other = this.population[rand];
         const newMask = individual.nodeMask.map((bit, idx) => bit & other.nodeMask[idx]);
         const newIndividual = this.newIndividual(newMask);
+        newIndividual.improvement();
         newIndividual.age = individual.age;
         newIndividual.fitness = newIndividual.verifyClique();
-        newIndividual.improvement();
         return newIndividual;
+    }
+
+    __selection(newPopulation) {
+        this.runningObs("Selecting Next Population");
+        const t1 = performance.now();
+        const oldPopulation = this.population;
+        let best;
+        if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
+        if (this.hasMaxAge) {
+            for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
+            for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
+
+            oldPopulation.sort((a, b) => b.fitness - a.fitness);
+            newPopulation.sort((a, b) => b.fitness - a.fitness);
+        }
+        if (this.isBestImmortal) oldPopulation.unshift(best);
+
+        let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
+        let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
+
+        nextPopulation.sort((a, b) => b.fitness - a.fitness);
+
+        for (const individual of nextPopulation) {
+            individual.age++;
+        }
+        this.timings.selection = performance.now() - t1;
+        return nextPopulation;
+    }
+
+    __verifyEqual(newI) {
+            for (const i of newPopulation) {
+                if (newI.isEqual(i))
+                    return true;
+            }
+            for (const i of population) {
+                if (newI.isEqual(i)) 
+                    return true;
+            }
+            return false;
     }
 
     static shuffleArray(array) {
