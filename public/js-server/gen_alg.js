@@ -501,6 +501,7 @@ class GRASP {
     nextGeneration() {
         // No GRASP clássico, cada iteração constrói uma nova solução e faz busca local
         this.runningObs("GRASP Iteration");
+        const t1 = performance.now();
 
         const newPopulation = [];
         let individual = this.__constructGreedyRandomized();
@@ -526,6 +527,7 @@ class GRASP {
         this.population = this.__selection(newPopulation);
         this.updateBest();
         this.generation++;
+        this.timings.iteration = performance.now() - t1;
     }
 
     updateBest() {

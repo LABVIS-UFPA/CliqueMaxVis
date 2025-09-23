@@ -41,8 +41,7 @@
           </a>
           <ul class="dropdown-menu">
             <li>
-              <a class="dropdown-item" href="#"
-                onclick='openWindow("parameter_setter.html", 500,673);'>
+              <a class="dropdown-item" href="#" onclick='openWindow("parameter_setter.html", 500,673);'>
                 Parameter Configurations</a>
             </li>
           </ul>
@@ -53,24 +52,17 @@
           </a>
           <ul class="dropdown-menu">
             <li>
-              <a class="dropdown-item"
-                onclick='openWindow("individuals_vis_canvas.html",530,700);'
-                href="#">Individual Visualization</a>
+              <a class="dropdown-item" onclick='openWindow("individuals_vis_canvas.html",530,700);' href="#">Individual
+                Visualization</a>
             </li>
             <li>
-              <a class="dropdown-item"
-                onclick='openWindow("line_chart.html", 550,350);'
-                href="#">Line chart</a>
+              <a class="dropdown-item" onclick='openWindow("line_chart.html", 550,350);' href="#">Line chart</a>
             </li>
             <li>
-              <a class="dropdown-item"
-                onclick='openWindow("projection_MDS.html",720,635)'
-                href="#">MDS Scatterplot</a>
+              <a class="dropdown-item" onclick='openWindow("projection_MDS.html",720,635)' href="#">MDS Scatterplot</a>
             </li>
             <li>
-              <a class="dropdown-item"
-                onclick='openWindow("best_vis.html",540,420)'
-                href="#">Best Individuals</a>
+              <a class="dropdown-item" onclick='openWindow("best_vis.html",540,420)' href="#">Best Individuals</a>
             </li>
           </ul>
         </li>
@@ -110,9 +102,7 @@
 
         <!-- Controles de Mídia -->
         <div class="media-controls card">
-          <div
-            class="d-flex justify-content-between align-items-center gap-2"
-          >
+          <div class="d-flex justify-content-between align-items-center gap-2">
             <div class="media-buttons">
               <button class="btn btn-primary btn-circle" id="btnPlayPause">
                 <i class="fas fa-play" id="playPauseIcon"></i>
@@ -124,9 +114,7 @@
                 <i class="fas fa-step-forward"></i>
               </button>
             </div>
-            <div
-              class="mediaSlider d-flex justify-content-center align-items-center gap-2"
-            >
+            <div class="mediaSlider d-flex justify-content-center align-items-center gap-2">
               <label for="#mediaSlider">Delay: </label>
               <input type="range" min="5" max="100" value="50" class="slider" id="mediaSlider" />
             </div>
@@ -220,15 +208,21 @@
 
         <label for="metaheuristic_select_new">Choose metaheuristic:</label>
         <select class="p-2 border rounded" id="metaheuristic_select_new">
-            <option value="GA">GA</option>
-            <option value="GRASP">GRASP</option>
+          <option value="GA">GA</option>
+          <option value="GRASP">GRASP</option>
         </select>
         <div class="newProjectDetails">
           <p>Infos from dataset:</p>
           <ul>
-            <li><p><strong>Nodes:</strong> <span id="n_nodes">-</span></p></li>
-            <li><p><strong>Links:</strong> <span id="n_links">-</span></p></li>
-            <li><p><strong>Density:</strong> <span id="density">-</span></p></li>
+            <li>
+              <p><strong>Nodes:</strong> <span id="n_nodes">-</span></p>
+            </li>
+            <li>
+              <p><strong>Links:</strong> <span id="n_links">-</span></p>
+            </li>
+            <li>
+              <p><strong>Density:</strong> <span id="density">-</span></p>
+            </li>
           </ul>
         </div>
 
@@ -247,11 +241,11 @@
 
         <label for="metaheuristic_select_open">Choose metaheuristic:</label>
         <select class="p-2 border rounded" id="metaheuristic_select_open">
-            <option value="GA">GA</option>
-            <option value="GRASP">GRASP</option>
+          <option value="GA">GA</option>
+          <option value="GRASP">GRASP</option>
         </select>
 
-        <table  class="p-2 border rounded">
+        <table class="p-2 border rounded">
           <thead>
             <tr>
               <th>Name</th>
@@ -260,7 +254,7 @@
             </tr>
           </thead>
           <tbody id="savesList">
-            
+
           </tbody>
         </table>
       </div>
@@ -280,7 +274,7 @@
       </div>
     </div>
   </div>
-  
+
 
 
 
@@ -294,8 +288,8 @@
     let lineChartConfigs = [
       { id: "cpu", title: "CPU Usage (%)", data: [], max: 100, maxPoints: 50, unit: "%", decimals: 0 },
       { id: "memory", title: "Memory Usage (MB)", data: [], max: 100, maxPoints: 50, unit: "MB", decimals: 0 },
-      { id: "loop", title: "Interaction Time (s)", data: [], max: 0.1, maxPoints: 50, unit: "s", decimals: 2 },
-      { id: "fitness", title: "Fitness Time (s)", data: [], max: 0.05, maxPoints: 50, unit: "s", decimals: 2 },
+      { id: "loop", title: "Interaction Time (s)", data: [], max: 0.1, maxPoints: 50, unit: "s", decimals: 1 },
+      // { id: "fitness", title: "Fitness Time (s)", data: [], max: 0.05, maxPoints: 50, unit: "s", decimals: 2 },
     ];
     let currentGeneration = 0;
     let isConnectedText = document.getElementById("connection-text");
@@ -329,6 +323,34 @@
         alertaBox.style.opacity = "0";
         setTimeout(() => alertaBox.remove(), 500);
       }, 5000);
+    }
+
+    function resetLineCharts() {
+      // Reset data and max values to their initial state
+      lineChartConfigs.forEach(config => {
+        config.data = [];
+      });
+      lineChartConfigs[0].max = 100; // cpu
+      lineChartConfigs[1].max = 100; // memory
+      lineChartConfigs[2].max = 0.1; // loop
+      // lineChartConfigs[3].max = 0.05; // fitness
+
+      // Clear current SVGs from the containers
+      document.querySelectorAll(".gauge-container svg").forEach((el) => {
+        el.remove();
+      });
+
+      // Add back the "Click 'play'..." text
+      document.querySelectorAll(".gauge-container").forEach(container => {
+        if (!container.querySelector('p')) {
+          const p = document.createElement('p');
+          p.textContent = 'Click "play" to receive stats';
+          container.appendChild(p);
+        }
+      });
+
+      // Reset the flag to allow re-initialization on next 'timings' message
+      isFirstMessage = true;
     }
 
     // Função para criar os gráficos de linha
@@ -384,16 +406,16 @@
         .attr("stroke", "#4682b4")
         .attr("stroke-width", 1.5);
 
-    //   // Texto do valor atual
-    //   svg
-    //     .append("text")
-    //     .attr("class", "current-value")
-    //     .attr("x", width-30)
-    //     .attr("y", 0)
-    //     .attr("text-anchor", "middle")
-    //     .style("font-size", "10px")
-    //     .style("fill", "#ffffff");
-    // }
+      //   // Texto do valor atual
+      //   svg
+      //     .append("text")
+      //     .attr("class", "current-value")
+      //     .attr("x", width-30)
+      //     .attr("y", 0)
+      //     .attr("text-anchor", "middle")
+      //     .style("font-size", "10px")
+      //     .style("fill", "#ffffff");
+    }
 
     function updateLineChart(config, newDataPoint) {
       config.data.push(newDataPoint);
@@ -424,9 +446,12 @@
       svg.select(".x-axis")
         .transition().duration(100)
         .call(d3.axisBottom(x).ticks(3));
+      
+      const yTicks = [0, config.max / 2, config.max];
       svg.select(".y-axis")
         .transition().duration(100)
-        .call(d3.axisLeft(y).ticks(3).tickFormat(d => `${d.toFixed(config.decimals)}`));
+        .call(d3.axisLeft(y).tickValues(yTicks).tickFormat(d => `${d.toFixed(config.decimals)}`));
+
 
       svg.selectAll(".tick line").attr("stroke", "#ffffff40");
 
@@ -549,7 +574,7 @@
           .attr("class", "node")
           .attr("transform", (d) => `translate(${d.x - width / 2},${d.y})`)
           .on("click", handleNodeClick)
-          .on("mouseover", function(event, d) {
+          .on("mouseover", function (event, d) {
             let tooltip = d3.select("#tooltip");
             if (tooltip.empty()) {
               tooltip = d3.select("body")
@@ -563,7 +588,7 @@
                 .style("pointer-events", "none")
                 .style("opacity", 0);
             }
-            
+
             const dataStr = `
               Generation: ${d.data.generation}<br>
               Best Fitness: ${d.data.bestFitness}<br>
@@ -581,7 +606,7 @@
               .duration(200)
               .style("opacity", 0.9);
           })
-          .on("mouseout", function() {
+          .on("mouseout", function () {
             d3.select("#tooltip")
               .transition()
               .duration(200)
@@ -594,7 +619,7 @@
           .attr("r", 7)
           .style("fill", "#4682b4")
           .style("cursor", "pointer")
-          .attr("class", (d) => d.data.active?"node runningSaveDen":"node");
+          .attr("class", (d) => d.data.active ? "node runningSaveDen" : "node");
 
         nodeEnter
           .append("text")
@@ -604,7 +629,7 @@
 
         // Update existing nodes
         nodes
-          .attr("transform",(d) => `translate(${d.x - width / 2},${d.y})`)
+          .attr("transform", (d) => `translate(${d.x - width / 2},${d.y})`)
         // Remove old nodes
         nodes.exit().remove();
       }
@@ -617,7 +642,7 @@
         selectedSave = d.data;
         document.querySelector("#dendrogramChart")
           .querySelectorAll(".selectedSaveDen")
-          .forEach(e=>e.classList.remove("selectedSaveDen"));
+          .forEach(e => e.classList.remove("selectedSaveDen"));
         event.target.classList.add("selectedSaveDen")
         // selectedSaveDen
 
@@ -721,8 +746,8 @@
       };
     }
 
-    function openWindow(windowName, width, height){
-      socket.send(JSON.stringify({ act: "log", data: {type:"window_open", log:windowName} }));
+    function openWindow(windowName, width, height) {
+      socket.send(JSON.stringify({ act: "log", data: { type: "window_open", log: windowName } }));
       window.open(windowName, "_blank", `width=${width},height=${height},toolbar=no,menubar=no,scrollbars=no,resizable=no,status=no`);
     }
 
@@ -804,7 +829,7 @@
       document.getElementById("confirmNewProject").addEventListener("click", function () {
         const saveName = document.getElementById("saveName").value.trim();
         const datasetName = document.getElementById("dataset_select").value.trim();
-        const userName =  document.getElementById("saveUsername").value.trim();
+        const userName = document.getElementById("saveUsername").value.trim();
         const metaheuristic = document.getElementById("metaheuristic_select_new").value.trim();
 
         if (!saveName) {
@@ -823,7 +848,7 @@
         document.getElementById("newProjectModal").style.display = "none";
       });
 
-      
+
 
       document
         .getElementById("menuOpenProject")
@@ -843,13 +868,13 @@
           socket.send(JSON.stringify({ act: "save_project" }));
           alerta("Projeto salvo com sucesso!", "green");
         });
-      
-        document
+
+      document
         .getElementById("menuSaveProjectCopy")
         .addEventListener("click", function (e) {
           document.getElementById("saveProjectCopyModal").style.display = "block";
         });
-      
+
       document.querySelector("#closeSaveProjectCopyModal").addEventListener("click", function () {
         document.getElementById("saveProjectCopyModal").style.display = "none";
       });
@@ -867,21 +892,21 @@
         document.getElementById("saveProjectCopyModal").style.display = "none";
       });
 
-        
+
       document.getElementById("btnSaveActive")
-      .addEventListener("click", function (e) {
-        console.log({ act: "save_state" });
-        socket.send(JSON.stringify({ act: "save_state" }));
-      });
+        .addEventListener("click", function (e) {
+          console.log({ act: "save_state" });
+          socket.send(JSON.stringify({ act: "save_state" }));
+        });
       document.getElementById("btnChangeActive")
-      .addEventListener("click", function (e) {
-        console.log("change")
-        socket.send(JSON.stringify({ act: "load_model", data: selectedSave.id }));
-        document.getElementById("infoGeneration").textContent = selectedSave.generation;
-        document.getElementById("infoFitness").textContent = `${selectedSave.bestFitness}/${selectedSave.worstFitness}`;
-        document.getElementById("infoBestCount").textContent = selectedSave.bestCount;
-        document.getElementById("infoAge").textContent = selectedSave.bestAge;
-      });
+        .addEventListener("click", function (e) {
+          console.log("change")
+          socket.send(JSON.stringify({ act: "load_model", data: selectedSave.id }));
+          document.getElementById("infoGeneration").textContent = selectedSave.generation;
+          document.getElementById("infoFitness").textContent = `${selectedSave.bestFitness}/${selectedSave.worstFitness}`;
+          document.getElementById("infoBestCount").textContent = selectedSave.bestCount;
+          document.getElementById("infoAge").textContent = selectedSave.bestAge;
+        });
 
       // Controle de velocidade
       document
@@ -902,12 +927,12 @@
       createDendrogram(activeSaveTree);
     });
 
-    function getActiveState(treeModel){
-      if(treeModel.active) return treeModel;
-        for (const c of treeModel.children) {
-            const found = getActiveState(c);
-            if(found) return found;
-        }
+    function getActiveState(treeModel) {
+      if (treeModel.active) return treeModel;
+      for (const c of treeModel.children) {
+        const found = getActiveState(c);
+        if (found) return found;
+      }
     }
     socket.onmessage = function (event) {
       const { act, data } = JSON.parse(event.data);
@@ -933,7 +958,7 @@
             createLineCharts(lineChartConfigs);
             isFirstMessage = false;
           }
-          
+
           const chartMapping = {
             cpu: data.cpu,
             memory: data.memory,
@@ -947,8 +972,18 @@
               updateLineChart(config, { x: currentGeneration, y: value });
           });
           break;
+        case "resetCharts":
+          resetLineCharts();
+          break;
+        case "treeModelUpdate":
+          console.log("treeModelUpdate", data);
+          activeSaveTree = data;
+          // Apenas atualiza a árvore, sem resetar os gráficos
+          createDendrogram(data);
+          break;
         case "treeModel":
           console.log("treeModel", data);
+          resetLineCharts();
           activeSaveTree = data;
           const active = getActiveState(data);
           document.getElementById("infoGeneration").textContent = active.generation;
@@ -958,7 +993,7 @@
           createDendrogram(data);
           break;
         case "running_data":
-        document.getElementById("labelRunning").textContent = data;
+          document.getElementById("labelRunning").textContent = data;
           break;
         case "ls_dataset":
           const select = document.getElementById("dataset_select");
@@ -970,7 +1005,7 @@
           });
           select.addEventListener("change", function () {
             const selectedValue = select.value;
- 
+
             const selectedDataset = Object.values(data).find(item => item.name === selectedValue);
             if (selectedDataset) {
               nNodesSpan.textContent = selectedDataset.n_nodes;
@@ -1008,7 +1043,7 @@
               socket.send(JSON.stringify({ act: "load_project", data: { saveName: fileName, metaheuristic } }));
               document.getElementById("openProjectModal").style.display = "none";
             });
-            
+
             row.appendChild(nameCell);
             row.appendChild(dateCell);
             row.appendChild(openCell);
@@ -1025,10 +1060,10 @@
       socket.send(
         JSON.stringify({
           act: "obs",
-          data: ["fitness", "running", "timings"],
+          data: ["fitness", "running", "timings", "ui_events"],
         })
       );
-    socket.send(JSON.stringify({ act: "get_tree_model" }));
+      socket.send(JSON.stringify({ act: "get_tree_model" }));
     };
 
     socket.onclose = function () {

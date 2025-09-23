@@ -11,7 +11,8 @@ const observers = {
     obs_best_individuals: [],
     obs_running: [],
     obs_timings: [],
-    obs_parameters: []
+    obs_parameters: [],
+    obs_ui_events: []
 };
 
 const datasets = {
@@ -354,6 +355,10 @@ server.on('connection', ws => {
                 if (obj.data === "partialReset") {
                     if (logger) logger.log("GA_setting", "partialReset");
                     partialReset = true;
+                    // Notify the main dashboard to reset charts
+                    for (const c of observers.obs_ui_events) {
+                        c.send(JSON.stringify({ act: "resetCharts" }));
+                    }
                 } else if (obj.data === "initial_individuals") {
 
                     ws.send(JSON.stringify({
@@ -446,7 +451,7 @@ server.on('connection', ws => {
                     logger.log("GAStates", "save_state");
                     console.log("save_state")
                     treeModel.save();
-                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    ws.send(JSON.stringify({ act: "treeModelUpdate", data: treeModel.getTreeModel() }));
                 }
 
                 break;
@@ -581,7 +586,7 @@ function startMainLoop() {
                 cpu: cpuPercent,
                 memory: memUsage,
                 loop: Object.values(ga.timings).reduce((a, b) => a + b, 0) / 1000, // em segundos
-                fitness: ga.timings.fitness / 1000 // em segundos
+                // fitness: ga.timings.fitness / 1000 // em segundos
             };
 
             for (const c of observers.obs_timings) {
