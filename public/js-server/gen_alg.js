@@ -453,11 +453,13 @@ class GRASP {
         this.generation = 0;
         this.timings = {};
 
+        this.bestUpperBound = Number.MAX_SAFE_INTEGER;
+
         this.populationSize = 20;
         this.alpha = 0.8; // parâmetro de aleatoriedade do GRASP
         this.beta = 0.5; // parâmetro de path relinking
         this.elitismFactor = 0.1; // taxa de elitismo no path relinking. Quanto maior, mais elitista.
-        this.greedyInsert = true;//false;//true;
+        this.greedyInsert = true;//false;//true; // se true, usa heurística gulosa para escolher vértices do RCL
         this.survivalRate = 0.25; // taxa de sobrevivência da população anterior
         this.maxAge = 30; // número máximo de iterações permitidas para uma mesma solução
         this.hasMaxAge = true; // habilita/desabilita maxAge
@@ -477,8 +479,8 @@ class GRASP {
     }
 
     getParameters() {
-        const { populationSize, alpha } = this;
-        return { populationSize, alpha };
+        const { populationSize, alpha, beta, elitismFactor, greedyInsert, survivalRate, maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals } = this;
+        return { populationSize, alpha, beta, elitismFactor, greedyInsert, survivalRate, maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals };
     }
 
     setParameters(params) {
