@@ -347,6 +347,10 @@ server.on('connection', ws => {
                 if (ga)
                     ws.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
                 break;
+            case "get_parameters_options":
+                if (ga)
+                    ws.send(JSON.stringify({ act: "options", data: ga.getParametersOptions() }));
+                break;
             case "set_parameters":
                 logger.log("GA_setting", Object.keys(obj.data).join(","));
                 ga.setParameters(obj.data);
@@ -438,7 +442,7 @@ server.on('connection', ws => {
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if (err) { console.log("Não abriu!!", err); return; }
                     currentSave = JSON.parse(data);
-                    const metaheuristicOnLoad = obj.data.metaheuristic;
+                    const metaheuristicOnLoad = currentSave.metaheuristic;
                     logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
                     logger.log("projectCRUD", "load_project");
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);

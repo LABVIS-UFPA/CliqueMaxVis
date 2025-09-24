@@ -28,7 +28,6 @@ class GA {
         this.hasExtractionImprovement = true;
         this.preventEqualIndividuals = false;
         this.calcUpperBound = false;
-
         this.mutationType = "bitSwap"; //["bitSwap", "bitFlip"]
 
         // this.tabuTRIE = new TabuTRIE();
@@ -104,6 +103,24 @@ class GA {
             this[attr] = params[attr];
         }
     }
+    getParametersOptions() {
+        return [
+            { displayName: "Population Size", variableName: "populationSize", type: "Int", min: 3, max: 250, step: 1 },
+            { displayName: "Mutation Rate", variableName: "mutationRate", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Mutation Selection Rate", variableName: "mutationSelectionRate", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Mutation Type", variableName: "mutationType", type: "Options", options: ["bitFlip", "bitSwap"]  },
+            { displayName: "Initial 1s Probability" ,variableName: "nodeIncludeProb", type: "Float", min: 0, max: 1, step: 0.05 }, 
+            { displayName: "Improve Individuals", variableName: "hasExtractionImprovement", type: "Boolean" },
+            { displayName: "Survival Rate", variableName: "survivalRate", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Max Age", variableName: "maxAge", type: "Int", min: 1, max: 100, step: 1 },
+            { displayName: "Define Max Age", variableName: "hasMaxAge", type: "Boolean" },
+            { displayName: "Immortal Best", variableName: "isBestImmortal", type: "Boolean" },
+            { displayName: "Prevent Equal Individuals", variableName: "preventEqualIndividuals", type: "Boolean" }
+        ];
+    }
+
+
+
     partialReset() {
         this.runningObs("Partial Reset");
         let midpoint = Math.floor(this.population.length * this.survivalRate);
@@ -483,6 +500,21 @@ class GRASP {
         return { populationSize, alpha, beta, elitismFactor, greedyInsert, survivalRate, maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals };
     }
 
+    getParametersOptions() {
+        return [
+            { displayName: "Population Size" ,variableName: "populationSize", type: "Int", min: 3, max: 250, step: 1 },
+            { displayName: "RCL Rate (alpha)" ,variableName: "alpha", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Path Relinking Rate" ,variableName: "beta", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Elitism Rate" ,variableName: "elitismFactor", type: "Float", min: 0, max: 1, step: 0.05 }, 
+            { displayName: "Greedy Algorithm" ,variableName: "greedyInsert", type: "Boolean" },
+            { displayName: "Survival Rate" ,variableName: "survivalRate", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Max Age" ,variableName: "maxAge", type: "Int", min: 1, max: 100, step: 1 },
+            { displayName: "Define Max Age" ,variableName: "hasMaxAge", type: "Boolean" },
+            { displayName: "Immortal Best" ,variableName: "isBestImmortal", type: "Boolean" },
+            { displayName: "Prevent Equal Individuals" ,variableName: "preventEqualIndividuals", type: "Boolean" }
+        ];
+    }
+
     setParameters(params) {
         for (let attr in params) {
             this[attr] = params[attr];
@@ -518,7 +550,7 @@ class GRASP {
                 newI = this.__constructGreedyRandomized();
             }
             // Caso haja prevenção de duplicatas, verifica se a nova solução já existe
-            if(!this.preventEqualIndividuals || !this.__verifyEqual(newI))
+            if(!this.preventEqualIndividuals || !this.__verifyEqual(newI, newPopulation))
                     newPopulation.push(newI);
         }
         // }
@@ -662,12 +694,12 @@ class GRASP {
         return nextPopulation;
     }
 
-    __verifyEqual(newI) {
+    __verifyEqual(newI, newPopulation) {
             for (const i of newPopulation) {
                 if (newI.isEqual(i))
                     return true;
             }
-            for (const i of population) {
+            for (const i of this.population) {
                 if (newI.isEqual(i)) 
                     return true;
             }
