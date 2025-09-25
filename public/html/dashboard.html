@@ -236,7 +236,8 @@
         <h5>Open project</h5>
         <span id="closeOpenProjectModal">&times;</span>
       </div>
-      <div class="modal-body d-flex flex-column gap-2">
+
+      <div class="modal-body d-flex flex-column gap-2" style="max-height: 700px;">
         <h5>Saves</h5>
 
         <label for="metaheuristic_select_open">Choose metaheuristic:</label>
@@ -245,18 +246,20 @@
           <option value="GRASP">GRASP</option>
         </select>
 
-        <table class="p-2 border rounded">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Last modification</th>
-              <th>Open</th>
-            </tr>
-          </thead>
-          <tbody id="savesList">
+        <div style="overflow-y: auto;">
+          <table class="p-2 border rounded">
+            <thead style="position: sticky;top: 0px;z-index: 1;">
+              <tr>
+                <th>Name</th>
+                <th>Last modification</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody id="savesList">
 
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -446,7 +449,7 @@
       svg.select(".x-axis")
         .transition().duration(100)
         .call(d3.axisBottom(x).ticks(3));
-      
+
       const yTicks = [0, config.max / 2, config.max];
       svg.select(".y-axis")
         .transition().duration(100)
