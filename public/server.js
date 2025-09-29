@@ -445,7 +445,9 @@ server.on('connection', ws => {
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if (err) { console.log("Não abriu!!", err); return; }
                     currentSave = JSON.parse(data);
-                    const metaheuristicOnLoad = currentSave.metaheuristic;
+                    // const metaheuristicOnLoad = currentSave.metaheuristic; #antigo que pega do projeto
+                    const metaheuristicOnLoad = obj.data.metaheuristic; // Usa a metaheuristica vinda do cliente
+                    currentSave.metaheuristic = metaheuristicOnLoad; // Atualiza o save atual com a nova metaheuristica
                     logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
                     logger.log("projectCRUD", "load_project");
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
@@ -490,10 +492,14 @@ server.on('connection', ws => {
                     if (err) { console.log("Não abriu!!", err); return; }
                     const fileData = files.map((file) => {
                         const filePath = path.join("./saves", file);
+                        const fileContent = fs.readFileSync(filePath, "utf8");
+                        const saveData = JSON.parse(fileContent);
                         const stats = fs.statSync(filePath);
                         return {
                             name: file,
                             modifiedAt: stats.mtime,
+                            metaheuristic: saveData.metaheuristic,
+                            userName: saveData.userName,
                         };
                     });
 
