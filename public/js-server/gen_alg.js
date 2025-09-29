@@ -68,7 +68,10 @@ class MetaHeuristic {
             for (const b of this.bestIndividuals) {
                 if (b.isEqual(individual)) { isEqual = true; break; }
             }
-            if (!isEqual) this.bestIndividuals.push(individual);
+            if (!isEqual){
+                this.bestIndividuals.push(individual);
+                this.observers.new_best(individual)
+            } 
         }
     }
 

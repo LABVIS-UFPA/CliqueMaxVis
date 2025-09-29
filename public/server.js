@@ -312,8 +312,38 @@ function loadGA(dbpath, metaheuristic = 'GA') {
             c.send(JSON.stringify({ act: "running_data", data: txt }));
         }
     });
-    ga.setObservers("new_best", (bestFitness, allBest) => {
+    ga.setObservers("new_best", (individual) => {
         //Verifica o globalBest, se for melhor substitui.
+        if( individual.fitness > globalBest.bestFitness){
+            globalBest.bestFitness = individual.fitness;
+            globalBest.individuals = [{
+                metaheuristic: currentSave.metaheuristic, 
+                user: currentSave.userName, 
+                nodeMask: individual.nodeMask
+            }];
+            // Notifica todos via broadcast
+
+            // Salva em arquivo
+            saveGlobalBest();
+        }else if(individual.fitness === globalBest.bestFitness){
+            // Verifica se já existe esse indivíduo no globalBest
+            let isEqual = false;
+            for (const ind of globalBest.individuals) {
+                if (individual.isEqual({nodeMask: ind.nodeMask})) {
+                    isEqual = true;
+                    break;
+                }
+            }
+            if (!isEqual) {
+                globalBest.individuals.push({
+                    metaheuristic: currentSave.metaheuristic,
+                    user: currentSave.userName,
+                    nodeMask: individual.nodeMask
+                });
+            }
+            saveGlobalBest();
+        }
+
     });
 
     ga.init();
@@ -421,7 +451,7 @@ server.on('connection', ws => {
                     datasetName,
                     treeModel: treeModel.root
                 }
-                if (!fs.existsSync('./saves')) {              
+                if (!fs.existsSync('./saves')) {
                     fs.mkdirSync('./saves', { recursive: true });
                 }
                 fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
@@ -429,10 +459,11 @@ server.on('connection', ws => {
                     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                initGlobalBest();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
-                if (!fs.existsSync('./saves')) {              
+                if (!fs.existsSync('./saves')) {
                     fs.mkdirSync('./saves', { recursive: true });
                 }
                 fs.writeFile(`./saves/${currentSave.name}.json`, JSON.stringify(currentSave), (err) => {
@@ -453,6 +484,7 @@ server.on('connection', ws => {
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    initGlobalBest();
                 });
                 break;
             case "save_state":
@@ -521,6 +553,37 @@ server.on('connection', ws => {
 
     ws.send(JSON.stringify({ act: "log", data: "Connected!" }));
 });
+
+
+let globalBest = {};
+function initGlobalBest() {
+    if (!fs.existsSync('./bests')) {
+        fs.mkdirSync('./bests', { recursive: true });
+    }
+    if(!fs.existsSync(`./bests/${currentSave.datasetName}.json`)){
+        fs.writeFileSync(`./bests/${currentSave.datasetName}.json`, JSON.stringify({
+            bestFitness: 0,
+            individuals: []
+        }));
+    }
+    globalBest = JSON.parse(fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8"));
+
+    // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
+    //     if (err) { console.log("Não salvou!!", err); return; }
+    //     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
+    // });
+}
+function saveGlobalBest() {
+    // currentSave
+    // userName,
+    // metaheuristic,
+    // dataset_url,
+    // datasetName,
+    fs.writeFile(`./bests/${currentSave.datasetName}.json`, JSON.stringify(globalBest), (err) => {
+        if (err) { console.log("Não salvou!!", err); return; }
+        console.log(`Arquivo globalBest salvo com sucesso em bests/globalBest.json`);
+    });
+}
 
 
 
@@ -594,7 +657,7 @@ function startMainLoop() {
 
             const cpuPercent = Math.min(100, elapsed > 0 ? (100 * elapsedUsage * 1000) / Number(elapsed) : 0); // Trava em 100%
             const memUsage = process.memoryUsage().heapUsed / 1024 / 1024; // em MB
-            
+
             const metrics = {
                 cpu: cpuPercent,
                 memory: memUsage,
@@ -623,6 +686,7 @@ function startMainLoop() {
         }
     }, executionSpeed);
 }
+
 
 // Inicia o loop principal
 startMainLoop();
