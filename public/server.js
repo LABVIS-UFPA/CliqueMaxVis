@@ -248,7 +248,7 @@ let partialReset = false;
 let isRunning = false;
 let runSingleStep = false;
 let executionSpeed = 50;
-let globalBest = 0;
+let localBest = 0;
 
 
 
@@ -307,10 +307,13 @@ function loadGA(dbpath, metaheuristic = 'GA') {
         ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
     }
 
-    ga.setRunningObs((txt) => {
+    ga.setObservers("running", (txt) => {
         for (const c of observers.obs_running) {
             c.send(JSON.stringify({ act: "running_data", data: txt }));
         }
+    });
+    ga.setObservers("new_best", (bestFitness, allBest) => {
+        //Verifica o globalBest, se for melhor substitui.
     });
 
     ga.init();
@@ -553,10 +556,10 @@ function startMainLoop() {
                 }));
             }
 
-            if (globalBest < ga.population[0].fitness) {
-                globalBest = ga.population[0].fitness;
-                console.log("Novo Best Global!");
-                logger.log("globalBest", `${globalBest}`);
+            if (localBest < ga.population[0].fitness) {
+                localBest = ga.population[0].fitness;
+                console.log("Novo Best local!");
+                logger.log("localBest", `${localBest}`);
             }
 
 

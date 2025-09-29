@@ -1,14 +1,14 @@
 
 const { performance } = require('perf_hooks');
 
-
-
-class GA {
-
+class MetaHeuristic {
     constructor(individualConstructor, numNodes) {
-        this.newIndividual = individualConstructor
+        this.newIndividual = individualConstructor;
         this.timings = {};
-        this.runningObs = () => { };
+        this.observers = {
+            "running": () => { },
+            "new_best": () => { }
+        };
 
         this.generation = 0;
         this.numNodes = numNodes;
@@ -16,6 +16,107 @@ class GA {
         this.bestFitness = 0;
         this.bestUpperBound = Number.MAX_SAFE_INTEGER;
 
+        
+        this.population = [];
+        this.initialPopulation = [];
+        this.oldPopulation = [];
+        this.populationSize = 50;
+        this.entropy = 0;
+
+        // selection / aging / duplicates / elitism defaults
+        this.survivalRate = 0.25;
+        this.maxAge = 30;
+        this.hasMaxAge = true;
+        this.isBestImmortal = true;
+        this.preventEqualIndividuals = false;
+
+        // optional flag used by subclasses/backend
+        this.calcUpperBound = false;
+    }
+
+    // Observers
+    setObservers(type, func) {
+        if (func instanceof Function && this.observers[type]) this.observers[type] = func;
+    }
+
+    // Parameter plumbing (subclasses can extend getParametersOptions)
+    getParameters() {
+        const { populationSize, survivalRate, maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals, calcUpperBound } = this;
+        return { populationSize, survivalRate, maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals, calcUpperBound };
+    }
+    setParameters(params) {
+        for (let k in params) if (params.hasOwnProperty(k)) this[k] = params[k];
+    }
+
+    partialReset() {
+        this.observers.running("Partial Reset");
+        let midpoint = Math.floor(this.population.length * this.survivalRate);
+        for (let i = midpoint; i < this.populationSize; i++) {
+            this.population[i] = this.__generateIndividual();
+        }
+        this.population.sort((a, b) => b.fitness - a.fitness);
+    }
+
+    updateBest() {
+        if (this.bestFitness < this.population[0].fitness) {
+            this.bestFitness = this.population[0].fitness;
+            this.bestIndividuals = [];
+        }
+        for (const individual of this.population) {
+            if (individual.fitness < this.bestFitness) break;
+            let isEqual = false;
+            for (const b of this.bestIndividuals) {
+                if (b.isEqual(individual)) { isEqual = true; break; }
+            }
+            if (!isEqual) this.bestIndividuals.push(individual);
+        }
+    }
+
+
+    init() {
+        this.observers.running("Generating Initial Population");
+        this.population = this.__generatePopulation();
+        this.updateBest();
+        this.generation = 1;
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        this.initialPopulation = this.population;
+    }
+
+    nextGeneration() {}
+
+    __selection(newPopulation) {
+        this.observers.running("Selecting Next Population");
+        const t1 = performance.now();
+        const oldPopulation = this.population;
+        let best;
+        if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
+        if (this.hasMaxAge) {
+            for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
+            for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
+
+            oldPopulation.sort((a, b) => b.fitness - a.fitness);
+            newPopulation.sort((a, b) => b.fitness - a.fitness);
+        }
+        if (this.isBestImmortal) oldPopulation.unshift(best);
+
+        let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
+        let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
+
+        nextPopulation.sort((a, b) => b.fitness - a.fitness);
+
+        for (const individual of nextPopulation) {
+            individual.age++;
+        }
+        this.timings.selection = performance.now() - t1;
+        return nextPopulation;
+    }
+   
+}
+
+class GA extends MetaHeuristic {
+
+    constructor(individualConstructor, numNodes) {
+        super(individualConstructor, numNodes);
 
         this.populationSize = 50;
         this.mutationRate = 0.2;
@@ -34,56 +135,15 @@ class GA {
 
     }
 
-    setRunningObs(func) {
-        if (func instanceof Function)
-            this.runningObs = func;
-    }
-
-    init() {
-        this.population = this.__generatePopulation();
-        this.__fitness(this.population);
-        this.__calculateEntropy();
-        this.updateBest();
-        this.generation = 1;
-        this.population.sort((a, b) => b.fitness - a.fitness);
-        this.initialPopulation = this.population;
-    }
-
     nextGeneration() {
         let newPopulation = this.__crossover();
         this.__mutate(newPopulation);
         this.__fitness(newPopulation);
-        this.__calculateEntropy();
+        // this.__calculateEntropy();
         this.oldPopulation = this.population;
         this.population = this.__selection(newPopulation);
-
-
-        // for (const i of this.population) {
-        //     if(!this.tabuTRIE.verify(i.nodeMask)){
-        //         this.tabuTRIE.add(i.nodeMask);
-        //     }else{
-        //         console.log("VELHO!!!!!!!!!!!!!!");
-        //     }
-
-        // }
-
         this.updateBest();
         this.generation++;
-    }
-
-    updateBest() {
-        if (this.bestFitness < this.population[0].fitness) {
-            this.bestFitness = this.population[0].fitness;
-            this.bestIndividuals = [];
-        }
-        for (const individual of this.population) {
-            if (individual.fitness < this.bestFitness) break;
-            let isEqual = false;
-            for (const b of this.bestIndividuals) {
-                if (b.isEqual(individual)) { isEqual = true; break; }
-            }
-            if (!isEqual) this.bestIndividuals.push(individual);
-        }
     }
 
     getParameters() {
@@ -97,11 +157,6 @@ class GA {
             maxAge, hasMaxAge, isBestImmortal, hasExtractionImprovement, preventEqualIndividuals,
             nodeIncludeProb, calcUpperBound
         };
-    }
-    setParameters(params) {
-        for (let attr in params) {
-            this[attr] = params[attr];
-        }
     }
     getParametersOptions() {
         return [
@@ -119,19 +174,8 @@ class GA {
         ];
     }
 
-
-
-    partialReset() {
-        this.runningObs("Partial Reset");
-        let midpoint = Math.floor(this.population.length * this.survivalRate);
-        for (let i = midpoint; i < this.populationSize; i++) {
-            this.population[i] = this.__generateIndividual();
-        }
-        this.population.sort((a, b) => b.fitness - a.fitness);
-    }
-
     __fitness(population) {
-        this.runningObs("Calculating Fitness");
+        this.observers.running("Calculating Fitness");
         const t1 = performance.now();
         for (const individual of population) {
             individual.fitness = individual.verifyClique();
@@ -146,7 +190,7 @@ class GA {
         this.timings.fitness = performance.now() - t1;
     }
     __crossover() {
-        this.runningObs("Making Crossover");
+        this.observers.running("Making Crossover");
         const t1 = performance.now();
         const population = this.population;
         const newIndividual = this.newIndividual;
@@ -186,7 +230,7 @@ class GA {
     }
 
     __mutate(population) {
-        this.runningObs("Mutating");
+        this.observers.running("Mutating");
         const t1 = performance.now();
         const len = population[0].nodeMask.length;
         const mutations = Math.floor(this.mutationRate * len);
@@ -201,39 +245,12 @@ class GA {
         this.timings.mutation = performance.now() - t1;
     }
 
-    __selection(newPopulation) {
-        this.runningObs("Selecting Next Population");
-        const t1 = performance.now();
-        const oldPopulation = this.population;
-        let best;
-        if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
-        if (this.hasMaxAge) {
-            for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
-            for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
-
-            oldPopulation.sort((a, b) => b.fitness - a.fitness);
-            newPopulation.sort((a, b) => b.fitness - a.fitness);
-        }
-        if (this.isBestImmortal) oldPopulation.unshift(best);
-
-        let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
-        let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
-
-        nextPopulation.sort((a, b) => b.fitness - a.fitness);
-
-        for (const individual of nextPopulation) {
-            individual.age++;
-        }
-        this.timings.selection = performance.now() - t1;
-        return nextPopulation;
-    }
-
     __generatePopulation() {
-        this.runningObs("Generating Initial Population");
         const population = [];
         for (let i = 0; i < this.populationSize; i++) {
             population.push(this.__generateIndividual());
         }
+        this.__fitness(population);
         return population;
     }
     __generateIndividual() {
@@ -321,7 +338,6 @@ class PermutGA {
         let newPopulation = this.__crossover();
         this.__mutate(newPopulation);
         this.__fitness(newPopulation);
-        // this.__calculateEntropy();
         this.oldPopulation = this.population;
         this.population = this.__selection(newPopulation);
 
@@ -392,7 +408,6 @@ class PermutGA {
     }
 
     __selection(newPopulation) {
-        // this.runningObs("Selecting Next Population");
         // const t1 = performance.now();
         const oldPopulation = this.population;
         // let best;
@@ -418,7 +433,6 @@ class PermutGA {
         return nextPopulation;
     }
     __generatePopulation() {
-        // this.runningObs("Generating Initial Population");
         const population = [];
         for (let i = 0; i < this.populationSize; i++) {
             population.push(this.__generateIndividual());
@@ -443,7 +457,6 @@ class PermutGA {
     }
 
     __fitness(population) {
-        // this.runningObs("Calculating Fitness");
         // const t1 = performance.now();
         for (const individual of population) {
             individual.fitness = individual.verifyClique();
@@ -462,15 +475,9 @@ class PermutGA {
 
 
 
-class GRASP {
+class GRASP extends MetaHeuristic {
     constructor(individualConstructor, numNodes) {
-        this.newIndividual = individualConstructor;
-        this.numNodes = numNodes;
-        this.runningObs = () => { };
-        this.generation = 0;
-        this.timings = {};
-
-        this.bestUpperBound = Number.MAX_SAFE_INTEGER;
+        super(individualConstructor, numNodes);
 
         this.populationSize = 20;
         this.alpha = 0.8; // parâmetro de aleatoriedade do GRASP
@@ -483,16 +490,6 @@ class GRASP {
         this.isBestImmortal = true; // melhor solução é imortal
         this.preventEqualIndividuals = false; // previne duplicatas na população
 
-
-        this.population = [];
-        this.bestIndividuals = [];
-        this.bestFitness = 0;
-        this.entropy = 0;
-    }
-
-    setRunningObs(func) {
-        if (func instanceof Function)
-            this.runningObs = func;
     }
 
     getParameters() {
@@ -515,26 +512,9 @@ class GRASP {
         ];
     }
 
-    setParameters(params) {
-        for (let attr in params) {
-            this[attr] = params[attr];
-        }
-    }
-
-    init() {
-        this.population = [];
-        for (let i = 0; i < this.populationSize; i++) {
-            this.population.push(this.__constructGreedyRandomized());
-        }
-        this.updateBest();
-        this.generation = 1;
-        this.population.sort((a, b) => b.fitness - a.fitness);
-        this.initialPopulation = this.population;
-    }
-
     nextGeneration() {
         // No GRASP clássico, cada iteração constrói uma nova solução e faz busca local
-        this.runningObs("GRASP Iteration");
+        this.observers.running("GRASP Iteration");
         const t1 = performance.now();
 
         const newPopulation = [];
@@ -564,28 +544,15 @@ class GRASP {
         this.timings.iteration = performance.now() - t1;
     }
 
-    updateBest() {
-        if (this.bestFitness < this.population[0].fitness) {
-            this.bestFitness = this.population[0].fitness;
-            this.bestIndividuals = [];
+    __generatePopulation(){
+        const population = [];
+        for (let i = 0; i < this.populationSize; i++) {
+            population.push(this.__constructGreedyRandomized());
         }
-        for (const individual of this.population) {
-            if (individual.fitness < this.bestFitness) break;
-            let isEqual = false;
-            for (const b of this.bestIndividuals) {
-                if (b.isEqual(individual)) { isEqual = true; break; }
-            }
-            if (!isEqual) this.bestIndividuals.push(individual);
-        }
-    }
-
-    partialReset() {
-        this.runningObs("Partial Reset");
-        this.init();
+        return population;
     }
 
     // --- Métodos internos do GRASP ---
-
     __constructGreedyRandomized() {
         const nodeMask = Array(this.numNodes).fill(0);
         let available = Array.from({ length: this.numNodes }, (_, i) => i);
@@ -665,33 +632,6 @@ class GRASP {
         newIndividual.age = individual.age;
         newIndividual.fitness = newIndividual.verifyClique();
         return newIndividual;
-    }
-
-    __selection(newPopulation) {
-        this.runningObs("Selecting Next Population");
-        const t1 = performance.now();
-        const oldPopulation = this.population;
-        let best;
-        if (this.isBestImmortal) best = oldPopulation.splice(0, 1)[0];
-        if (this.hasMaxAge) {
-            for (const i of oldPopulation) if (i.age > this.maxAge) i.fitness = 0;
-            for (const i of newPopulation) if (i.age > this.maxAge) i.fitness = 0;
-
-            oldPopulation.sort((a, b) => b.fitness - a.fitness);
-            newPopulation.sort((a, b) => b.fitness - a.fitness);
-        }
-        if (this.isBestImmortal) oldPopulation.unshift(best);
-
-        let midpoint = Math.floor(oldPopulation.length * this.survivalRate);
-        let nextPopulation = oldPopulation.slice(0, midpoint).concat(newPopulation.slice(0, this.populationSize - midpoint));
-
-        nextPopulation.sort((a, b) => b.fitness - a.fitness);
-
-        for (const individual of nextPopulation) {
-            individual.age++;
-        }
-        this.timings.selection = performance.now() - t1;
-        return nextPopulation;
     }
 
     __verifyEqual(newI, newPopulation) {
