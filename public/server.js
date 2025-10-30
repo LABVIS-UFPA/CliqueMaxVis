@@ -476,9 +476,7 @@ server.on('connection', ws => {
                 fs.readFile(`./saves/${obj.data.saveName}`, "utf8", (err, data) => {
                     if (err) { console.log("Não abriu!!", err); return; }
                     currentSave = JSON.parse(data);
-                    // const metaheuristicOnLoad = currentSave.metaheuristic; #antigo que pega do projeto
-                    const metaheuristicOnLoad = obj.data.metaheuristic; // Usa a metaheuristica vinda do cliente
-                    currentSave.metaheuristic = metaheuristicOnLoad; // Atualiza o save atual com a nova metaheuristica
+                    const metaheuristicOnLoad = currentSave.metaheuristic; //#antigo que pega do projeto
                     logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
                     logger.log("projectCRUD", "load_project");
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
