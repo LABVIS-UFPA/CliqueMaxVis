@@ -1,5 +1,7 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
+const dgram = require('dgram');
+
 const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
 const Logger = require("./js-server/logger.js");
@@ -322,6 +324,11 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                 nodeMask: individual.nodeMask
             }];
             // Notifica todos via broadcast
+            const broadcastMessage = Buffer.from(JSON.stringify({
+                type: 'new_global_best',
+                user: currentSave.userName
+            }));
+            broadcastSocket.send(broadcastMessage, 0, broadcastMessage.length, BROADCAST_PORT, BROADCAST_ADDR);
 
             // Salva em arquivo
             saveGlobalBest();
@@ -362,6 +369,41 @@ function loadGA(dbpath, metaheuristic = 'GA') {
 
 
 
+
+
+
+// --- Configuração do Broadcast UDP ---
+const BROADCAST_PORT = 41234;
+const BROADCAST_ADDR = "255.255.255.255"; // Endereço padrão de broadcast
+
+const broadcastSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+
+broadcastSocket.on('listening', () => {
+    broadcastSocket.setBroadcast(true);
+    console.log(`Socket UDP escutando broadcasts na porta ${BROADCAST_PORT}`);
+});
+
+broadcastSocket.on('message', (message, rinfo) => {
+    // Ignora mensagens enviadas por ele mesmo (loopback)
+    if (rinfo.address.includes('127.0.0.1')) return;
+
+    console.log(`Broadcast recebido de ${rinfo.address}:${rinfo.port}`);
+    try {
+        const data = JSON.parse(message.toString());
+        if (data.type === 'new_global_best') {
+            // Encaminha a notificação para todos os dashboards conectados via WebSocket
+            clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ act: 'global_best_notification', data: { user: data.user } }));
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao processar mensagem de broadcast:", e);
+    }
+});
+
+broadcastSocket.bind(BROADCAST_PORT);
 
 
 server.on('connection', ws => {

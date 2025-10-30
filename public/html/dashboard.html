@@ -1063,6 +1063,10 @@
             savesList.appendChild(row);
           });
           break;
+        case "global_best_notification":
+          // Recebe a notificação de um novo recorde global via broadcast
+          alerta(`Novo global best! usuário: ${data.user}`, "blue");
+          break;
       }
     };
 
