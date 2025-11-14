@@ -1,14 +1,15 @@
 const WebSocket = require('ws');
 
+const CENTRAL_HOST = '10.16.1.145';
 const CENTRAL_PORT = 41235;
-const server = new WebSocket.Server({ port: CENTRAL_PORT });
+const server = new WebSocket.Server({ host: CENTRAL_HOST, port: CENTRAL_PORT });
 
 // Armazena os melhores resultados da rede, separados por nome do dataset
 const networkBests = {};
 // Armazena os clientes conectados
 const clients = new Set();
 
-console.log(`Servidor Central rodando na porta ws://localhost:${CENTRAL_PORT}`);
+console.log(`Servidor Central rodando em ws://${CENTRAL_HOST}:${CENTRAL_PORT}`);
 
 server.on('connection', ws => {
     clients.add(ws);

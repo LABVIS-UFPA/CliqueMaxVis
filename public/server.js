@@ -288,7 +288,7 @@ let treeModel;
 
 
 // --- Conexão com o Servidor Central ---
-const CENTRAL_SERVER_URL = 'ws://localhost:41235'; // Mude para o IP do servidor central se necessário
+const CENTRAL_SERVER_URL = 'ws://10.16.1.145:41235'; // IP Fixo do servidor central
 let centralSocket;
 
 function connectToCentralServer() {
