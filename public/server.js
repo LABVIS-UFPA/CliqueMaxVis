@@ -1,6 +1,5 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
-const dgram = require('dgram');
 
 const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
@@ -288,6 +287,46 @@ let lastHrTime;
 let treeModel;
 
 
+// --- Conexão com o Servidor Central ---
+const CENTRAL_SERVER_URL = 'ws://localhost:41235'; // Mude para o IP do servidor central se necessário
+let centralSocket;
+
+function connectToCentralServer() {
+    centralSocket = new WebSocket(CENTRAL_SERVER_URL);
+
+    centralSocket.on('open', () => {
+        console.log('Conectado ao servidor central.');
+        // Se já houver um projeto carregado, envia o melhor resultado atual
+        if (currentSave && globalBest.bestFitness > 0) {
+            reportBestToCentral();
+        }
+    });
+
+    centralSocket.on('message', (message) => {
+        try {
+            const data = JSON.parse(message.toString());
+            if (data.type === 'new_network_best') {
+                // Notifica o dashboard sobre o novo recorde da rede
+                console.log(`Notificação de novo recorde da rede recebida: Usuário ${data.payload.user} atingiu ${data.payload.bestFitness} no dataset ${data.payload.datasetName}`);
+                clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ act: 'global_best_notification', data: { user: data.payload.user, fitness: data.payload.bestFitness } }));
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Erro ao processar mensagem do servidor central:", e);
+        }
+    });
+
+    centralSocket.on('close', () => {
+        console.log('Desconectado do servidor central. Tentando reconectar em 5 segundos...');
+        setTimeout(connectToCentralServer, 5000);
+    });
+
+    centralSocket.on('error', (err) => console.error('Erro no socket central:', err.message));
+}
+
 function loadGA(dbpath, metaheuristic = 'GA') {
     // let dbpath = "../exemplosGrafos/grafoK5.txt";
     // let dbpath = "../exemplosGrafos/homer.col.txt";
@@ -323,15 +362,8 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                 user: currentSave.userName, 
                 nodeMask: individual.nodeMask
             }];
-            // Notifica todos via broadcast
-            const broadcastMessage = Buffer.from(JSON.stringify({
-                type: 'new_global_best',
-                user: currentSave.userName
-            }));
-            broadcastSocket.send(broadcastMessage, 0, broadcastMessage.length, BROADCAST_PORT, BROADCAST_ADDR);
-
-            // Salva em arquivo
             saveGlobalBest();
+            reportBestToCentral(); // Envia para o servidor central
         }else if(individual.fitness === globalBest.bestFitness){
             // Verifica se já existe esse indivíduo no globalBest
             let isEqual = false;
@@ -348,7 +380,9 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                     nodeMask: individual.nodeMask
                 });
             }
+            // Salva localmente e reporta, pois pode ser uma nova solução com o mesmo score
             saveGlobalBest();
+            reportBestToCentral();
         }
 
     });
@@ -365,45 +399,6 @@ function loadGA(dbpath, metaheuristic = 'GA') {
 
 }
 
-
-
-
-
-
-
-
-// --- Configuração do Broadcast UDP ---
-const BROADCAST_PORT = 41234;
-const BROADCAST_ADDR = "255.255.255.255"; // Endereço padrão de broadcast
-
-const broadcastSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-
-broadcastSocket.on('listening', () => {
-    broadcastSocket.setBroadcast(true);
-    console.log(`Socket UDP escutando broadcasts na porta ${BROADCAST_PORT}`);
-});
-
-broadcastSocket.on('message', (message, rinfo) => {
-    // Ignora mensagens enviadas por ele mesmo (loopback)
-    if (rinfo.address.includes('127.0.0.1')) return;
-
-    console.log(`Broadcast recebido de ${rinfo.address}:${rinfo.port}`);
-    try {
-        const data = JSON.parse(message.toString());
-        if (data.type === 'new_global_best') {
-            // Encaminha a notificação para todos os dashboards conectados via WebSocket
-            clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ act: 'global_best_notification', data: { user: data.user } }));
-                }
-            });
-        }
-    } catch (e) {
-        console.error("Erro ao processar mensagem de broadcast:", e);
-    }
-});
-
-broadcastSocket.bind(BROADCAST_PORT);
 
 
 server.on('connection', ws => {
@@ -502,6 +497,7 @@ server.on('connection', ws => {
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 initGlobalBest();
+                reportBestToCentral();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
@@ -525,6 +521,7 @@ server.on('connection', ws => {
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                     initGlobalBest();
+                    reportBestToCentral();
                 });
                 break;
             case "save_state":
@@ -612,6 +609,23 @@ function initGlobalBest() {
     //     if (err) { console.log("Não salvou!!", err); return; }
     //     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
     // });
+}
+
+function reportBestToCentral() {
+    if (centralSocket && centralSocket.readyState === WebSocket.OPEN && currentSave && globalBest.bestFitness > 0) {
+        console.log(`Reportando melhor resultado para o servidor central. Fitness: ${globalBest.bestFitness}`);
+        const payload = {
+            type: 'report_best',
+            payload: {
+                datasetName: currentSave.datasetName,
+                bestFitness: globalBest.bestFitness,
+                user: currentSave.userName,
+                // Enviando apenas o primeiro indivíduo para simplificar
+                individual: globalBest.individuals[0]
+            }
+        };
+        centralSocket.send(JSON.stringify(payload));
+    }
 }
 function saveGlobalBest() {
     // currentSave
@@ -730,3 +744,6 @@ function startMainLoop() {
 
 // Inicia o loop principal
 startMainLoop();
+
+// Inicia a conexão com o servidor central
+connectToCentralServer();
