@@ -21,7 +21,7 @@ server.on('connection', ws => {
 
             switch (data.type) {
                 case 'report_best':
-                    handleNewBest(data.payload);
+                    handleNewBest(data.payload, ws); // Passa a referência do cliente remetente
                     break;
                 default:
                     console.log('Tipo de mensagem desconhecido:', data.type);
@@ -42,7 +42,7 @@ server.on('connection', ws => {
     });
 });
 
-function handleNewBest(payload) {
+function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como parâmetro
     const { datasetName, bestFitness, individual, user } = payload;
 
     console.log(`Recebido novo 'best' para o dataset '${datasetName}' do usuário '${user}' com fitness ${bestFitness}`);
@@ -56,11 +56,11 @@ function handleNewBest(payload) {
             achievedBy: [user]
         };
 
-        // Notifica todos os clientes sobre o novo recorde da rede
+        // Notifica todos os clientes, exceto o remetente
         broadcast({ // Envia a solução completa para todos
             type: 'new_network_solution',
             payload
-        });
+        }, senderWs);
     } else if (bestFitness === networkBests[datasetName].bestFitness) {
         // Se o fitness for igual, verifica se a solução já existe
         const exists = networkBests[datasetName].individuals.some(existingInd =>
@@ -73,19 +73,19 @@ function handleNewBest(payload) {
             if (!networkBests[datasetName].achievedBy.includes(user)) {
                 networkBests[datasetName].achievedBy.push(user);
             }
-            // Notifica todos os clientes sobre a nova solução encontrada
+            // Notifica todos os clientes, exceto o remetente
             broadcast({
                 type: 'new_network_solution',
                 payload
-            });
+            }, senderWs);
         }
     }
 }
 
-function broadcast(data) {
+function broadcast(data, senderWs) { // Recebe o remetente para excluí-lo
     const message = JSON.stringify(data);
     clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
+        if (client !== senderWs && client.readyState === WebSocket.OPEN) {
             client.send(message);
         }
     });
