@@ -306,34 +306,23 @@ function connectToCentralServer() {
         try {
             const data = JSON.parse(message.toString());
             if (data.type === 'new_network_solution') {
-                const { datasetName, bestFitness, user, individual } = data.payload;
+                const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
                 console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
-
-                // Só processa se for para o dataset atual
+ 
+                // Salva a solução recebida da rede no arquivo de bests correspondente ao seu dataset
+                saveNetworkBest(datasetName, bestFitness, individual);
+ 
+                // Se a solução recebida for para o dataset ATUAL, atualiza o `globalBest` em memória.
                 if (currentSave && currentSave.datasetName === datasetName) {
-                    // Atualiza o globalBest local se a solução da rede for melhor ou igual
-                    if (bestFitness > globalBest.bestFitness) {
-                        globalBest.bestFitness = bestFitness;
-                        globalBest.individuals = [individual];
-                        saveGlobalBest(); // Salva a nova melhor solução global
-                    } else if (bestFitness === globalBest.bestFitness) {
-                        // Verifica se o indivíduo já existe antes de adicionar
-                        const exists = globalBest.individuals.some(existingInd =>
-                            JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
-                        );
-                        if (!exists) {
-                            globalBest.individuals.push(individual);
-                            saveGlobalBest(); // Salva a nova solução com mesmo score
-                        }
-                    }
+                    initGlobalBest(); // Recarrega o globalBest do arquivo, que acabamos de atualizar.
                 }
-
-                // Notifica o dashboard sobre o novo recorde da rede
+ 
+                // Notifica o dashboard sobre o novo recorde da rede, incluindo o nome do dataset
                 clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({ 
                             act: 'global_best_notification', 
-                            data: { user, fitness: bestFitness } 
+                            data: { user, fitness: bestFitness, datasetName } 
                         }));
                     }
                 });
@@ -387,7 +376,7 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                 nodeMask: individual.nodeMask
             }];
             saveGlobalBest();
-            reportBestToCentral(); // Envia para o servidor central
+            reportBestToCentral(globalBest.individuals[0]); // Envia a nova melhor solução
         }else if(individual.fitness === globalBest.bestFitness){
             // Verifica se já existe esse indivíduo no globalBest
             let isEqual = false;
@@ -397,16 +386,17 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                     break;
                 }
             }
+            const newIndividual = {
+                metaheuristic: currentSave.metaheuristic,
+                user: currentSave.userName,
+                nodeMask: individual.nodeMask
+            };
             if (!isEqual) {
-                globalBest.individuals.push({
-                    metaheuristic: currentSave.metaheuristic,
-                    user: currentSave.userName,
-                    nodeMask: individual.nodeMask
-                });
+                globalBest.individuals.push(newIndividual);
             }
             // Salva localmente e reporta, pois pode ser uma nova solução com o mesmo score
             saveGlobalBest();
-            reportBestToCentral();
+            reportBestToCentral(newIndividual); // Envia a nova solução com o mesmo score
         }
 
     });
@@ -635,17 +625,17 @@ function initGlobalBest() {
     // });
 }
 
-function reportBestToCentral() {
-    if (centralSocket && centralSocket.readyState === WebSocket.OPEN && currentSave && globalBest.bestFitness > 0) {
-        console.log(`Reportando melhor resultado para o servidor central. Fitness: ${globalBest.bestFitness}`);
+function reportBestToCentral(individual) {
+    if (centralSocket && centralSocket.readyState === WebSocket.OPEN && currentSave && individual) {
+        const fitness = individual.fitness || globalBest.bestFitness; // Pega o fitness do indivíduo ou do global
+        console.log(`Reportando melhor resultado para o servidor central. Fitness: ${fitness}`);
         const payload = {
             type: 'report_best',
             payload: {
                 datasetName: currentSave.datasetName,
-                bestFitness: globalBest.bestFitness,
+                bestFitness: fitness,
                 user: currentSave.userName,
-                // Enviando apenas o primeiro indivíduo para simplificar AJUSTAR
-                individual: globalBest.individuals[0]
+                individual: individual
             }
         };
         centralSocket.send(JSON.stringify(payload));
@@ -663,6 +653,38 @@ function saveGlobalBest() {
     });
 }
 
+/**
+ * Salva uma solução recebida da rede no arquivo de melhores correspondente.
+ * Esta função é agnóstica ao projeto atual do cliente.
+ * @param {string} datasetName - O nome do dataset da solução recebida.
+ * @param {number} bestFitness - O fitness da solução.
+ * @param {object} individual - O indivíduo/solução ({metaheuristic, user, nodeMask}).
+ */
+function saveNetworkBest(datasetName, bestFitness, individual) {
+    const bestsDir = './bests';
+    const filePath = `${bestsDir}/${datasetName}.json`;
+
+    if (!fs.existsSync(bestsDir)) {
+        fs.mkdirSync(bestsDir, { recursive: true });
+    }
+
+    let networkBest = { bestFitness: 0, individuals: [] };
+    if (fs.existsSync(filePath)) {
+        networkBest = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    }
+
+    if (bestFitness > networkBest.bestFitness) {
+        networkBest.bestFitness = bestFitness;
+        networkBest.individuals = [individual];
+    } else if (bestFitness === networkBest.bestFitness) {
+        const exists = networkBest.individuals.some(existingInd =>
+            JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
+        );
+        if (!exists) networkBest.individuals.push(individual);
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
+}
 
 
 let mainInterval;
