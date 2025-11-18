@@ -296,10 +296,7 @@ function connectToCentralServer() {
 
     centralSocket.on('open', () => {
         console.log('Conectado ao servidor central.');
-        // Se já houver um projeto carregado, envia o melhor resultado atual
-        if (currentSave && globalBest.bestFitness > 0) {
-            reportBestToCentral();
-        }
+        syncWithCentralServer(); // Sincroniza todos os melhores resultados locais com o servidor central
     });
 
     centralSocket.on('message', (message) => {
@@ -651,6 +648,41 @@ function saveGlobalBest() {
         if (err) { console.log("Não salvou!!", err); return; }
         console.log(`Arquivo globalBest salvo com sucesso em bests/globalBest.json`);
     });
+}
+
+/**
+ * Lê todos os arquivos da pasta /bests e os envia para o servidor central
+ * para sincronização.
+ */
+function syncWithCentralServer() {
+    if (!centralSocket || centralSocket.readyState !== WebSocket.OPEN) {
+        console.log("Não é possível sincronizar: sem conexão com o servidor central.");
+        return;
+    }
+
+    const bestsDir = './bests';
+    if (!fs.existsSync(bestsDir)) {
+        console.log("Pasta 'bests' não encontrada, nada para sincronizar.");
+        return;
+    }
+
+    const syncPayload = [];
+    const files = fs.readdirSync(bestsDir);
+
+    files.forEach(file => {
+        if (path.extname(file) === '.json') {
+            const filePath = path.join(bestsDir, file);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const bestData = JSON.parse(content);
+            const datasetName = path.basename(file, '.json');
+            syncPayload.push({ datasetName, ...bestData });
+        }
+    });
+
+    if (syncPayload.length > 0) {
+        console.log(`Enviando ${syncPayload.length} registros de 'best' para sincronização.`);
+        centralSocket.send(JSON.stringify({ type: 'sync_request', payload: syncPayload }));
+    }
 }
 
 /**

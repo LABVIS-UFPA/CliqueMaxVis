@@ -23,6 +23,9 @@ server.on('connection', ws => {
                 case 'report_best':
                     handleNewBest(data.payload, ws); // Passa a referência do cliente remetente
                     break;
+                case 'sync_request':
+                    handleSyncRequest(data.payload, ws);
+                    break;
                 default:
                     console.log('Tipo de mensagem desconhecido:', data.type);
             }
@@ -41,6 +44,46 @@ server.on('connection', ws => {
         clients.delete(ws);
     });
 });
+
+function handleSyncRequest(clientBests, senderWs) {
+    console.log(`Recebido pedido de sincronização de ${clientBests.length} dataset(s).`);
+
+    clientBests.forEach(clientBest => {
+        const { datasetName, bestFitness, individuals } = clientBest;
+        const networkBest = networkBests[datasetName];
+
+        // Caso 1: O cliente tem uma solução melhor ou o servidor não tem nenhuma.
+        if (!networkBest || bestFitness > networkBest.bestFitness) {
+            console.log(`Sync: Cliente tem um recorde para '${datasetName}'. Atualizando e transmitindo.`);
+            individuals.forEach(individual => {
+                handleNewBest({ datasetName, bestFitness, individual, user: individual.user }, senderWs);
+            });
+        } 
+        // Caso 2: O servidor central tem uma solução melhor.
+        else if (networkBest.bestFitness > bestFitness) {
+            console.log(`Sync: Servidor tem um recorde para '${datasetName}'. Enviando para o cliente.`);
+            // Itera sobre todas as melhores soluções e envia cada uma para o cliente.
+            networkBest.individuals.forEach(individual => {
+                const payload = {
+                    datasetName: datasetName,
+                    bestFitness: networkBest.bestFitness,
+                    user: individual.user || networkBest.achievedBy.join(', '), // Usa o usuário do indivíduo se disponível
+                    individual: individual
+                };
+                senderWs.send(JSON.stringify({ type: 'new_network_solution', payload }));
+            });
+        }
+        // Caso 3: Fitness igual, verificar se há novos indivíduos.
+        else if (networkBest.bestFitness === bestFitness) {
+            console.log(`Sync: Fitness igual para '${datasetName}'. Verificando novos indivíduos.`);
+            individuals.forEach(individual => {
+                // handleNewBest já contém a lógica para verificar se o indivíduo é novo
+                handleNewBest({ datasetName, bestFitness, individual, user: individual.user }, senderWs);
+            });
+        }
+    });
+}
+
 
 function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como parâmetro
     const { datasetName, bestFitness, individual, user } = payload;
