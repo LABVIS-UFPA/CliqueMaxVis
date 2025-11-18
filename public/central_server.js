@@ -57,13 +57,9 @@ function handleNewBest(payload) {
         };
 
         // Notifica todos os clientes sobre o novo recorde da rede
-        broadcast({
-            type: 'new_network_best',
-            payload: {
-                datasetName,
-                bestFitness,
-                user
-            }
+        broadcast({ // Envia a solução completa para todos
+            type: 'new_network_solution',
+            payload
         });
     } else if (bestFitness === networkBests[datasetName].bestFitness) {
         // Se o fitness for igual, verifica se a solução já existe
@@ -77,6 +73,11 @@ function handleNewBest(payload) {
             if (!networkBests[datasetName].achievedBy.includes(user)) {
                 networkBests[datasetName].achievedBy.push(user);
             }
+            // Notifica todos os clientes sobre a nova solução encontrada
+            broadcast({
+                type: 'new_network_solution',
+                payload
+            });
         }
     }
 }

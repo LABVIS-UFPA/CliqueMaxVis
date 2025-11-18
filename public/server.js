@@ -305,12 +305,36 @@ function connectToCentralServer() {
     centralSocket.on('message', (message) => {
         try {
             const data = JSON.parse(message.toString());
-            if (data.type === 'new_network_best') {
+            if (data.type === 'new_network_solution') {
+                const { datasetName, bestFitness, user, individual } = data.payload;
+                console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
+
+                // Só processa se for para o dataset atual
+                if (currentSave && currentSave.datasetName === datasetName) {
+                    // Atualiza o globalBest local se a solução da rede for melhor ou igual
+                    if (bestFitness > globalBest.bestFitness) {
+                        globalBest.bestFitness = bestFitness;
+                        globalBest.individuals = [individual];
+                        saveGlobalBest(); // Salva a nova melhor solução global
+                    } else if (bestFitness === globalBest.bestFitness) {
+                        // Verifica se o indivíduo já existe antes de adicionar
+                        const exists = globalBest.individuals.some(existingInd =>
+                            JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
+                        );
+                        if (!exists) {
+                            globalBest.individuals.push(individual);
+                            saveGlobalBest(); // Salva a nova solução com mesmo score
+                        }
+                    }
+                }
+
                 // Notifica o dashboard sobre o novo recorde da rede
-                console.log(`Notificação de novo recorde da rede recebida: Usuário ${data.payload.user} atingiu ${data.payload.bestFitness} no dataset ${data.payload.datasetName}`);
                 clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ act: 'global_best_notification', data: { user: data.payload.user, fitness: data.payload.bestFitness } }));
+                        client.send(JSON.stringify({ 
+                            act: 'global_best_notification', 
+                            data: { user, fitness: bestFitness } 
+                        }));
                     }
                 });
             }
@@ -620,7 +644,7 @@ function reportBestToCentral() {
                 datasetName: currentSave.datasetName,
                 bestFitness: globalBest.bestFitness,
                 user: currentSave.userName,
-                // Enviando apenas o primeiro indivíduo para simplificar
+                // Enviando apenas o primeiro indivíduo para simplificar AJUSTAR
                 individual: globalBest.individuals[0]
             }
         };

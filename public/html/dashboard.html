@@ -1066,6 +1066,7 @@
         case "global_best_notification":
           // Recebe a notificação de um novo recorde global via broadcast
           alerta(`Novo recorde da rede! Usuário: ${data.user} atingiu fitness ${data.fitness}!`, "blue");
+          alerta(`Novo recorde da rede em '${data.datasetName}'! Usuário: ${data.user} atingiu fitness ${data.fitness}!`, "blue");
           break;
       }
     };
