@@ -306,23 +306,25 @@ function connectToCentralServer() {
                 const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
                 console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
  
-                // Salva a solução recebida da rede no arquivo de bests correspondente ao seu dataset
-                saveNetworkBest(datasetName, bestFitness, individual);
+                // Salva a solução e verifica se é um novo recorde de fitness
+                const isNewFitnessRecord = saveNetworkBest(datasetName, bestFitness, individual);
  
                 // Se a solução recebida for para o dataset ATUAL, atualiza o `globalBest` em memória.
                 if (currentSave && currentSave.datasetName === datasetName) {
                     initGlobalBest(); // Recarrega o globalBest do arquivo, que acabamos de atualizar.
                 }
  
-                // Notifica o dashboard sobre o novo recorde da rede, incluindo o nome do dataset
-                clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ 
-                            act: 'global_best_notification', 
-                            data: { user, fitness: bestFitness, datasetName } 
-                        }));
-                    }
-                });
+                // Notifica o dashboard APENAS se for um novo recorde de fitness
+                if (isNewFitnessRecord) {
+                    clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({ 
+                                act: 'global_best_notification', 
+                                data: { user, fitness: bestFitness, datasetName } 
+                            }));
+                        }
+                    });
+                }
             }
         } catch (e) {
             console.error("Erro ao processar mensagem do servidor central:", e);
@@ -693,6 +695,7 @@ function syncWithCentralServer() {
  * @param {object} individual - O indivíduo/solução ({metaheuristic, user, nodeMask}).
  */
 function saveNetworkBest(datasetName, bestFitness, individual) {
+    let isNewRecord = false;
     const bestsDir = './bests';
     const filePath = `${bestsDir}/${datasetName}.json`;
 
@@ -708,6 +711,7 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
     if (bestFitness > networkBest.bestFitness) {
         networkBest.bestFitness = bestFitness;
         networkBest.individuals = [individual];
+        isNewRecord = true;
     } else if (bestFitness === networkBest.bestFitness) {
         const exists = networkBest.individuals.some(existingInd =>
             JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
@@ -716,6 +720,7 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
     }
 
     fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
+    return isNewRecord;
 }
 
 
