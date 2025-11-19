@@ -302,6 +302,8 @@
     const nLinksSpan = document.getElementById("n_links");
     const densitySpan = document.getElementById("density");
     const savesList = document.getElementById("savesList");
+    const notificationQueue = [];
+    let isShowingNotification = false;
 
     function alerta(mensagem, cor = "red") {
       const alertaBox = document.createElement("div");
@@ -329,6 +331,24 @@
         setTimeout(() => alertaBox.remove(), 500);
       }, 5000);
     }
+
+    function processNotificationQueue() {
+      if (isShowingNotification || notificationQueue.length === 0) {
+        return;
+      }
+
+      isShowingNotification = true;
+      const notification = notificationQueue.shift();
+
+      alerta(notification.message, notification.color);
+
+      // Aguarda a notificação atual desaparecer antes de mostrar a próxima
+      setTimeout(() => {
+        isShowingNotification = false;
+        processNotificationQueue();
+      }, 5500); // 5 segundos
+    }
+
 
     function resetLineCharts() {
       // Reset data and max values to their initial state
@@ -1065,7 +1085,11 @@
           break;
         case "global_best_notification":
           // Recebe a notificação de um novo recorde global via broadcast
-          alerta(`Novo recorde da rede em '${data.datasetName}'! Usuário: ${data.user} atingiu fitness ${data.fitness}!`, "blue");
+          notificationQueue.push({
+            message: `Novo recorde da rede em '${data.datasetName}'! Usuário: ${data.user} atingiu fitness ${data.fitness}!`,
+            color: "blue"
+          });
+          processNotificationQueue();
           break;
       }
     };
