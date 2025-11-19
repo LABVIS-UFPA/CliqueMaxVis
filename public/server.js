@@ -288,13 +288,27 @@ let treeModel;
 
 
 // --- Conexão com o Servidor Central ---
-const CENTRAL_SERVER_URL = 'ws://10.16.1.145:41235'; // IP Fixo do servidor central
+let CENTRAL_SERVER_URL; // Não mais fixo
+const CENTRAL_SERVER_PORT = 41235; // Porta fixa
 let centralSocket;
 
 function connectToCentralServer() {
+    if (!CENTRAL_SERVER_URL) {
+        console.log("URL do servidor central não definida. Conexão não iniciada.");
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: 'URL do servidor não definida.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+        return;
+    }
+
+    const connectingMsg = JSON.stringify({ act: 'central_status', data: { status: 'connecting', message: `Conectando a ${CENTRAL_SERVER_URL}...` } });
+    for (const c of observers.obs_ui_events) { c.send(connectingMsg); }
+
     centralSocket = new WebSocket(CENTRAL_SERVER_URL);
 
     centralSocket.on('open', () => {
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'connected', message: 'Conectado ao servidor central.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+
         console.log('Conectado ao servidor central.');
         syncWithCentralServer(); // Sincroniza todos os melhores resultados locais com o servidor central
     });
@@ -333,10 +347,19 @@ function connectToCentralServer() {
 
     centralSocket.on('close', () => {
         console.log('Desconectado do servidor central. Tentando reconectar em 5 segundos...');
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: 'Desconectado do servidor central.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
         setTimeout(connectToCentralServer, 5000);
     });
 
-    centralSocket.on('error', (err) => console.error('Erro no socket central:', err.message));
+    centralSocket.on('error', (err) => {
+        console.error('Erro no socket central:', err.message);
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'error', message: `Erro de conexão: ${err.message}` } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+    });
+
+    // Limpa o socket em caso de erro para permitir nova tentativa
+    centralSocket.on('error', () => centralSocket = null);
 }
 
 function loadGA(dbpath, metaheuristic = 'GA') {
@@ -588,6 +611,31 @@ server.on('connection', ws => {
                     ws.send(JSON.stringify({ act: "ls_saves", data: fileData }));
                 });
                 break;
+            case "set_central_server":
+                if (obj.data && obj.data.ip) {
+                    CENTRAL_SERVER_URL = `ws://${obj.data.ip}:${CENTRAL_SERVER_PORT}`;
+                    console.log(`URL do servidor central definida para: ${CENTRAL_SERVER_URL}`);
+                    if (centralSocket && (centralSocket.readyState === WebSocket.OPEN || centralSocket.readyState === WebSocket.CONNECTING)) {
+                        console.log("Fechando conexão central existente antes de reconectar.");
+                        centralSocket.close();
+                    }
+                    connectToCentralServer();
+                }
+                break;
+            case "get_central_status":
+                if (centralSocket && centralSocket.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'connected', message: 'Conectado ao servidor central.' } }));
+                } else if (centralSocket && centralSocket.readyState === WebSocket.CONNECTING) {
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'connecting', message: 'Conectando ao servidor central...' } }));
+                } else {
+                    let message = 'Desconectado do servidor central.';
+                    if (!CENTRAL_SERVER_URL) {
+                        message = 'URL do servidor não definida.';
+                    }
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: message } }));
+                }
+                break;
+
 
         }
     });
@@ -603,7 +651,6 @@ server.on('connection', ws => {
 
     ws.send(JSON.stringify({ act: "log", data: "Connected!" }));
 });
-
 
 let globalBest = {};
 function initGlobalBest() {
@@ -829,4 +876,4 @@ function startMainLoop() {
 startMainLoop();
 
 // Inicia a conexão com o servidor central
-connectToCentralServer();
+// connectToCentralServer(); // Agora a conexão é iniciada sob demanda pelo cliente

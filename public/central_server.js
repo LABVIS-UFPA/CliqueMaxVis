@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 
-const CENTRAL_HOST = '10.16.1.145';
+const CENTRAL_HOST = '192.168.0.40';
 const CENTRAL_PORT = 41235;
 const server = new WebSocket.Server({ host: CENTRAL_HOST, port: CENTRAL_PORT });
 
