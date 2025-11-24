@@ -973,12 +973,8 @@
     });
 
     document.getElementById("menuImportGlobalBest").addEventListener("click", function () {
-        if (currentSave) {
-            socket.send(JSON.stringify({ act: "import_global_best" }));
-            alerta("Melhor resultado da rede importado com sucesso!", "green");
-        } else {
-            alerta("Nenhum projeto aberto para importar a solução.", "orange");
-        }
+        socket.send(JSON.stringify({ act: "import_global_best" }));
+        // alerta("Melhor resultado da rede importado com sucesso!", "green");
     });
 
 
