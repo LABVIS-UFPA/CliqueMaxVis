@@ -632,7 +632,20 @@ server.on('connection', ws => {
             case "import_global_best":
                 if (currentSave) {
                     logger.log("projectCRUD", "import_global_best");
-                    initGlobalBest();
+                    initGlobalBest(); // Carrega o globalBest do arquivo
+
+                    if (ga && globalBest && globalBest.individuals && globalBest.individuals.length > 0) {
+                        console.log(`Importando ${globalBest.individuals.length} solução(ões) global(is) para a população.`);
+                        globalBest.individuals.forEach(individual => {
+                            // Adiciona cada indivíduo do recorde global na população atual do GA
+                            ga.addIndividualToPopulation(individual.nodeMask);
+                        });
+                        // Envia uma notificação de sucesso para o dashboard
+                        ws.send(JSON.stringify({ 
+                            act: "show_alert", 
+                            data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" } 
+                        }));
+                    }
                 }
                 break;
 

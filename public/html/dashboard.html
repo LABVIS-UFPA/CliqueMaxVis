@@ -973,12 +973,8 @@
     });
 
     document.getElementById("menuImportGlobalBest").addEventListener("click", function () {
-        if (currentSave) {
-            socket.send(JSON.stringify({ act: "import_global_best" }));
-            alerta("Melhor resultado da rede importado com sucesso!", "green");
-        } else {
-            alerta("Nenhum projeto aberto para importar a solução.", "orange");
-        }
+        socket.send(JSON.stringify({ act: "import_global_best" }));
+        // alerta("Melhor resultado da rede importado com sucesso!", "green");
     });
 
 
@@ -1017,6 +1013,11 @@
       const { act, data } = JSON.parse(event.data);
 
       switch (act) {
+        case "show_alert":
+          if (data && data.message) {
+            alerta(data.message, data.color || "green"); // Usa a cor enviada ou verde como padrão
+          }
+          break;
         case "log":
           console.log(data);
           break;
