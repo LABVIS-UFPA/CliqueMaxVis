@@ -113,6 +113,30 @@ class MetaHeuristic {
         this.timings.selection = performance.now() - t1;
         return nextPopulation;
     }
+
+    /**
+     * Adiciona um novo indivíduo à população a partir de uma nodeMask.
+     * O indivíduo é inserido na população, que é então reordenada.
+     * @param {boolean[]} nodeMask A máscara de nós do indivíduo a ser adicionado.
+     */
+    addIndividualToPopulation(nodeMask) {
+        if (!nodeMask || !this.population) {
+            console.error("Tentativa de adicionar indivíduo com nodeMask nula ou população não inicializada.");
+            return;
+        }
+
+        const newIndividual = this.newIndividual(nodeMask);
+        newIndividual.fitness = newIndividual.verifyClique();
+        newIndividual.age = 0; // Um indivíduo importado é "jovem"
+
+        // Remove o pior indivíduo para dar espaço, se a população estiver cheia
+        if (this.population.length >= this.populationSize) {
+            this.population.pop();
+        }
+
+        this.population.push(newIndividual);
+        this.population.sort((a, b) => b.fitness - a.fitness); // Mantém a população ordenada
+    }
    
 }
 
