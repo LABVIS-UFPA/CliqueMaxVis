@@ -1013,6 +1013,11 @@
       const { act, data } = JSON.parse(event.data);
 
       switch (act) {
+        case "show_alert":
+          if (data && data.message) {
+            alerta(data.message, data.color || "green"); // Usa a cor enviada ou verde como padrão
+          }
+          break;
         case "log":
           console.log(data);
           break;

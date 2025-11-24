@@ -641,7 +641,10 @@ server.on('connection', ws => {
                             ga.addIndividualToPopulation(individual.nodeMask);
                         });
                         // Envia uma notificação de sucesso para o dashboard
-                        ws.send(JSON.stringify({ act: "log", data: `Solução da rede com fitness ${globalBest.bestFitness} importada para a população.` }));
+                        ws.send(JSON.stringify({ 
+                            act: "show_alert", 
+                            data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" } 
+                        }));
                     }
                 }
                 break;
