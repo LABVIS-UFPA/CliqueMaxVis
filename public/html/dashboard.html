@@ -74,8 +74,8 @@
           </a>
           <ul class="dropdown-menu">
             <li><a id="menuSetIp" class="dropdown-item" href="#">Colocar IP</a></li>
-            <li><a class="dropdown-item" href="#">Sincronizar</a></li>
-            <li><a class="dropdown-item" href="#">Importar</a></li>
+            <li><a id="menuSync" class="dropdown-item" href="#">Sincronizar</a></li>
+            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">Importar</a></li>
           </ul>
         </li>
       </ul>
@@ -971,6 +971,17 @@
           );
         });
     });
+
+    document.getElementById("menuImportGlobalBest").addEventListener("click", function () {
+        if (currentSave) {
+            socket.send(JSON.stringify({ act: "import_global_best" }));
+            alerta("Melhor resultado da rede importado com sucesso!", "green");
+        } else {
+            alerta("Nenhum projeto aberto para importar a solução.", "orange");
+        }
+    });
+
+
 
     document.getElementById("menuSetIp").addEventListener("click", function () {
       document.getElementById("ipModal").style.display = "block";

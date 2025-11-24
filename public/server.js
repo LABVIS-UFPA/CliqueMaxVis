@@ -320,13 +320,7 @@ function connectToCentralServer() {
                 const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
                 console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
  
-                // Salva a solução e verifica se é um novo recorde de fitness
                 const isNewFitnessRecord = saveNetworkBest(datasetName, bestFitness, individual);
- 
-                // Se a solução recebida for para o dataset ATUAL, atualiza o `globalBest` em memória.
-                if (currentSave && currentSave.datasetName === datasetName) {
-                    initGlobalBest(); // Recarrega o globalBest do arquivo, que acabamos de atualizar.
-                }
  
                 // Notifica o dashboard APENAS se for um novo recorde de fitness
                 if (isNewFitnessRecord) {
@@ -633,6 +627,12 @@ server.on('connection', ws => {
                         message = 'URL do servidor não definida.';
                     }
                     ws.send(JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: message } }));
+                }
+                break;
+            case "import_global_best":
+                if (currentSave) {
+                    logger.log("projectCRUD", "import_global_best");
+                    initGlobalBest();
                 }
                 break;
 
