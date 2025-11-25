@@ -5,6 +5,8 @@ const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
 const Logger = require("./js-server/logger.js");
 let logger;
+const zlib = require('zlib');
+
 
 const observers = {
     obs_fitness: [],
@@ -770,6 +772,10 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
 
     if (bestFitness > networkBest.bestFitness) {
         networkBest.bestFitness = bestFitness;
+
+        // Comprime o nodeMask para economizar espaço.
+        individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
+
         networkBest.individuals = [individual];
         isNewRecord = true;
     } else if (bestFitness === networkBest.bestFitness) {
@@ -778,6 +784,8 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
         );
         if (!exists) networkBest.individuals.push(individual);
     }
+
+    
 
     fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
     return isNewRecord;
