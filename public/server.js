@@ -321,8 +321,13 @@ function connectToCentralServer() {
             const data = JSON.parse(message.toString());
             if (data.type === 'new_network_solution') {
                 const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
-                console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
  
+                // Descomprime o nodeMask recebido da rede
+                const decompressedNodeMask = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString().split('').map(bit => parseInt(bit));
+                const decompressedIndividual = { ...individual, nodeMask: decompressedNodeMask };
+
+                console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
+
                 const isNewFitnessRecord = saveNetworkBest(datasetName, bestFitness, individual);
  
                 // Notifica o dashboard APENAS se for um novo recorde de fitness
@@ -708,15 +713,24 @@ function initGlobalBest() {
 
 function reportBestToCentral(individual) {
     if (centralSocket && centralSocket.readyState === WebSocket.OPEN && currentSave && individual) {
+        // Cria uma cópia para não modificar o objeto original
+        const individualToSend = JSON.parse(JSON.stringify(individual));
+
+        // Comprime o nodeMask antes de enviar
+        if (Array.isArray(individualToSend.nodeMask)) {
+            individualToSend.nodeMask = zlib.gzipSync(individualToSend.nodeMask.join('')).toString('base64');
+        }
+
         const fitness = individual.fitness || globalBest.bestFitness; // Pega o fitness do indivíduo ou do global
         console.log(`Reportando melhor resultado para o servidor central. Fitness: ${fitness}`);
+
         const payload = {
             type: 'report_best',
             payload: {
                 datasetName: currentSave.datasetName,
                 bestFitness: fitness,
                 user: currentSave.userName,
-                individual: individual
+                individual: individualToSend
             }
         };
         centralSocket.send(JSON.stringify(payload));
@@ -728,9 +742,18 @@ function saveGlobalBest() {
     // metaheuristic,
     // dataset_url,
     // datasetName,
-    fs.writeFile(`./bests/${currentSave.datasetName}.json`, JSON.stringify(globalBest), (err) => {
+
+    // Clona o objeto para não alterar o que está em memória
+    const bestToSave = JSON.parse(JSON.stringify(globalBest));
+
+    // Comprime o nodeMask de cada indivíduo antes de salvar
+    bestToSave.individuals.forEach(individual => {
+        individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
+    });
+
+    fs.writeFile(`./bests/${currentSave.datasetName}.json`, JSON.stringify(bestToSave), (err) => {
         if (err) { console.log("Não salvou!!", err); return; }
-        console.log(`Arquivo globalBest salvo com sucesso em bests/globalBest.json`);
+        console.log(`Arquivo globalBest salvo com sucesso em bests/${currentSave.datasetName}.json`);
     });
 }
 
@@ -758,12 +781,21 @@ function syncWithCentralServer() {
             const filePath = path.join(bestsDir, file);
             const content = fs.readFileSync(filePath, 'utf8');
             const bestData = JSON.parse(content);
+
+            // Comprime os nodeMasks antes de enviar para sincronização
+            bestData.individuals.forEach(individual => {
+                if (Array.isArray(individual.nodeMask)) { // Comprime apenas se não estiver comprimido
+                    individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
+                }
+            });
+
             const datasetName = path.basename(file, '.json');
             syncPayload.push({ datasetName, ...bestData });
         }
     });
 
     if (syncPayload.length > 0) {
+
         console.log(`Enviando ${syncPayload.length} registros de 'best' para sincronização.`);
         centralSocket.send(JSON.stringify({ type: 'sync_request', payload: syncPayload }));
     }
@@ -792,20 +824,16 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
 
     if (bestFitness > networkBest.bestFitness) {
         networkBest.bestFitness = bestFitness;
-
-        // Comprime o nodeMask para economizar espaço.
-        individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
-
         networkBest.individuals = [individual];
         isNewRecord = true;
     } else if (bestFitness === networkBest.bestFitness) {
-        const exists = networkBest.individuals.some(existingInd =>
-            JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
-        );
+        // Antes de comparar, precisamos garantir que ambos os masks estejam no mesmo formato (descomprimido).
+        // No entanto, como o `saveNetworkBest` agora recebe o `individual` já comprimido do servidor central,
+        // e os `existingInd` no arquivo local também estão comprimidos, a comparação direta de strings base64 funciona.
+        const exists = networkBest.individuals.some(existingInd => existingInd.nodeMask === individual.nodeMask);
+
         if (!exists) networkBest.individuals.push(individual);
     }
-
-    
 
     fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
     return isNewRecord;
