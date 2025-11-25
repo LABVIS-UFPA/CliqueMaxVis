@@ -678,7 +678,14 @@ function initGlobalBest() {
             individuals: []
         }));
     }
-    globalBest = JSON.parse(fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8"));
+    let str = fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8");
+    globalBest = JSON.parse(str);
+
+    globalBest.individuals.forEach(individual => {
+        // Descomprime o nodeMask
+        const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
+        individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
+    });
 
     // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
     //     if (err) { console.log("Não salvou!!", err); return; }
