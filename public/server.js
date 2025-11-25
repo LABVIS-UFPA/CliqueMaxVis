@@ -312,6 +312,7 @@ function connectToCentralServer() {
         for (const c of observers.obs_ui_events) { c.send(msg); }
 
         console.log('Conectado ao servidor central.');
+        reconnectionAttempt = 1; // Reseta a contagem de tentativas ao conectar
         syncWithCentralServer(); // Sincroniza todos os melhores resultados locais com o servidor central
     });
 
@@ -342,10 +343,13 @@ function connectToCentralServer() {
     });
 
     centralSocket.on('close', () => {
-        console.log('Desconectado do servidor central. Tentando reconectar em 5 segundos...');
+        const delay = 5000 * Math.pow(2, reconnectionAttempt - 1);
+        console.log(`Desconectado do servidor central. Tentativa ${reconnectionAttempt}. Tentando reconectar em ${delay / 1000} segundos...`);
+
         const msg = JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: 'Desconectado do servidor central.' } });
         for (const c of observers.obs_ui_events) { c.send(msg); }
-        setTimeout(connectToCentralServer, 5000);
+        setTimeout(connectToCentralServer, delay);
+        reconnectionAttempt++;
     });
 
     centralSocket.on('error', (err) => {
@@ -631,6 +635,15 @@ server.on('connection', ws => {
                     ws.send(JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: message } }));
                 }
                 break;
+            case "reconnect_central_server": // Adicionado na interação anterior
+                console.log("Recebido pedido para reconectar ao servidor central.");
+                if (centralSocket && (centralSocket.readyState === WebSocket.OPEN || centralSocket.readyState === WebSocket.CONNECTING)) {
+                    console.log("Já existe uma conexão ou tentativa de conexão em andamento. Nenhuma ação será tomada.");
+                } else {
+                    console.log("Nenhuma conexão ativa. Tentando conectar ao servidor central.");
+                    connectToCentralServer();
+                }
+                break;
             case "import_global_best":
                 if (currentSave) {
                     logger.log("projectCRUD", "import_global_best");
@@ -902,6 +915,3 @@ function startMainLoop() {
 
 // Inicia o loop principal
 startMainLoop();
-
-// Inicia a conexão com o servidor central
-// connectToCentralServer(); // Agora a conexão é iniciada sob demanda pelo cliente

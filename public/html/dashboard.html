@@ -74,7 +74,7 @@
           </a>
           <ul class="dropdown-menu">
             <li><a id="menuSetIp" class="dropdown-item" href="#">Colocar IP</a></li>
-            <li><a id="menuSync" class="dropdown-item" href="#">Sincronizar</a></li>
+            <li><a id="menuSync" class="dropdown-item" href="#">Reconectar</a></li>
             <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">Importar</a></li>
           </ul>
         </li>
@@ -974,7 +974,6 @@
 
     document.getElementById("menuImportGlobalBest").addEventListener("click", function () {
         socket.send(JSON.stringify({ act: "import_global_best" }));
-        // alerta("Melhor resultado da rede importado com sucesso!", "green");
     });
 
 
@@ -985,6 +984,10 @@
 
     document.querySelector("#closeIpModal").addEventListener("click", function () {
       document.getElementById("ipModal").style.display = "none";
+    });
+
+    document.getElementById("menuSync").addEventListener("click", function () {
+      socket.send(JSON.stringify({ act: "reconnect_central_server" }));
     });
 
     document.getElementById("confirmIpConnect").addEventListener("click", function () {
