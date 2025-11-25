@@ -67,7 +67,7 @@ function handleSyncRequest(clientBests, senderWs) {
                 const payload = {
                     datasetName: datasetName,
                     bestFitness: networkBest.bestFitness,
-                    user: individual.user || networkBest.achievedBy.join(', '), // Usa o usuário do indivíduo se disponível
+                    user: individual.user,
                     individual: individual
                 };
                 senderWs.send(JSON.stringify({ type: 'new_network_solution', payload }));
