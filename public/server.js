@@ -395,35 +395,38 @@ function loadGA(dbpath, metaheuristic = 'GA') {
     });
     ga.setObservers("new_best", (individual) => {
         //Verifica o globalBest, se for melhor substitui.
-        if( individual.fitness > globalBest.bestFitness){
+        // Garante que estamos comparando com o melhor fitness global conhecido.
+        if (individual.fitness > globalBest.bestFitness) {
             globalBest.bestFitness = individual.fitness;
             globalBest.individuals = [{
-                metaheuristic: currentSave.metaheuristic, 
-                user: currentSave.userName, 
+                metaheuristic: currentSave.metaheuristic,
+                user: currentSave.userName,
                 nodeMask: individual.nodeMask
             }];
             saveGlobalBest();
             reportBestToCentral(globalBest.individuals[0]); // Envia a nova melhor solução
-        }else if(individual.fitness === globalBest.bestFitness){
+        } else if (individual.fitness === globalBest.bestFitness) {
             // Verifica se já existe esse indivíduo no globalBest
             let isEqual = false;
             for (const ind of globalBest.individuals) {
-                if (individual.isEqual({nodeMask: ind.nodeMask})) {
+                // ind.nodeMask já está descompactado em memória por initGlobalBest
+                if (individual.isEqual({ nodeMask: ind.nodeMask })) {
                     isEqual = true;
                     break;
                 }
             }
-            const newIndividual = {
-                metaheuristic: currentSave.metaheuristic,
-                user: currentSave.userName,
-                nodeMask: individual.nodeMask
-            };
+
             if (!isEqual) {
+                const newIndividual = {
+                    metaheuristic: currentSave.metaheuristic,
+                    user: currentSave.userName,
+                    nodeMask: individual.nodeMask
+                };
                 globalBest.individuals.push(newIndividual);
+                // Salva localmente e reporta, pois é uma nova solução com o mesmo score
+                saveGlobalBest();
+                reportBestToCentral(newIndividual); // Envia a nova solução com o mesmo score
             }
-            // Salva localmente e reporta, pois pode ser uma nova solução com o mesmo score
-            saveGlobalBest();
-            reportBestToCentral(newIndividual); // Envia a nova solução com o mesmo score
         }
 
     });
@@ -836,9 +839,25 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
     }
 
     fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
+
+    // Atualização automática em memória
+    if (currentSave && currentSave.datasetName === datasetName && (isNewRecord || bestFitness === globalBest.bestFitness)) {
+        console.log(`Atualizando globalBest em memória para o dataset ${datasetName}.`);
+        // Clona o objeto para não modificar o que foi salvo em arquivo
+        const updatedGlobalBest = JSON.parse(JSON.stringify(networkBest));
+
+        // Descomprime os nodeMasks para o formato em memória
+        updatedGlobalBest.individuals.forEach(ind => {
+            const decompressed = zlib.gunzipSync(Buffer.from(ind.nodeMask, 'base64')).toString();
+            ind.nodeMask = decompressed.split('').map(bit => parseInt(bit));
+        });
+
+        // Atualiza a variável globalBest em memória
+        globalBest = updatedGlobalBest;
+    }
+
     return isNewRecord;
 }
-
 
 let mainInterval;
 
