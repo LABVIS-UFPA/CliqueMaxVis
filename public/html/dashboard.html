@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Interativo</title>
+  <link rel="icon" type="image/png" href="../Generated_Imag.png">
   <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
   <link rel="stylesheet" href="../css/style.css" />
@@ -64,6 +65,18 @@
             <li>
               <a class="dropdown-item" onclick='openWindow("best_vis.html",540,420)' href="#">Best Individuals</a>
             </li>
+          </ul>
+        </li>
+        <li class="nav-item dropdown d-flex align-items-center gap-2">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownCooperation" role="button"
+            data-bs-toggle="dropdown">
+            Cooperação
+            <i id="centralConnectionIcon" class="fa fa-circle" style="color: red;" aria-hidden="true"></i>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a id="menuSetIp" class="dropdown-item" href="#">Colocar IP</a></li>
+            <li><a id="menuSync" class="dropdown-item" href="#">Reconectar</a></li>
+            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">Importar</a></li>
           </ul>
         </li>
       </ul>
@@ -187,6 +200,21 @@
     </div>
   </div>
 
+  <!-- Modal para Inserir IP -->
+  <div id="ipModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5>Conectar ao Servidor Central</h5>
+        <span id="closeIpModal">&times;</span>
+      </div>
+      <div class="modal-body d-flex flex-column gap-2">
+        <label for="ipAddress">Endereço IP do Servidor Central:</label>
+        <input class="p-2 border rounded" type="text" id="ipAddress" placeholder="ex: 192.168.0.1" />
+        <button class="btn btn-primary" id="confirmIpConnect">Conectar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modals -->
   <div id="newProjectModal" class="modal">
     <div class="modal-content">
@@ -302,6 +330,8 @@
     const nLinksSpan = document.getElementById("n_links");
     const densitySpan = document.getElementById("density");
     const savesList = document.getElementById("savesList");
+    const notificationQueue = [];
+    let isShowingNotification = false;
 
     function alerta(mensagem, cor = "red") {
       const alertaBox = document.createElement("div");
@@ -329,6 +359,24 @@
         setTimeout(() => alertaBox.remove(), 500);
       }, 5000);
     }
+
+    function processNotificationQueue() {
+      if (isShowingNotification || notificationQueue.length === 0) {
+        return;
+      }
+
+      isShowingNotification = true;
+      const notification = notificationQueue.shift();
+
+      alerta(notification.message, notification.color);
+
+      // Aguarda a notificação atual desaparecer antes de mostrar a próxima
+      setTimeout(() => {
+        isShowingNotification = false;
+        processNotificationQueue();
+      }, 5500); // 5 segundos
+    }
+
 
     function resetLineCharts() {
       // Reset data and max values to their initial state
@@ -925,6 +973,32 @@
         });
     });
 
+    document.getElementById("menuImportGlobalBest").addEventListener("click", function () {
+        socket.send(JSON.stringify({ act: "import_global_best" }));
+    });
+
+
+
+    document.getElementById("menuSetIp").addEventListener("click", function () {
+      document.getElementById("ipModal").style.display = "block";
+    });
+
+    document.querySelector("#closeIpModal").addEventListener("click", function () {
+      document.getElementById("ipModal").style.display = "none";
+    });
+
+    document.getElementById("menuSync").addEventListener("click", function () {
+      socket.send(JSON.stringify({ act: "reconnect_central_server" }));
+    });
+
+    document.getElementById("confirmIpConnect").addEventListener("click", function () {
+      const ipAddress = document.getElementById("ipAddress").value.trim();
+      if (ipAddress) {
+        socket.send(JSON.stringify({ act: "set_central_server", data: { ip: ipAddress } }));
+        document.getElementById("ipModal").style.display = "none";
+      }
+    });
+
     // Redimensionar gráficos quando a janela mudar de tamanho
     window.addEventListener("resize", function () {
       document.querySelectorAll(".gauge-container svg").forEach((el) => { el.remove(); });
@@ -943,6 +1017,11 @@
       const { act, data } = JSON.parse(event.data);
 
       switch (act) {
+        case "show_alert":
+          if (data && data.message) {
+            alerta(data.message, data.color || "green"); // Usa a cor enviada ou verde como padrão
+          }
+          break;
         case "log":
           console.log(data);
           break;
@@ -1065,7 +1144,24 @@
           break;
         case "global_best_notification":
           // Recebe a notificação de um novo recorde global via broadcast
-          alerta(`Novo global best! usuário: ${data.user}`, "blue");
+          notificationQueue.push({
+            message: `Novo recorde da rede em '${data.datasetName}'! Usuário: ${data.user} atingiu fitness ${data.fitness}!`,
+            color: "blue"
+          });
+          processNotificationQueue();
+          break;
+        case "central_status":
+          // Adiciona um delay para evitar mudanças de cor muito rápidas
+          setTimeout(() => {
+            const centralIcon = document.getElementById("centralConnectionIcon");
+            if (data.status === 'connected') {
+              centralIcon.style.color = "green";
+            } else if (data.status === 'connecting') {
+              centralIcon.style.color = "orange";
+            } else { // disconnected, error
+              centralIcon.style.color = "red";
+            }
+          }, 500); // Atraso de 500ms
           break;
       }
     };
@@ -1081,6 +1177,7 @@
         })
       );
       socket.send(JSON.stringify({ act: "get_tree_model" }));
+      socket.send(JSON.stringify({ act: "get_central_status" })); // Solicita o status da conexão central ao recarregar
     };
 
     socket.onclose = function () {

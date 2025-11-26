@@ -1,11 +1,12 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3214 });
-const dgram = require('dgram');
 
 const { TreeSaveModel } = require("./js-server/TreeSaveModel.js");
 const clients = [];
 const Logger = require("./js-server/logger.js");
 let logger;
+const zlib = require('zlib');
+
 
 const observers = {
     obs_fitness: [],
@@ -288,6 +289,84 @@ let lastHrTime;
 let treeModel;
 
 
+// --- Conexão com o Servidor Central ---
+let CENTRAL_SERVER_URL; // Não mais fixo
+const CENTRAL_SERVER_PORT = 41235; // Porta fixa
+let centralSocket;
+
+function connectToCentralServer() {
+    if (!CENTRAL_SERVER_URL) {
+        console.log("URL do servidor central não definida. Conexão não iniciada.");
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: 'URL do servidor não definida.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+        return;
+    }
+
+    const connectingMsg = JSON.stringify({ act: 'central_status', data: { status: 'connecting', message: `Conectando a ${CENTRAL_SERVER_URL}...` } });
+    for (const c of observers.obs_ui_events) { c.send(connectingMsg); }
+
+    centralSocket = new WebSocket(CENTRAL_SERVER_URL);
+
+    centralSocket.on('open', () => {
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'connected', message: 'Conectado ao servidor central.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+
+        console.log('Conectado ao servidor central.');
+        reconnectionAttempt = 1; // Reseta a contagem de tentativas ao conectar
+        syncWithCentralServer(); // Sincroniza todos os melhores resultados locais com o servidor central
+    });
+
+    centralSocket.on('message', (message) => {
+        try {
+            const data = JSON.parse(message.toString());
+            if (data.type === 'new_network_solution') {
+                const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
+ 
+                // Descomprime o nodeMask recebido da rede
+                const decompressedNodeMask = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString().split('').map(bit => parseInt(bit));
+                const decompressedIndividual = { ...individual, nodeMask: decompressedNodeMask };
+
+                console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
+
+                const isNewFitnessRecord = saveNetworkBest(datasetName, bestFitness, individual);
+ 
+                // Notifica o dashboard APENAS se for um novo recorde de fitness
+                if (isNewFitnessRecord) {
+                    clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({ 
+                                act: 'global_best_notification', 
+                                data: { user, fitness: bestFitness, datasetName } 
+                            }));
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao processar mensagem do servidor central:", e);
+        }
+    });
+
+    centralSocket.on('close', () => {
+        const delay = 5000 * Math.pow(2, reconnectionAttempt - 1);
+        console.log(`Desconectado do servidor central. Tentativa ${reconnectionAttempt}. Tentando reconectar em ${delay / 1000} segundos...`);
+
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: 'Desconectado do servidor central.' } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+        setTimeout(connectToCentralServer, delay);
+        reconnectionAttempt++;
+    });
+
+    centralSocket.on('error', (err) => {
+        console.error('Erro no socket central:', err.message);
+        const msg = JSON.stringify({ act: 'central_status', data: { status: 'error', message: `Erro de conexão: ${err.message}` } });
+        for (const c of observers.obs_ui_events) { c.send(msg); }
+    });
+
+    // Limpa o socket em caso de erro para permitir nova tentativa
+    centralSocket.on('error', () => centralSocket = null);
+}
+
 function loadGA(dbpath, metaheuristic = 'GA') {
     // let dbpath = "../exemplosGrafos/grafoK5.txt";
     // let dbpath = "../exemplosGrafos/homer.col.txt";
@@ -316,39 +395,38 @@ function loadGA(dbpath, metaheuristic = 'GA') {
     });
     ga.setObservers("new_best", (individual) => {
         //Verifica o globalBest, se for melhor substitui.
-        if( individual.fitness > globalBest.bestFitness){
+        // Garante que estamos comparando com o melhor fitness global conhecido.
+        if (individual.fitness > globalBest.bestFitness) {
             globalBest.bestFitness = individual.fitness;
             globalBest.individuals = [{
-                metaheuristic: currentSave.metaheuristic, 
-                user: currentSave.userName, 
+                metaheuristic: currentSave.metaheuristic,
+                user: currentSave.userName,
                 nodeMask: individual.nodeMask
             }];
-            // Notifica todos via broadcast
-            const broadcastMessage = Buffer.from(JSON.stringify({
-                type: 'new_global_best',
-                user: currentSave.userName
-            }));
-            broadcastSocket.send(broadcastMessage, 0, broadcastMessage.length, BROADCAST_PORT, BROADCAST_ADDR);
-
-            // Salva em arquivo
             saveGlobalBest();
-        }else if(individual.fitness === globalBest.bestFitness){
+            reportBestToCentral(globalBest.individuals[0]); // Envia a nova melhor solução
+        } else if (individual.fitness === globalBest.bestFitness) {
             // Verifica se já existe esse indivíduo no globalBest
             let isEqual = false;
             for (const ind of globalBest.individuals) {
-                if (individual.isEqual({nodeMask: ind.nodeMask})) {
+                // ind.nodeMask já está descompactado em memória por initGlobalBest
+                if (individual.isEqual({ nodeMask: ind.nodeMask })) {
                     isEqual = true;
                     break;
                 }
             }
+
             if (!isEqual) {
-                globalBest.individuals.push({
+                const newIndividual = {
                     metaheuristic: currentSave.metaheuristic,
                     user: currentSave.userName,
                     nodeMask: individual.nodeMask
-                });
+                };
+                globalBest.individuals.push(newIndividual);
+                // Salva localmente e reporta, pois é uma nova solução com o mesmo score
+                saveGlobalBest();
+                reportBestToCentral(newIndividual); // Envia a nova solução com o mesmo score
             }
-            saveGlobalBest();
         }
 
     });
@@ -365,45 +443,6 @@ function loadGA(dbpath, metaheuristic = 'GA') {
 
 }
 
-
-
-
-
-
-
-
-// --- Configuração do Broadcast UDP ---
-const BROADCAST_PORT = 41234;
-const BROADCAST_ADDR = "255.255.255.255"; // Endereço padrão de broadcast
-
-const broadcastSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-
-broadcastSocket.on('listening', () => {
-    broadcastSocket.setBroadcast(true);
-    console.log(`Socket UDP escutando broadcasts na porta ${BROADCAST_PORT}`);
-});
-
-broadcastSocket.on('message', (message, rinfo) => {
-    // Ignora mensagens enviadas por ele mesmo (loopback)
-    if (rinfo.address.includes('127.0.0.1')) return;
-
-    console.log(`Broadcast recebido de ${rinfo.address}:${rinfo.port}`);
-    try {
-        const data = JSON.parse(message.toString());
-        if (data.type === 'new_global_best') {
-            // Encaminha a notificação para todos os dashboards conectados via WebSocket
-            clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ act: 'global_best_notification', data: { user: data.user } }));
-                }
-            });
-        }
-    } catch (e) {
-        console.error("Erro ao processar mensagem de broadcast:", e);
-    }
-});
-
-broadcastSocket.bind(BROADCAST_PORT);
 
 
 server.on('connection', ws => {
@@ -502,6 +541,7 @@ server.on('connection', ws => {
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 initGlobalBest();
+                reportBestToCentral();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
@@ -525,6 +565,7 @@ server.on('connection', ws => {
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                     initGlobalBest();
+                    reportBestToCentral();
                 });
                 break;
             case "save_state":
@@ -578,6 +619,59 @@ server.on('connection', ws => {
                     ws.send(JSON.stringify({ act: "ls_saves", data: fileData }));
                 });
                 break;
+            case "set_central_server":
+                if (obj.data && obj.data.ip) {
+                    CENTRAL_SERVER_URL = `ws://${obj.data.ip}:${CENTRAL_SERVER_PORT}`;
+                    console.log(`URL do servidor central definida para: ${CENTRAL_SERVER_URL}`);
+                    if (centralSocket && (centralSocket.readyState === WebSocket.OPEN || centralSocket.readyState === WebSocket.CONNECTING)) {
+                        console.log("Fechando conexão central existente antes de reconectar.");
+                        centralSocket.close();
+                    }
+                    connectToCentralServer();
+                }
+                break;
+            case "get_central_status":
+                if (centralSocket && centralSocket.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'connected', message: 'Conectado ao servidor central.' } }));
+                } else if (centralSocket && centralSocket.readyState === WebSocket.CONNECTING) {
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'connecting', message: 'Conectando ao servidor central...' } }));
+                } else {
+                    let message = 'Desconectado do servidor central.';
+                    if (!CENTRAL_SERVER_URL) {
+                        message = 'URL do servidor não definida.';
+                    }
+                    ws.send(JSON.stringify({ act: 'central_status', data: { status: 'disconnected', message: message } }));
+                }
+                break;
+            case "reconnect_central_server": // Adicionado na interação anterior
+                console.log("Recebido pedido para reconectar ao servidor central.");
+                if (centralSocket && (centralSocket.readyState === WebSocket.OPEN || centralSocket.readyState === WebSocket.CONNECTING)) {
+                    console.log("Já existe uma conexão ou tentativa de conexão em andamento. Nenhuma ação será tomada.");
+                } else {
+                    console.log("Nenhuma conexão ativa. Tentando conectar ao servidor central.");
+                    connectToCentralServer();
+                }
+                break;
+            case "import_global_best":
+                if (currentSave) {
+                    logger.log("projectCRUD", "import_global_best");
+                    initGlobalBest(); // Carrega o globalBest do arquivo
+
+                    if (ga && globalBest && globalBest.individuals && globalBest.individuals.length > 0) {
+                        console.log(`Importando ${globalBest.individuals.length} solução(ões) global(is) para a população.`);
+                        globalBest.individuals.forEach(individual => {
+                            // Adiciona cada indivíduo do recorde global na população atual do GA
+                            ga.addIndividualToPopulation(individual.nodeMask);
+                        });
+                        // Envia uma notificação de sucesso para o dashboard
+                        ws.send(JSON.stringify({ 
+                            act: "show_alert", 
+                            data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" } 
+                        }));
+                    }
+                }
+                break;
+
 
         }
     });
@@ -594,7 +688,6 @@ server.on('connection', ws => {
     ws.send(JSON.stringify({ act: "log", data: "Connected!" }));
 });
 
-
 let globalBest = {};
 function initGlobalBest() {
     if (!fs.existsSync('./bests')) {
@@ -606,12 +699,45 @@ function initGlobalBest() {
             individuals: []
         }));
     }
-    globalBest = JSON.parse(fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8"));
+    let str = fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8");
+    globalBest = JSON.parse(str);
+
+    globalBest.individuals.forEach(individual => {
+        // Descomprime o nodeMask
+        const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
+        individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
+    });
 
     // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
     //     if (err) { console.log("Não salvou!!", err); return; }
     //     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
     // });
+}
+
+function reportBestToCentral(individual) {
+    if (centralSocket && centralSocket.readyState === WebSocket.OPEN && currentSave && individual) {
+        // Cria uma cópia para não modificar o objeto original
+        const individualToSend = JSON.parse(JSON.stringify(individual));
+
+        // Comprime o nodeMask antes de enviar
+        if (Array.isArray(individualToSend.nodeMask)) {
+            individualToSend.nodeMask = zlib.gzipSync(individualToSend.nodeMask.join('')).toString('base64');
+        }
+
+        const fitness = individual.fitness || globalBest.bestFitness; // Pega o fitness do indivíduo ou do global
+        console.log(`Reportando melhor resultado para o servidor central. Fitness: ${fitness}`);
+
+        const payload = {
+            type: 'report_best',
+            payload: {
+                datasetName: currentSave.datasetName,
+                bestFitness: fitness,
+                user: currentSave.userName,
+                individual: individualToSend
+            }
+        };
+        centralSocket.send(JSON.stringify(payload));
+    }
 }
 function saveGlobalBest() {
     // currentSave
@@ -619,13 +745,119 @@ function saveGlobalBest() {
     // metaheuristic,
     // dataset_url,
     // datasetName,
-    fs.writeFile(`./bests/${currentSave.datasetName}.json`, JSON.stringify(globalBest), (err) => {
+
+    // Clona o objeto para não alterar o que está em memória
+    const bestToSave = JSON.parse(JSON.stringify(globalBest));
+
+    // Comprime o nodeMask de cada indivíduo antes de salvar
+    bestToSave.individuals.forEach(individual => {
+        individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
+    });
+
+    fs.writeFile(`./bests/${currentSave.datasetName}.json`, JSON.stringify(bestToSave), (err) => {
         if (err) { console.log("Não salvou!!", err); return; }
-        console.log(`Arquivo globalBest salvo com sucesso em bests/globalBest.json`);
+        console.log(`Arquivo globalBest salvo com sucesso em bests/${currentSave.datasetName}.json`);
     });
 }
 
+/**
+ * Lê todos os arquivos da pasta /bests e os envia para o servidor central
+ * para sincronização.
+ */
+function syncWithCentralServer() {
+    if (!centralSocket || centralSocket.readyState !== WebSocket.OPEN) {
+        console.log("Não é possível sincronizar: sem conexão com o servidor central.");
+        return;
+    }
 
+    const bestsDir = './bests';
+    if (!fs.existsSync(bestsDir)) {
+        console.log("Pasta 'bests' não encontrada, nada para sincronizar.");
+        return;
+    }
+
+    const syncPayload = [];
+    const files = fs.readdirSync(bestsDir);
+
+    files.forEach(file => {
+        if (path.extname(file) === '.json') {
+            const filePath = path.join(bestsDir, file);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const bestData = JSON.parse(content);
+
+            // Comprime os nodeMasks antes de enviar para sincronização
+            bestData.individuals.forEach(individual => {
+                if (Array.isArray(individual.nodeMask)) { // Comprime apenas se não estiver comprimido
+                    individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
+                }
+            });
+
+            const datasetName = path.basename(file, '.json');
+            syncPayload.push({ datasetName, ...bestData });
+        }
+    });
+
+    if (syncPayload.length > 0) {
+
+        console.log(`Enviando ${syncPayload.length} registros de 'best' para sincronização.`);
+        centralSocket.send(JSON.stringify({ type: 'sync_request', payload: syncPayload }));
+    }
+}
+
+/**
+ * Salva uma solução recebida da rede no arquivo de melhores correspondente.
+ * Esta função é agnóstica ao projeto atual do cliente.
+ * @param {string} datasetName - O nome do dataset da solução recebida.
+ * @param {number} bestFitness - O fitness da solução.
+ * @param {object} individual - O indivíduo/solução ({metaheuristic, user, nodeMask}).
+ */
+function saveNetworkBest(datasetName, bestFitness, individual) {
+    let isNewRecord = false;
+    const bestsDir = './bests';
+    const filePath = `${bestsDir}/${datasetName}.json`;
+
+    if (!fs.existsSync(bestsDir)) {
+        fs.mkdirSync(bestsDir, { recursive: true });
+    }
+
+    let networkBest = { bestFitness: 0, individuals: [] };
+    if (fs.existsSync(filePath)) {
+        networkBest = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    }
+
+    if (bestFitness > networkBest.bestFitness) {
+        networkBest.bestFitness = bestFitness;
+        networkBest.individuals = [individual];
+        isNewRecord = true;
+    } else if (bestFitness === networkBest.bestFitness) {
+        // Antes de comparar, precisamos garantir que ambos os masks estejam no mesmo formato (descomprimido).
+        // No entanto, como o `saveNetworkBest` agora recebe o `individual` já comprimido do servidor central,
+        // e os `existingInd` no arquivo local também estão comprimidos, a comparação direta de strings base64 funciona.
+        const exists = networkBest.individuals.some(existingInd => existingInd.nodeMask === individual.nodeMask);
+
+        if (!exists) networkBest.individuals.push(individual);
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(networkBest, null, 2));
+
+    // Atualização automática em memória
+    if (currentSave && currentSave.datasetName === datasetName && (isNewRecord || bestFitness === globalBest.bestFitness)) {
+        console.log(`Atualizando globalBest em memória para o dataset ${datasetName}.`);
+        // Clona o objeto para não modificar o que foi salvo em arquivo
+        const updatedGlobalBest = JSON.parse(JSON.stringify(networkBest));
+
+        // Descomprime os nodeMasks para o formato em memória
+        updatedGlobalBest.individuals.forEach(ind => {
+            const decompressed = zlib.gunzipSync(Buffer.from(ind.nodeMask, 'base64')).toString();
+            ind.nodeMask = decompressed.split('').map(bit => parseInt(bit));
+        });
+
+        // Atualiza a variável globalBest em memória
+        globalBest = updatedGlobalBest;
+    }
+
+    return isNewRecord;
+}
 
 let mainInterval;
 
