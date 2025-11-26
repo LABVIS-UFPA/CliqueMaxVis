@@ -548,7 +548,7 @@ server.on('connection', ws => {
                 });
                 ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                 initGlobalBest();
-                reportBestToCentral();
+                // reportBestToCentral();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
@@ -572,7 +572,7 @@ server.on('connection', ws => {
                     treeModel.load(treeModel.getActive());
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
                     initGlobalBest();
-                    reportBestToCentral();
+                    // reportBestToCentral();
                 });
                 break;
             case "save_state":
@@ -724,12 +724,27 @@ function initGlobalBest() {
         // Descomprime o nodeMask
         const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
         individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
-    });
-
-    // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
+    });    
+     // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
     //     if (err) { console.log("Não salvou!!", err); return; }
     //     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
     // });
+
+    // Compara o melhor fitness global com o melhor fitness local do projeto atual
+    if (ga && globalBest.bestFitness > ga.bestFitness) {
+        console.log(`Nova solução da rede disponível! Global: ${globalBest.bestFitness}, Local: ${ga.bestFitness}`);
+        newSolutionAvailable = true; // Marca que há uma nova solução
+        console.log(`globalBest carregado: Fitness ${globalBest.bestFitness} `);
+        // Envia notificação para mostrar o indicador de nova solução
+        clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                    act: 'new_solution_indicator',
+                    data: { show: true }
+                }));
+            }
+        });
+    }
 }
 
 function reportBestToCentral(individual) {
