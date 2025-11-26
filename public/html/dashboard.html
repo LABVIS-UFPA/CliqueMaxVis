@@ -111,6 +111,10 @@
               </div> -->
             </div>
           </div>
+          <div class="sb-sidenav-footer">
+            <div class="small">Usuário: <span id="userInfo"></span></div>
+            <div class="small">Dataset: <span id="datasetInfo"></span></div>
+          </div>
         </div>
       </nav>
     </div>
@@ -1071,11 +1075,15 @@
           break;
         case "treeModel":
           // Ao carregar um novo projeto, esconde o indicador se ele estiver visível
+          const { tree, userName, datasetName } = data;
           const importIndicatorOnLoad = document.getElementById("importIndicator");
           if (importIndicatorOnLoad) {
             importIndicatorOnLoad.style.display = "none";
           }
           const cooperationImportIndicatorOnLoad = document.getElementById("cooperationImportIndicator");
+          document.getElementById("userInfo").textContent = userName;
+          document.getElementById("datasetInfo").textContent = datasetName;
+
           if (cooperationImportIndicatorOnLoad) {
             cooperationImportIndicatorOnLoad.style.display = "none";
           }
@@ -1083,13 +1091,13 @@
 
           console.log("treeModel", data);
           resetLineCharts();
-          activeSaveTree = data;
-          const active = getActiveState(data);
+          activeSaveTree = tree;
+          const active = getActiveState(tree);
           document.getElementById("infoGeneration").textContent = active.generation;
           document.getElementById("infoFitness").textContent = `${active.bestFitness}/${active.worstFitness}`;
           document.getElementById("infoBestCount").textContent = active.bestCount;
           document.getElementById("infoAge").textContent = active.bestAge;
-          createDendrogram(data);
+          createDendrogram(tree);
           break;
         case "running_data":
           document.getElementById("labelRunning").textContent = data;

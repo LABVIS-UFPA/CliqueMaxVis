@@ -546,7 +546,13 @@ server.on('connection', ws => {
                     if (err) { console.log("Não salvou!!", err); return; }
                     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
                 });
-                ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                ws.send(JSON.stringify({
+                    act: "treeModel", data: {
+                        tree: treeModel.getTreeModel(),
+                        userName: currentSave.userName,
+                        datasetName: currentSave.datasetName
+                    }
+                }));
                 initGlobalBest();
                 // reportBestToCentral();
                 break;
@@ -570,7 +576,13 @@ server.on('connection', ws => {
                     logger.log("projectCRUD", "load_project");
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
                     treeModel.load(treeModel.getActive());
-                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    ws.send(JSON.stringify({
+                        act: "treeModel", data: {
+                            tree: treeModel.getTreeModel(),
+                            userName: currentSave.userName,
+                            datasetName: currentSave.datasetName
+                        }
+                    }));
                     initGlobalBest();
                     // reportBestToCentral();
                 });
@@ -597,8 +609,14 @@ server.on('connection', ws => {
                 break;
             case "get_tree_model":
                 if (treeModel) {
-                    logger.log("GAStates", "get_tree_model");
-                    ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    if (logger) logger.log("GAStates", "get_tree_model");
+                    ws.send(JSON.stringify({
+                        act: "treeModel", data: {
+                            tree: treeModel.getTreeModel(),
+                            userName: currentSave ? currentSave.userName : 'N/A',
+                            datasetName: currentSave ? currentSave.datasetName : 'N/A'
+                        }
+                    }));
                     // Envia o estado atual do indicador de nova solução ao carregar o modelo
                     ws.send(JSON.stringify({
                         act: 'new_solution_indicator',
