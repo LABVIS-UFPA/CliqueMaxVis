@@ -252,6 +252,7 @@ let isRunning = false;
 let runSingleStep = false;
 let executionSpeed = 50;
 let localBest = 0;
+let newSolutionAvailable = false; // Variável para armazenar o estado da notificação
 
 
 
@@ -332,11 +333,17 @@ function connectToCentralServer() {
  
                 // Notifica o dashboard APENAS se for um novo recorde de fitness
                 if (isNewFitnessRecord) {
+                    newSolutionAvailable = true; // Define que há uma nova solução
                     clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
                             client.send(JSON.stringify({ 
                                 act: 'global_best_notification', 
                                 data: { user, fitness: bestFitness, datasetName } 
+                            }));
+                            // Envia notificação para mostrar o indicador de nova solução
+                            client.send(JSON.stringify({
+                                act: 'new_solution_indicator',
+                                data: { show: true }
                             }));
                         }
                     });
@@ -592,6 +599,11 @@ server.on('connection', ws => {
                 if (treeModel) {
                     logger.log("GAStates", "get_tree_model");
                     ws.send(JSON.stringify({ act: "treeModel", data: treeModel.getTreeModel() }));
+                    // Envia o estado atual do indicador de nova solução ao carregar o modelo
+                    ws.send(JSON.stringify({
+                        act: 'new_solution_indicator',
+                        data: { show: newSolutionAvailable }
+                    }));
                 }
                 break;
             case "log":
@@ -667,6 +679,12 @@ server.on('connection', ws => {
                         ws.send(JSON.stringify({ 
                             act: "show_alert", 
                             data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" } 
+                        }));
+                        newSolutionAvailable = false; // Define que a solução foi importada
+                        // Envia notificação para esconder o indicador de nova solução
+                        ws.send(JSON.stringify({
+                            act: 'new_solution_indicator',
+                            data: { show: false }
                         }));
                     }
                 }

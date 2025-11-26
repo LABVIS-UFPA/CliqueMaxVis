@@ -72,11 +72,15 @@
             data-bs-toggle="dropdown">
             Cooperação
             <i id="centralConnectionIcon" class="fa fa-circle" style="color: red;" aria-hidden="true"></i>
+            <i id="cooperationImportIndicator" class="fas fa-file-import" style="display: none; margin-left: 5px;"></i>
           </a>
           <ul class="dropdown-menu">
             <li><a id="menuSetIp" class="dropdown-item" href="#">Colocar IP</a></li>
             <li><a id="menuSync" class="dropdown-item" href="#">Reconectar</a></li>
-            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">Importar</a></li>
+            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">
+                Importar
+                <i id="importIndicator" class="fas fa-file-import" style=" display: none; margin-left: 5px;"></i>
+              </a></li>
           </ul>
         </li>
       </ul>
@@ -1066,6 +1070,17 @@
           createDendrogram(data);
           break;
         case "treeModel":
+          // Ao carregar um novo projeto, esconde o indicador se ele estiver visível
+          const importIndicatorOnLoad = document.getElementById("importIndicator");
+          if (importIndicatorOnLoad) {
+            importIndicatorOnLoad.style.display = "none";
+          }
+          const cooperationImportIndicatorOnLoad = document.getElementById("cooperationImportIndicator");
+          if (cooperationImportIndicatorOnLoad) {
+            cooperationImportIndicatorOnLoad.style.display = "none";
+          }
+
+
           console.log("treeModel", data);
           resetLineCharts();
           activeSaveTree = data;
@@ -1163,6 +1178,17 @@
             }
           }, 500); // Atraso de 500ms
           break;
+        case "new_solution_indicator":
+          const importIndicator = document.getElementById("importIndicator");
+          if (importIndicator) {
+            importIndicator.style.display = data.show ? "inline-block" : "none";
+          }
+          const cooperationImportIndicator = document.getElementById("cooperationImportIndicator");
+          if (cooperationImportIndicator) {
+            cooperationImportIndicator.style.display = data.show ? "inline-block" : "none";
+          }
+          break;
+
       }
     };
 
