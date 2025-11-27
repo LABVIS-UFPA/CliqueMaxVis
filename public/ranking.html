@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="css/styles.css" rel="stylesheet" />
+    <title>Ranking Global - CliqueMaxVis</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fff;
+            color: #333;
+            margin: 0;
+            padding: 0; /* Remove o padding do body */
+        }
+        .controls-container {
+            margin-top: 20px; /* Adiciona espaço acima */
+            margin-bottom: 20px; /* Mantém o espaço abaixo */
+            width: 100%;
+            display: flex;
+            justify-content: flex-end; /* Alinha o conteúdo à direita */
+        }
+        .page-content {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto; /* Centraliza o container principal */
+        }
+        .base-selector {
+            display: flex;
+            align-items: center;
+        }
+        label {
+            font-weight: bold;
+        }
+        #bases {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
+        .tables-container {
+            display: flex;
+            gap: 60px; /* Aumenta o espaço entre as tabelas */
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .rank-box {
+            flex: 1;
+            min-width: 300px;
+            max-width: 580px;
+        }
+        h4 {
+            text-align: center;
+            margin-top: 0;
+            color: #4b4f56;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        thead th {
+            background-color: #f5f6f7;
+            font-weight: bold;
+        }
+        tbody tr:hover {
+            background-color: #f5f6f7;
+        }
+        td:first-child, th:first-child {
+            text-align: center;
+            font-weight: bold;
+        }
+        #status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #606770;
+            text-align: center; /* Centraliza o texto de status */
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark justify-content-center">
+        <span class="navbar-brand">Ranking Global</span>
+    </nav>
+
+    <main class="page-content">
+        <div class="controls-container">
+            <div class="base-selector">
+                <label for="bases">Selecione a Base de Dados:</label>
+                <select id="bases" name="bases">
+                    <option value="">Carregando...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="tables-container">
+            <div class="rank-box">
+                <h4>Descoberta (Maior Fitness)</h4>
+                <table id="first-finder-table">
+                    <thead>
+                        <tr>
+                            <th>Pos.</th>
+                            <th>Usuário</th>
+                            <th>Fitness</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dados preenchidos via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="rank-box">
+                <h4>Maior Quantidade de Soluções</h4>
+                <table id="most-solutions-table">
+                    <thead>
+                        <tr>
+                            <th>Pos.</th>
+                            <th>Usuário</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dados preenchidos via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="status">Conectando ao servidor...</div>
+    </main>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.hostname}:41235`);
+        const statusDiv = document.getElementById('status');
+        const baseSelector = document.getElementById('bases');
+        const firstFinderTbody = document.getElementById('first-finder-table').querySelector('tbody');
+        const mostSolutionsTbody = document.getElementById('most-solutions-table').querySelector('tbody');
+
+        let rankingData = {};
+
+        ws.onopen = () => {
+            statusDiv.textContent = 'Conectado! Solicitando dados do ranking...';
+            ws.send(JSON.stringify({ type: 'get_ranking_data' }));
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            // Apenas processa a mensagem se for do tipo 'ranking_data'
+            // que agora é enviada a cada atualização.
+            if (message.type === 'ranking_data') {
+                statusDiv.textContent = 'Dados recebidos. Processando...';
+
+                // 1. Guarda a base de dados que está selecionada no momento.
+                const currentSelection = baseSelector.value;
+
+                rankingData = message.payload;
+                
+                populateBaseSelector();
+
+                // 2. Se a seleção anterior ainda existir na lista, seleciona ela de novo.
+                if (currentSelection && baseSelector.querySelector(`option[value="${currentSelection}"]`)) {
+                    baseSelector.value = currentSelection;
+                }
+
+                updateRankings();
+                statusDiv.textContent = 'Ranking atualizado.';
+            }
+        };
+
+        ws.onclose = () => {
+            statusDiv.textContent = 'Desconectado do servidor. Tentando reconectar...';
+        };
+
+        ws.onerror = (error) => {
+            statusDiv.textContent = 'Erro na conexão com o servidor.';
+            console.error('WebSocket Error:', error);
+        };
+
+        baseSelector.addEventListener('change', updateRankings);
+
+        function populateBaseSelector() {
+            const datasets = Object.keys(rankingData);
+            baseSelector.innerHTML = '';
+            if (datasets.length === 0) {
+                baseSelector.innerHTML = '<option>Nenhuma base encontrada</option>';
+                return;
+            }
+            datasets.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                baseSelector.appendChild(option);
+            });
+        }
+
+        function updateRankings() {
+            const selectedDataset = baseSelector.value;
+            firstFinderTbody.innerHTML = '';
+            mostSolutionsTbody.innerHTML = '';
+
+            if (!selectedDataset || !rankingData[selectedDataset]) {
+                return;
+            }
+
+            const data = rankingData[selectedDataset];
+            const bestFitness = data.bestFitness;
+            const individuals = data.individuals;
+
+            // Ranking: Ordem de Descoberta (Maior Fitness)
+            const seenUsers = new Set();
+            let position = 1;
+            individuals.forEach(individual => {
+                if (!seenUsers.has(individual.user)) {
+                    const row = `<tr><td>${position}</td><td>${individual.user}</td><td>${bestFitness}</td></tr>`;
+                    firstFinderTbody.innerHTML += row;
+                    seenUsers.add(individual.user);
+                    position++;
+                }
+            });
+
+
+            // Ranking: Maior quantidade
+            const userCounts = individuals.reduce((acc, ind) => {
+                acc[ind.user] = (acc[ind.user] || 0) + 1;
+                return acc;
+            }, {});
+
+            const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
+
+            sortedUsers.forEach(([user, count], index) => {
+                const row = `<tr><td>${index + 1}</td><td>${user}</td><td>${count}</td></tr>`;
+                mostSolutionsTbody.innerHTML += row;
+            });
+        }
+    </script>
+
+</body>
+</html>

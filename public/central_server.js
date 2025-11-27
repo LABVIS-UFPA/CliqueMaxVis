@@ -1,9 +1,10 @@
 const WebSocket = require('ws');
 const zlib = require('zlib');
+const path = require('path');
 
 const CENTRAL_HOST = '10.16.1.145';
 const CENTRAL_PORT = 41235;
-const server = new WebSocket.Server({ host: CENTRAL_HOST, port: CENTRAL_PORT });
+const server = new WebSocket.Server({ port: CENTRAL_PORT });
 
 // Armazena os melhores resultados da rede, separados por nome do dataset
 const networkBests = {};
@@ -11,6 +12,19 @@ const networkBests = {};
 const clients = new Set();
 
 console.log(`Servidor Central rodando em ws://${CENTRAL_HOST}:${CENTRAL_PORT}`);
+
+const express = require('express');
+const app = express();
+const httpPort = 3001; // Porta diferente para não conflitar com o outro servidor
+
+app.use(express.static(path.join(__dirname, '')));
+app.listen(httpPort, () => {
+    console.log(`Servidor de Ranking rodando em http://localhost:${httpPort}`);
+});
+
+require('node:child_process')
+    .exec(`start http://127.0.0.1:${httpPort}/ranking.html`);
+
 
 server.on('connection', ws => {
     clients.add(ws);
@@ -26,6 +40,9 @@ server.on('connection', ws => {
                     break;
                 case 'sync_request':
                     handleSyncRequest(data.payload, ws);
+                    break;
+                case 'get_ranking_data':
+                    handleRankingRequest(ws);
                     break;
                 default:
                     console.log('Tipo de mensagem desconhecido:', data.type);
@@ -94,6 +111,26 @@ function handleSyncRequest(clientBests, senderWs) {
     });
 }
 
+function handleRankingRequest(ws) {
+    console.log("Recebido pedido de dados para o ranking.");
+    // Marca esta conexão como sendo de um cliente de ranking
+    ws.isRankingClient = true;
+    ws.send(JSON.stringify({
+        type: 'ranking_data',
+        payload: networkBests
+    }));
+}
+
+function broadcastToRankings(data) {
+    const message = JSON.stringify(data);
+    console.log("Transmitindo atualização para as páginas de ranking...");
+    clients.forEach(client => {
+        // Envia a mensagem apenas se o cliente for uma página de ranking
+        if (client.isRankingClient && client.readyState === WebSocket.OPEN) {
+            client.send(message);
+        }
+    });
+}
 
 function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como parâmetro
     const { datasetName, bestFitness, individual, user } = payload;
@@ -123,6 +160,12 @@ function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como p
             type: 'new_network_solution',
             payload: broadcastPayload
         }, senderWs);
+
+        // Notifica as páginas de ranking com os dados atualizados
+        broadcastToRankings({
+            type: 'ranking_data',
+            payload: networkBests
+        });
     } else if (bestFitness === networkBests[datasetName].bestFitness) {
         // Se o fitness for igual, verifica se a solução já existe
         const exists = networkBests[datasetName].individuals.some(existingInd =>
@@ -145,6 +188,12 @@ function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como p
                 type: 'new_network_solution',
                 payload: broadcastPayload
             }, senderWs);
+
+            // Notifica as páginas de ranking com os dados atualizados
+            broadcastToRankings({
+                type: 'ranking_data',
+                payload: networkBests
+            });
         }
     }
 }
