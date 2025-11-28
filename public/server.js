@@ -526,11 +526,11 @@ server.on('connection', ws => {
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 isRunning = false;
-                currentSave = undefined;
-                loadGA(dataset_url, metaheuristic);
+                currentSave = undefined;               
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
                 logger.log("projectCRUD", "new_project");
-
+                initGlobalBest(datasetName);
+                loadGA(dataset_url, metaheuristic);
                 currentSave = {
                     name: saveName,
                     userName,
@@ -553,8 +553,6 @@ server.on('connection', ws => {
                         datasetName: currentSave.datasetName
                     }
                 }));
-                initGlobalBest();
-                // reportBestToCentral();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
@@ -574,8 +572,10 @@ server.on('connection', ws => {
                     const metaheuristicOnLoad = currentSave.metaheuristic; //#antigo que pega do projeto
                     logger = new Logger(`${currentSave.name}[${currentSave.userName}].log.tsv`);
                     logger.log("projectCRUD", "load_project");
+                    initGlobalBest(currentSave.datasetName); // Initialize globalBest first
                     loadGA(currentSave.dataset_url, metaheuristicOnLoad);
                     treeModel.load(treeModel.getActive());
+
                     ws.send(JSON.stringify({
                         act: "treeModel", data: {
                             tree: treeModel.getTreeModel(),
@@ -583,7 +583,6 @@ server.on('connection', ws => {
                             datasetName: currentSave.datasetName
                         }
                     }));
-                    initGlobalBest();
                     // reportBestToCentral();
                 });
                 break;
@@ -685,8 +684,8 @@ server.on('connection', ws => {
             case "import_global_best":
                 if (currentSave) {
                     logger.log("projectCRUD", "import_global_best");
-                    initGlobalBest(); // Carrega o globalBest do arquivo
-
+                    initGlobalBest(currentSave.datasetName); // Carrega o globalBest do arquivo
+ 
                     if (ga && globalBest && globalBest.individuals && globalBest.individuals.length > 0) {
                         console.log(`Importando ${globalBest.individuals.length} solução(ões) global(is) para a população.`);
                         globalBest.individuals.forEach(individual => {
@@ -725,17 +724,17 @@ server.on('connection', ws => {
 });
 
 let globalBest = {};
-function initGlobalBest() {
+function initGlobalBest(datasetName) {
     if (!fs.existsSync('./bests')) {
         fs.mkdirSync('./bests', { recursive: true });
     }
-    if(!fs.existsSync(`./bests/${currentSave.datasetName}.json`)){
-        fs.writeFileSync(`./bests/${currentSave.datasetName}.json`, JSON.stringify({
+    if(!fs.existsSync(`./bests/${datasetName}.json`)){
+        fs.writeFileSync(`./bests/${datasetName}.json`, JSON.stringify({
             bestFitness: 0,
             individuals: []
         }));
     }
-    let str = fs.readFileSync(`./bests/${currentSave.datasetName}.json`, "utf8");
+    let str = fs.readFileSync(`./bests/${datasetName}.json`, "utf8");
     globalBest = JSON.parse(str);
 
     globalBest.individuals.forEach(individual => {
