@@ -322,7 +322,7 @@ function connectToCentralServer() {
             const data = JSON.parse(message.toString());
             if (data.type === 'new_network_solution') {
                 const { datasetName, bestFitness, user, individual } = data.payload; // individual contém {metaheuristic, user, nodeMask}
- 
+
                 // Descomprime o nodeMask recebido da rede
                 const decompressedNodeMask = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString().split('').map(bit => parseInt(bit));
                 const decompressedIndividual = { ...individual, nodeMask: decompressedNodeMask };
@@ -330,15 +330,15 @@ function connectToCentralServer() {
                 console.log(`Solução da rede recebida: Usuário ${user} atingiu ${bestFitness} no dataset ${datasetName}`);
 
                 const isNewFitnessRecord = saveNetworkBest(datasetName, bestFitness, individual);
- 
+
                 // Notifica o dashboard APENAS se for um novo recorde de fitness
                 if (isNewFitnessRecord) {
                     newSolutionAvailable = true; // Define que há uma nova solução
                     clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify({ 
-                                act: 'global_best_notification', 
-                                data: { user, fitness: bestFitness, datasetName } 
+                            client.send(JSON.stringify({
+                                act: 'global_best_notification',
+                                data: { user, fitness: bestFitness, datasetName }
                             }));
                             // Envia notificação para mostrar o indicador de nova solução
                             client.send(JSON.stringify({
@@ -401,6 +401,9 @@ function loadGA(dbpath, metaheuristic = 'GA') {
         }
     });
     ga.setObservers("new_best", (individual) => {
+        // Durante a inicialização de um novo projeto, currentSave ainda não existe.
+        // A primeira "melhor solução" será capturada quando o treeModel for criado.
+        if (!currentSave) return;
         //Verifica o globalBest, se for melhor substitui.
         // Garante que estamos comparando com o melhor fitness global conhecido.
         if (individual.fitness > globalBest.bestFitness) {
@@ -435,6 +438,8 @@ function loadGA(dbpath, metaheuristic = 'GA') {
                 reportBestToCentral(newIndividual); // Envia a nova solução com o mesmo score
             }
         }
+        // Reavalia se o indicador de importação deve ser exibido ou ocultado
+        checkAndNotifyForBetterSolution();
 
     });
 
@@ -526,7 +531,7 @@ server.on('connection', ws => {
                 const dataset_url = datasets[datasetName].url;
                 // if (saves[saveName]) break; //Verificar se o usuário já criou um arquivo com esse nome.
                 isRunning = false;
-                currentSave = undefined;               
+                currentSave = undefined;
                 logger = new Logger(`${saveName}[${userName}].log.tsv`);
                 logger.log("projectCRUD", "new_project");
                 initGlobalBest(datasetName);
@@ -553,6 +558,7 @@ server.on('connection', ws => {
                         datasetName: currentSave.datasetName
                     }
                 }));
+                checkAndNotifyForBetterSolution();
                 break;
             case "save_project":
                 logger.log("projectCRUD", "save_project");
@@ -583,6 +589,7 @@ server.on('connection', ws => {
                             datasetName: currentSave.datasetName
                         }
                     }));
+                    checkAndNotifyForBetterSolution();
                     // reportBestToCentral();
                 });
                 break;
@@ -685,7 +692,7 @@ server.on('connection', ws => {
                 if (currentSave) {
                     logger.log("projectCRUD", "import_global_best");
                     initGlobalBest(currentSave.datasetName); // Carrega o globalBest do arquivo
- 
+
                     if (ga && globalBest && globalBest.individuals && globalBest.individuals.length > 0) {
                         console.log(`Importando ${globalBest.individuals.length} solução(ões) global(is) para a população.`);
                         globalBest.individuals.forEach(individual => {
@@ -693,9 +700,9 @@ server.on('connection', ws => {
                             ga.addIndividualToPopulation(individual.nodeMask);
                         });
                         // Envia uma notificação de sucesso para o dashboard
-                        ws.send(JSON.stringify({ 
-                            act: "show_alert", 
-                            data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" } 
+                        ws.send(JSON.stringify({
+                            act: "show_alert",
+                            data: { message: `Solução da rede com fitness ${globalBest.bestFitness} importada com sucesso!`, color: "green" }
                         }));
                         newSolutionAvailable = false; // Define que a solução foi importada
                         // Envia notificação para esconder o indicador de nova solução
@@ -728,7 +735,7 @@ function initGlobalBest(datasetName) {
     if (!fs.existsSync('./bests')) {
         fs.mkdirSync('./bests', { recursive: true });
     }
-    if(!fs.existsSync(`./bests/${datasetName}.json`)){
+    if (!fs.existsSync(`./bests/${datasetName}.json`)) {
         fs.writeFileSync(`./bests/${datasetName}.json`, JSON.stringify({
             bestFitness: 0,
             individuals: []
@@ -741,27 +748,33 @@ function initGlobalBest(datasetName) {
         // Descomprime o nodeMask
         const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
         individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
-    });    
-     // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
+    });
+    // fs.writeFile(`./saves/${saveName}.json`, JSON.stringify(currentSave), (err) => {
     //     if (err) { console.log("Não salvou!!", err); return; }
     //     console.log(`Arquivo salvo com sucesso em saves/${saveName}.json`);
     // });
+}
 
+
+function checkAndNotifyForBetterSolution() {
     // Compara o melhor fitness global com o melhor fitness local do projeto atual
+    let shouldShow = false;
     if (ga && globalBest.bestFitness > ga.bestFitness) {
+        shouldShow = true;
         console.log(`Nova solução da rede disponível! Global: ${globalBest.bestFitness}, Local: ${ga.bestFitness}`);
-        newSolutionAvailable = true; // Marca que há uma nova solução
-        console.log(`globalBest carregado: Fitness ${globalBest.bestFitness} `);
-        // Envia notificação para mostrar o indicador de nova solução
-        clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    act: 'new_solution_indicator',
-                    data: { show: true }
-                }));
-            }
-        });
     }
+
+    newSolutionAvailable = shouldShow;
+
+    // Envia notificação para mostrar ou esconder o indicador
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+                act: 'new_solution_indicator',
+                data: { show: newSolutionAvailable }
+            }));
+        }
+    });
 }
 
 function reportBestToCentral(individual) {
