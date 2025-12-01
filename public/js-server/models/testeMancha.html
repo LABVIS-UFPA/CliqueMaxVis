@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sintetizador Neural - Portabilidade TF.js</title>
+    <!-- Importando TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --secondary-color: #03dac6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2, h3 { margin-top: 0; }
+        
+        .container {
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        /* --- UI de Treinamento --- */
+        #training-overlay {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+
+        progress {
+            width: 100%;
+            height: 20px;
+            margin-top: 10px;
+            accent-color: var(--secondary-color);
+        }
+
+        #log-area {
+            font-family: monospace;
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 10px;
+            height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        /* --- UI da Aplicação (Oculta até treinar) --- */
+        #app-container {
+            display: none; /* Começa oculto */
+            gap: 20px;
+            flex-direction: column;
+        }
+
+        .section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        /* Grid de Imagens Estáticas */
+        .grid-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .img-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #252525;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        canvas {
+            border: 1px solid #444;
+            margin-top: 5px;
+            background: #000;
+            /* Garante que o CSS não force pixelização, usa o padrão do navegador (suave) */
+            image-rendering: auto; 
+        }
+
+        /* Área Interativa */
+        .interactive-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 15px 0;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Sintetizador Neural (TensorFlow.js)</h1>
+
+        <!-- Seção de Treinamento -->
+        <div id="training-overlay">
+            <h2 id="status-title">Inicializando Modelos...</h2>
+            <p>Treinando a rede neural no seu navegador. Por favor, aguarde.</p>
+            <progress id="train-progress" value="0" max="100"></progress>
+            <div id="log-area"></div>
+        </div>
+
+        <!-- Aplicação Principal -->
+        <div id="app-container">
+            
+            <!-- Seção 1: Casos Fixos -->
+            <div class="section">
+                <h3>Casos de Teste Fixos</h3>
+                <div class="grid-container" id="static-grid">
+                    <!-- Cards gerados via JS -->
+                </div>
+            </div>
+
+            <!-- Seção 2: Interativa -->
+            <div class="section">
+                <h3>Análise Interativa (Bitflip)</h3>
+                <div class="interactive-layout">
+                    
+                    <!-- Imagem Base -->
+                    <div class="img-card">
+                        <span>Imagem Base</span>
+                        <!-- Canvas aumentado para 128px -->
+                        <canvas id="canvas-base" width="128" height="128"></canvas>
+                        <button onclick="resetInteractive()">Nova Aleatória</button>
+                    </div>
+
+                    <!-- Slider e Resultado -->
+                    <div class="control-panel">
+                        <span id="slider-label" style="font-weight: bold; color: var(--secondary-color);">Bitflip: 0.0% (#0)</span>
+                        <!-- Canvas aumentado para 128px -->
+                        <canvas id="canvas-result" width="128" height="128"></canvas>
+                        
+                        <input type="range" id="flip-slider" min="0" max="1" step="0.01" value="0">
+                        <small>Arraste para inverter bits aleatórios</small>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO ---
+        const BITMAP_SIZE = 3000;
+        const IMG_HEIGHT = 32;
+        const IMG_WIDTH = 32;
+        const IMG_CHANNELS = 3;
+        
+        // Reduzi um pouco as épocas pois JS no browser é mais lento que Python nativo,
+        // mas mantive alto o suficiente para ver resultado.
+        const EPOCHS = 100; 
+        const BATCH_SIZE = 32;
+        const LEARNING_RATE = 0.002;
+
+        let synthesizer; // Variável global para o modelo
+        
+        // Variáveis de estado para a parte interativa
+        let baseBitmapTensor = null;
+        let shuffledIndices = null;
+
+        // --- 2. UTILITÁRIOS DE LOG ---
+        function log(msg) {
+            const logArea = document.getElementById('log-area');
+            const p = document.createElement('div');
+            p.textContent = `> ${msg}`;
+            logArea.appendChild(p);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // --- 3. CONSTRUÇÃO DA REDE (TensorFlow.js) ---
+        function buildSynthesizer() {
+            const model = tf.sequential();
+            
+            // Dense Layer: 8 * 8 * 128
+            model.add(tf.layers.dense({
+                inputShape: [BITMAP_SIZE],
+                units: 8 * 8 * 128,
+                activation: 'relu'
+            }));
+
+            // Reshape: (8, 8, 128)
+            model.add(tf.layers.reshape({
+                targetShape: [8, 8, 128]
+            }));
+
+            // Conv2DTranspose 1: 64 filtros
+            model.add(tf.layers.conv2dTranspose({
+                filters: 64,
+                kernelSize: 3,
+                strides: 2,
+                padding: 'same',
+                activation: 'relu'
+            }));
+
+            // Conv2DTranspose 2: 32 filtros
+            model.add(tf.layers.conv2dTranspose({
+                filters: 32,
+                kernelSize: 3,
+                strides: 2,
+                padding: 'same',
+                activation: 'relu'
+            }));
+
+            // Output: 3 canais (RGB), Sigmoid
+            model.add(tf.layers.conv2dTranspose({
+                filters: IMG_CHANNELS,
+                kernelSize: 3,
+                strides: 1,
+                padding: 'same',
+                activation: 'sigmoid'
+            }));
+
+            return model;
+        }
+
+        // --- 4. FUNÇÃO DE PERDA (Loss Personalizada) ---
+        /**
+         * Implementação manual da perda proporcional multi-escala em TF.js
+         */
+        function multiScaleProportionalLoss(bitmapA, bitmapB, imageA, imageB) {
+            return tf.tidy(() => {
+                // target_distance = mean(abs(bA - bB) / 2.0)
+                const diffBit = tf.sub(bitmapA, bitmapB);
+                const absDiffBit = tf.abs(diffBit);
+                const targetDistance = tf.mean(tf.div(absDiffBit, 2.0), -1);
+
+                const scales = [2.0, 1.0, 0.5, 0.25];
+                const scaleDistances = [];
+
+                for (let scale of scales) {
+                    const newH = Math.floor(IMG_HEIGHT * scale);
+                    const newW = Math.floor(IMG_WIDTH * scale);
+                    
+                    // Em TFJS, resizeBilinear espera rank 3 ou 4. imageA é [Batch, H, W, C]
+                    const imgAScaled = tf.image.resizeBilinear(imageA, [newH, newW]);
+                    const imgBScaled = tf.image.resizeBilinear(imageB, [newH, newW]);
+
+                    // mean(abs(imgA - imgB))
+                    const diffImg = tf.sub(imgAScaled, imgBScaled);
+                    const absDiffImg = tf.abs(diffImg);
+                    // reduce mean axis=[1,2,3] -> em JS fazemos reduce sequencial ou reshape e reduce
+                    const distAtScale = tf.mean(absDiffImg, [1, 2, 3]);
+                    
+                    scaleDistances.push(distAtScale);
+                }
+
+                // predicted_distance = mean(stack(scale_distances))
+                const stacked = tf.stack(scaleDistances);
+                const predictedDistance = tf.mean(stacked, 0);
+
+                // loss = mean(square(target - predicted))
+                const error = tf.sub(targetDistance, predictedDistance);
+                return tf.mean(tf.square(error));
+            });
+        }
+
+        // --- 5. GERAÇÃO DE DADOS ---
+        function createPairBatch(batchSize) {
+            return tf.tidy(() => {
+                // randomUniform gera entre 0 e 1.
+                // Para ter -1 ou 1: Se < 0.5 -> -1, senao -> 1
+                const randA = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                const randB = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                
+                const bitA = tf.where(tf.less(randA, 0.5), -1.0, 1.0);
+                const bitB = tf.where(tf.less(randB, 0.5), -1.0, 1.0);
+                
+                return [bitA, bitB];
+            });
+        }
+
+        // --- 6. LOOP DE TREINAMENTO ---
+        async function runTraining() {
+            synthesizer = buildSynthesizer();
+            const optimizer = tf.train.adam(LEARNING_RATE);
+            
+            log("Iniciando treinamento...");
+            const progressBar = document.getElementById('train-progress');
+            progressBar.max = EPOCHS;
+
+            for (let epoch = 1; epoch <= EPOCHS; epoch++) {
+                // tf.tidy limpa tensores intermediários para não estourar memória GPU/CPU
+                const lossValue = tf.tidy(() => {
+                    const [batchA, batchB] = createPairBatch(BATCH_SIZE);
+                    
+                    // Função de otimização
+                    const f = () => {
+                        const imgA = synthesizer.predict(batchA);
+                        const imgB = synthesizer.predict(batchB);
+                        return multiScaleProportionalLoss(batchA, batchB, imgA, imgB);
+                    };
+
+                    // Executa um passo de descida de gradiente
+                    const cost = optimizer.minimize(f, /* returnCost */ true);
+                    return cost.dataSync()[0]; // Pega o valor numérico
+                });
+
+                // Atualiza UI a cada passo (delay pequeno para renderizar)
+                progressBar.value = epoch;
+                if (epoch % 5 === 0 || epoch === 1) {
+                    log(`Época ${epoch}/${EPOCHS} - Perda: ${lossValue.toFixed(6)}`);
+                    await new Promise(r => setTimeout(r, 10)); // Yield para UI
+                }
+            }
+            
+            log("Treinamento concluído!");
+            
+            // Finaliza UI de load e abre App
+            document.getElementById('status-title').textContent = "Pronto!";
+            setTimeout(() => {
+                document.getElementById('training-overlay').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                initApp();
+            }, 1000);
+        }
+
+        // --- 7. APLICAÇÃO GRÁFICA (Canvas & Logica) ---
+
+        // Helper para desenhar tensor no Canvas (Com Resize Suave)
+        async function drawTensorOnCanvas(tensor, canvasId) {
+            // 1. Cria um canvas temporário em memória com o tamanho original (32x32)
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = IMG_WIDTH;
+            tempCanvas.height = IMG_HEIGHT;
+            
+            // 2. Desenha o tensor 1:1 nesse canvas temporário
+            const tensorSqueezed = tensor.squeeze();
+            await tf.browser.toPixels(tensorSqueezed, tempCanvas);
+
+            // 3. Obtém o canvas de destino (que é maior, 128x128)
+            const targetCanvas = document.getElementById(canvasId);
+            const ctx = targetCanvas.getContext('2d');
+
+            // 4. Configura para redimensionamento suave (Bicubic/Bilinear)
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high'; // Tenta a melhor qualidade disponível
+
+            // 5. Desenha o canvas pequeno esticado no canvas grande
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            ctx.drawImage(tempCanvas, 
+                0, 0, IMG_WIDTH, IMG_HEIGHT,       // Fonte (32x32)
+                0, 0, targetCanvas.width, targetCanvas.height // Destino (128x128)
+            );
+        }
+
+        async function initApp() {
+            setupStaticRow();
+            resetInteractive();
+            
+            // Listener do Slider
+            const slider = document.getElementById('flip-slider');
+            slider.addEventListener('input', (e) => {
+                updateSliderImage(parseFloat(e.target.value));
+            });
+        }
+
+        async function setupStaticRow() {
+            const grid = document.getElementById('static-grid');
+            grid.innerHTML = '';
+
+            // Dados de entrada fixos
+            const data = [
+                { name: "Todos -1", val: -1, type: 'fill' },
+                { name: "Todos 1", val: 1, type: 'fill' },
+                { name: "Metade/Metade", type: 'half' },
+                { name: "Um Bit 1 (Resto -1)", type: 'one_1' },
+                { name: "Um Bit -1 (Resto 1)", type: 'one_neg1' }
+            ];
+
+            // Gera tensores
+            tf.tidy(() => {
+                const tensors = [];
+                data.forEach(d => {
+                    let t;
+                    if(d.type === 'fill') {
+                        t = tf.fill([1, BITMAP_SIZE], d.val);
+                    } else if (d.type === 'half') {
+                        const arr = new Float32Array(BITMAP_SIZE).fill(-1);
+                        arr.fill(1, BITMAP_SIZE/2);
+                        t = tf.tensor2d(arr, [1, BITMAP_SIZE]);
+                    } else if (d.type === 'one_1') {
+                        const arr = new Float32Array(BITMAP_SIZE).fill(-1);
+                        arr[0] = 1;
+                        t = tf.tensor2d(arr, [1, BITMAP_SIZE]);
+                    } else if (d.type === 'one_neg1') {
+                        const arr = new Float32Array(BITMAP_SIZE).fill(1);
+                        arr[0] = -1;
+                        t = tf.tensor2d(arr, [1, BITMAP_SIZE]);
+                    }
+                    tensors.push({ name: d.name, tensor: t });
+                });
+
+                // Predição em lote (ou loop)
+                tensors.forEach(async (item, idx) => {
+                    const pred = synthesizer.predict(item.tensor);
+                    
+                    // Cria elementos UI
+                    const div = document.createElement('div');
+                    div.className = 'img-card';
+                    
+                    const lbl = document.createElement('span');
+                    lbl.textContent = item.name;
+                    lbl.style.fontWeight = 'bold';
+                    lbl.style.marginBottom = '5px';
+                    
+                    const cvs = document.createElement('canvas');
+                    cvs.id = `static-cvs-${idx}`;
+                    // Tamanho maior para visualização
+                    cvs.width = 128; 
+                    cvs.height = 128;
+
+                    div.appendChild(lbl);
+                    div.appendChild(cvs);
+                    grid.appendChild(div);
+
+                    // Desenha
+                    await drawTensorOnCanvas(pred, cvs.id);
+                });
+            });
+        }
+
+        function resetInteractive() {
+            if (baseBitmapTensor) baseBitmapTensor.dispose();
+            
+            // 1. Gera bitmap base aleatório (-1 ou 1)
+            baseBitmapTensor = tf.tidy(() => {
+                const rand = tf.randomUniform([1, BITMAP_SIZE]);
+                return tf.where(tf.less(rand, 0.5), -1.0, 1.0);
+            });
+
+            // 2. Prediz e desenha base
+            const pred = synthesizer.predict(baseBitmapTensor);
+            drawTensorOnCanvas(pred, 'canvas-base');
+
+            // 3. Prepara indices embaralhados para o slider
+            // Como JS não tem numpy.shuffle fácil para array gigante, fazemos manualmente
+            const indices = Array.from({length: BITMAP_SIZE}, (_, i) => i);
+            // Fisher-Yates shuffle
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            shuffledIndices = indices;
+
+            // Reset slider
+            const slider = document.getElementById('flip-slider');
+            slider.value = 0;
+            updateSliderImage(0);
+        }
+
+        async function updateSliderImage(ratio) {
+            // ratio 0.0 a 1.0
+            const numFlips = Math.floor(BITMAP_SIZE * ratio);
+            
+            document.getElementById('slider-label').textContent = 
+                `Bitflip: ${(ratio*100).toFixed(1)}% (#${numFlips})`;
+
+            // Processamento do flip
+            const resultTensor = tf.tidy(() => {
+                // Clona o tensor base para editar via buffer
+                const buffer = baseBitmapTensor.bufferSync(); 
+                // bufferSync retorna objeto acessível, mas para editar cópia é melhor criar TypedArray
+                const values = Float32Array.from(baseBitmapTensor.dataSync());
+                
+                // Inverte os bits
+                for(let i=0; i<numFlips; i++) {
+                    const idx = shuffledIndices[i];
+                    values[idx] *= -1; // Inverte sinal
+                }
+
+                const newTensor = tf.tensor2d(values, [1, BITMAP_SIZE]);
+                return synthesizer.predict(newTensor);
+            });
+
+            await drawTensorOnCanvas(resultTensor, 'canvas-result');
+            resultTensor.dispose();
+        }
+
+        // Iniciar tudo ao carregar
+        window.onload = runTraining;
+
+    </script>
+</body>
+</html>

@@ -882,7 +882,8 @@ function startMainLoop() {
                     c.send(JSON.stringify({
                         act: "data", type: "individuals", data: {
                             population: ga.population.map(i => { return { nodeMask: i.nodeMask, fitness: i.fitness } }),
-                            generation: ga.generation
+                            generation: ga.generation,
+                            bestFitness: ga.bestFitness
                         }
                     }));
                 }
