@@ -1,9 +1,10 @@
 const WebSocket = require('ws');
 const zlib = require('zlib');
+const path = require('path');
 
 const CENTRAL_HOST = '10.16.1.145';
 const CENTRAL_PORT = 41235;
-const server = new WebSocket.Server({ host: CENTRAL_HOST, port: CENTRAL_PORT });
+const server = new WebSocket.Server({ port: CENTRAL_PORT });
 
 // Armazena os melhores resultados da rede, separados por nome do dataset
 const networkBests = {};
@@ -11,6 +12,19 @@ const networkBests = {};
 const clients = new Set();
 
 console.log(`Servidor Central rodando em ws://${CENTRAL_HOST}:${CENTRAL_PORT}`);
+
+const express = require('express');
+const app = express();
+const httpPort = 3001; // Porta diferente para não conflitar com o outro servidor
+
+app.use(express.static(path.join(__dirname, '')));
+app.listen(httpPort, () => {
+    console.log(`Servidor de Ranking rodando em http://localhost:${httpPort}`);
+});
+
+require('node:child_process')
+    .exec(`start http://127.0.0.1:${httpPort}/ranking.html`);
+
 
 server.on('connection', ws => {
     clients.add(ws);
@@ -26,6 +40,9 @@ server.on('connection', ws => {
                     break;
                 case 'sync_request':
                     handleSyncRequest(data.payload, ws);
+                    break;
+                case 'get_ranking_data':
+                    handleRankingRequest(ws);
                     break;
                 default:
                     console.log('Tipo de mensagem desconhecido:', data.type);
@@ -52,12 +69,6 @@ function handleSyncRequest(clientBests, senderWs) {
     clientBests.forEach(clientBest => {
         const { datasetName, bestFitness, individuals } = clientBest;
 
-        // Descomprime os nodeMasks recebidos do cliente
-        individuals.forEach(individual => {
-            const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
-            individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
-        });
-
         const networkBest = networkBests[datasetName];
 
         // Caso 1: O cliente tem uma solução melhor ou o servidor não tem nenhuma.
@@ -76,9 +87,8 @@ function handleSyncRequest(clientBests, senderWs) {
                     user: individual.user,
                     individual: individual
                 };                
-                // Comprime o nodeMask antes de enviar
-                const individualToSend = JSON.parse(JSON.stringify(individual));
-                individualToSend.nodeMask = zlib.gzipSync(individualToSend.nodeMask.join('')).toString('base64');
+                // O nodeMask já está comprimido, apenas cria uma cópia segura para enviar.
+                const individualToSend = JSON.parse(JSON.stringify(payload.individual));
                 payload.individual = individualToSend;
                 senderWs.send(JSON.stringify({ type: 'new_network_solution', payload }));
             });
@@ -94,15 +104,58 @@ function handleSyncRequest(clientBests, senderWs) {
     });
 }
 
+function handleRankingRequest(ws) {
+    console.log("Recebido pedido de dados para o ranking.");
+    // Marca esta conexão como sendo de um cliente de ranking
+    ws.isRankingClient = true;
+    ws.send(JSON.stringify({
+        type: 'ranking_data',
+        payload: getRankingSummary()
+    }));
+}
+
+/**
+ * Cria uma versão resumida do objeto networkBests, contendo apenas as informações
+ * necessárias para a página de ranking (fitness e usuários), omitindo os dados
+ * pesados como o nodeMask.
+ * @returns {object} Um objeto de ranking simplificado.
+ */
+function getRankingSummary() {
+    const summary = {};
+    for (const datasetName in networkBests) {
+        if (Object.hasOwnProperty.call(networkBests, datasetName)) {
+            const best = networkBests[datasetName];
+            summary[datasetName] = {
+                bestFitness: best.bestFitness,
+                achievedBy: best.achievedBy,
+                // Mapeia os indivíduos para remover apenas o nodeMask, mantendo outras informações.
+                individuals: best.individuals.map(ind => {
+                    const { nodeMask, ...individualForRanking } = ind; // "ind" é o indivíduo original
+                    return individualForRanking; // Retorna o indivíduo sem o nodeMask
+                })
+            };
+        }
+    }
+    return summary;
+}
+
+function broadcastToRankings(data) {
+    const message = JSON.stringify(data);
+    console.log("Transmitindo atualização para as páginas de ranking...");
+    clients.forEach(client => {
+        // Envia a mensagem apenas se o cliente for uma página de ranking
+        if (client.isRankingClient && client.readyState === WebSocket.OPEN) {
+            client.send(message);
+        }
+    });
+}
 
 function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como parâmetro
     const { datasetName, bestFitness, individual, user } = payload;
-    
-    // Descomprime o nodeMask se ele vier comprimido (string base64)
-    if (typeof individual.nodeMask === 'string') {
-        const decompressed = zlib.gunzipSync(Buffer.from(individual.nodeMask, 'base64')).toString();
-        individual.nodeMask = decompressed.split('').map(bit => parseInt(bit));
-    }
+
+    // A partir de agora, esperamos que individual.nodeMask seja sempre uma string base64 comprimida.
+    // Não vamos mais descomprimir aqui, a menos que seja estritamente necessário para alguma lógica.
+
     console.log(`Recebido novo 'best' para o dataset '${datasetName}' do usuário '${user}' com fitness ${bestFitness}`);
 
     // Se não houver registro para este dataset ou se o novo fitness for maior
@@ -110,23 +163,29 @@ function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como p
         console.log(`NOVO RECORDE DA REDE para '${datasetName}'! Fitness: ${bestFitness}. Usuário: ${user}`);
         networkBests[datasetName] = {
             bestFitness,
-            individuals: [individual],
+            // Armazenamos o indivíduo com o nodeMask já comprimido
+            individuals: [individual], 
             achievedBy: [user]
         };
 
-        // Prepara o payload para transmissão (comprimindo o nodeMask)
+        // O payload já está pronto para ser transmitido, pois o nodeMask está comprimido.
         const broadcastPayload = JSON.parse(JSON.stringify(payload));
-        broadcastPayload.individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
 
         // Notifica todos os clientes, exceto o remetente
         broadcast({ // Envia a solução completa para todos
             type: 'new_network_solution',
             payload: broadcastPayload
         }, senderWs);
+
+        // Notifica as páginas de ranking com os dados atualizados
+        broadcastToRankings({
+            type: 'ranking_data',
+            payload: getRankingSummary()
+        });
     } else if (bestFitness === networkBests[datasetName].bestFitness) {
-        // Se o fitness for igual, verifica se a solução já existe
+        // Se o fitness for igual, verifica se a solução (pela sua string comprimida) já existe
         const exists = networkBests[datasetName].individuals.some(existingInd =>
-            JSON.stringify(existingInd.nodeMask) === JSON.stringify(individual.nodeMask)
+            existingInd.nodeMask === individual.nodeMask
         );
 
         if (!exists) {
@@ -136,15 +195,20 @@ function handleNewBest(payload, senderWs) { // Recebe o cliente remetente como p
                 networkBests[datasetName].achievedBy.push(user);
             }
 
-            // Prepara o payload para transmissão (comprimindo o nodeMask)
+            // O payload já está pronto para ser transmitido.
             const broadcastPayload = JSON.parse(JSON.stringify(payload));
-            broadcastPayload.individual.nodeMask = zlib.gzipSync(individual.nodeMask.join('')).toString('base64');
 
             // Notifica todos os clientes, exceto o remetente
             broadcast({
                 type: 'new_network_solution',
                 payload: broadcastPayload
             }, senderWs);
+
+            // Notifica as páginas de ranking com os dados atualizados
+            broadcastToRankings({
+                type: 'ranking_data',
+                payload: getRankingSummary()
+            });
         }
     }
 }

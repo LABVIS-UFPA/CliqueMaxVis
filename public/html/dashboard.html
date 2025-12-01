@@ -76,11 +76,15 @@
             data-bs-toggle="dropdown">
             Cooperação
             <i id="centralConnectionIcon" class="fa fa-circle" style="color: red;" aria-hidden="true"></i>
+            <i id="cooperationImportIndicator" class="fas fa-file-import" style="display: none; margin-left: 5px;"></i>
           </a>
           <ul class="dropdown-menu">
             <li><a id="menuSetIp" class="dropdown-item" href="#">Colocar IP</a></li>
             <li><a id="menuSync" class="dropdown-item" href="#">Reconectar</a></li>
-            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">Importar</a></li>
+            <li><a id="menuImportGlobalBest" class="dropdown-item" href="#">
+                Importar
+                <i id="importIndicator" class="fas fa-file-import" style=" display: none; margin-left: 5px;"></i>
+              </a></li>
           </ul>
         </li>
       </ul>
@@ -110,6 +114,10 @@
                 <p>Click "play" to receive stats</p>
               </div> -->
             </div>
+          </div>
+          <div class="sb-sidenav-footer">
+            <div class="small">Usuário: <span id="userInfo"></span></div>
+            <div class="small">Dataset: <span id="datasetInfo"></span></div>
           </div>
         </div>
       </nav>
@@ -320,6 +328,15 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script>
     const socket = new WebSocket("ws://localhost:3214");
+
+    // Define a formatação de números para o padrão brasileiro (ponto como separador de milhar)
+    const ptBR = d3.formatLocale({
+      "decimal": ",",
+      "thousands": ".",
+      "grouping": [3]
+    });
+    const formatIntegerBR = ptBR.format(",.0f"); // Formato para inteiro com separador de milhar
+
     let activeSaveTree;
     let selectedSave;
     let lineChartConfigs = [
@@ -450,7 +467,7 @@
       svg.append("g")
         .attr("class", "x-axis")
         .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x).ticks(3));
+        .call(d3.axisBottom(x).ticks(3).tickFormat(formatIntegerBR));
 
       svg.append("g")
         .attr("class", "y-axis")
@@ -502,7 +519,7 @@
       // Atualiza eixos
       svg.select(".x-axis")
         .transition().duration(100)
-        .call(d3.axisBottom(x).ticks(3));
+        .call(d3.axisBottom(x).ticks(3).tickFormat(formatIntegerBR));
 
       const yTicks = [0, config.max / 2, config.max];
       svg.select(".y-axis")
@@ -1070,15 +1087,30 @@
           createDendrogram(data);
           break;
         case "treeModel":
+          // Ao carregar um novo projeto, esconde o indicador se ele estiver visível
+          const { tree, userName, datasetName } = data;
+          const importIndicatorOnLoad = document.getElementById("importIndicator");
+          if (importIndicatorOnLoad) {
+            importIndicatorOnLoad.style.display = "none";
+          }
+          const cooperationImportIndicatorOnLoad = document.getElementById("cooperationImportIndicator");
+          document.getElementById("userInfo").textContent = userName;
+          document.getElementById("datasetInfo").textContent = datasetName;
+
+          if (cooperationImportIndicatorOnLoad) {
+            cooperationImportIndicatorOnLoad.style.display = "none";
+          }
+
+
           console.log("treeModel", data);
           resetLineCharts();
-          activeSaveTree = data;
-          const active = getActiveState(data);
+          activeSaveTree = tree;
+          const active = getActiveState(tree);
           document.getElementById("infoGeneration").textContent = active.generation;
           document.getElementById("infoFitness").textContent = `${active.bestFitness}/${active.worstFitness}`;
           document.getElementById("infoBestCount").textContent = active.bestCount;
           document.getElementById("infoAge").textContent = active.bestAge;
-          createDendrogram(data);
+          createDendrogram(tree);
           break;
         case "running_data":
           document.getElementById("labelRunning").textContent = data;
@@ -1167,6 +1199,17 @@
             }
           }, 500); // Atraso de 500ms
           break;
+        case "new_solution_indicator":
+          const importIndicator = document.getElementById("importIndicator");
+          if (importIndicator) {
+            importIndicator.style.display = data.show ? "inline-block" : "none";
+          }
+          const cooperationImportIndicator = document.getElementById("cooperationImportIndicator");
+          if (cooperationImportIndicator) {
+            cooperationImportIndicator.style.display = data.show ? "inline-block" : "none";
+          }
+          break;
+
       }
     };
 
