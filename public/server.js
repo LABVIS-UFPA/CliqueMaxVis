@@ -699,6 +699,8 @@ server.on('connection', ws => {
                             // Adiciona cada indivíduo do recorde global na população atual do GA
                             ga.addIndividualToPopulation(individual.nodeMask);
                         });
+
+                        console.log("globalBest.bestFitness", globalBest.bestFitness);
                         // Envia uma notificação de sucesso para o dashboard
                         ws.send(JSON.stringify({
                             act: "show_alert",

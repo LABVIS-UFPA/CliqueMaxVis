@@ -233,35 +233,6 @@
                         runTraining();
                     }
                     
-                    // // 1. Detectar tamanho do genoma
-                    // BITMAP_SIZE = population[0].nodeMask.length;
-
-                    // // --- CÁLCULO ESTATÍSTICO (Média e Desvio Padrão) ---
-                    // // Calcula a densidade de cada indivíduo separadamente
-                    // const densities = population.map(ind => {
-                    //     const ones = ind.nodeMask.reduce((acc, bit) => acc + bit, 0);
-                    //     return ones / BITMAP_SIZE;
-                    // });
-
-                    // // Média (Mean)
-                    // const totalDensities = densities.reduce((a, b) => a + b, 0);
-                    // MEAN1s = totalDensities / densities.length;
-
-                    // // Variância e Desvio Padrão (STD)
-                    // const variance = densities.reduce((acc, val) => acc + Math.pow(val - MEAN1s, 2), 0) / densities.length;
-                    // STD1s = Math.sqrt(variance);
-
-                    
-                    // // Travas de segurança: evita valores extremos que quebrem o treino
-                    // MEAN1s = Math.max(0.05, Math.min(0.95, MEAN1s));
-                    // STD1s = Math.max(0.01, STD1s); // Garante um mínimo de variação
-                    
-                    // // 2. Guardar dados para renderizar assim que acabar
-                    // pendingPopulation = population;
-
-                    // // 3. Iniciar Treino
-                    // appState = STATE.TRAINING;
-                    // runTraining();
                 }
             } 
             else if (appState === STATE.TRAINING) {
@@ -272,7 +243,7 @@
             else if (appState === STATE.VISUALIZING) {
                 // Atualizar visualização
                 renderGrid(population);
-                logAllPairwiseDistances(population);
+                // logAllPairwiseDistances(population);
             }
         }
 
@@ -736,8 +707,8 @@
                     const cvs = document.createElement('canvas');
                     cvs.className = 'individual-cell';
                     // Tamanho de exibição pode ser maior, mas o canvas interno desenha o original
-                    cvs.width = 128; 
-                    cvs.height = 128;
+                    // cvs.width = 128; 
+                    // cvs.height = 128;
                     cvs.id = `ind-cvs-${i}`;
                     cvs.title = `Fitness: ${ind.fitness}`; // Tooltip nativo
                     elGrid.appendChild(cvs);
