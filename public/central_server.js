@@ -23,7 +23,7 @@ app.listen(httpPort, () => {
 });
 
 require('node:child_process')
-    .exec(`start http://127.0.0.1:${httpPort}/ranking.html`);
+    .exec(`start http://${CENTRAL_HOST}:${httpPort}/ranking.html`);
 
 
 server.on('connection', ws => {
