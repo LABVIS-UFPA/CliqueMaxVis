@@ -1,7 +1,22 @@
 <!DOCTYPE html>
 <!-- <script src="https://d3js.org/d3.v7.min.js"></script> -->
-<h3>Individual Visualization</h3>
-<p id="status">Aguardando dados...</p>
+
+<style>
+    body, html {
+        margin: 0;
+        padding: 5px;
+        width: 100%;
+        height: 100%;
+        overflow: hidden; /* Remove barras de rolagem */
+        background-color: white;
+    }
+    #container { width: 100% }
+</style>
+<div id="topBar">
+    <h3>Individual Visualization</h3>
+    <p id="status">Aguardando dados...</p>
+</div>
+
 <div id="container">
     <canvas id="canvasMatrix"></canvas>
 </div>
@@ -10,27 +25,25 @@
     document.addEventListener("DOMContentLoaded", () => {
         const canvas = document.getElementById("canvasMatrix");
         const ctx = canvas.getContext("2d");
-
         ctx.font = "8px monospace";
         ctx.fillStyle = "black";
-        
 
-        let num_of_generations = 10;
+        // --- NOVO CÓDIGO ---
+        let lastPopulationData = null; // Guarda dados para redesenhar no resize
+        const RIGHT_PADDING = 30;      // Espaço para os números na direita
 
+        function resizeCanvas() {
+            const y = document.getElementById('container').getBoundingClientRect().top
+            canvas.width = window.innerWidth-5;
+            canvas.height = window.innerHeight-y-5;
+            // Redesenha se já tiver dados
+            if (lastPopulationData) drawMatrix(lastPopulationData);
+        }
 
-        const width = 500;
-        const height = 600;
-        // let data = [];
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Ajusta tamanho inicial
+        // ------------------
 
-
-
-
-        canvas.width = width + 25;
-        canvas.height = height;
-
-        // let colorScale = d3.scaleSequential(d3.interpolateSpectral);
-        // let colorScale = d3.scaleSequential(d3.interpolateYlGnBu);
-        // let extent = [999999, 0];
 
         const socket = new WebSocket("ws://localhost:3214");
 
@@ -50,6 +63,8 @@
                     // colorScale.domain(extent);
                     document.getElementById("status").innerHTML =
                         `Geração: ${message.data.generation}`;
+
+                    lastPopulationData = message.data.population;
                     drawMatrix(message.data.population);
                     break;
             }
@@ -78,10 +93,12 @@
             const rows = matrix.length;
             const cols = matrix[0].length;
 
-            const cellWidth = width / cols;
-            const cellHeight = height / rows;
+            // --- CÁLCULO ATUALIZADO ---
+            const availableWidth = canvas.width - RIGHT_PADDING;
+            const cellWidth = availableWidth / cols;
+            const cellHeight = canvas.height / rows;
 
-            ctx.clearRect(0, 0, width + 25, height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             let fit_dif = 0;
 
             for (let i = 0; i < rows; i++) {
@@ -97,12 +114,12 @@
                 }
                 if (fit_dif !== population[i].fitness) {
                     fit_dif = population[i].fitness;
-                    ctx.fillText(population[i].fitness, cols * cellWidth + 5, i * cellHeight + cellHeight-2);
+                    ctx.fillText(population[i].fitness, availableWidth + 5, i * cellHeight + cellHeight-2);
                     ctx.beginPath();
 
                     // Set a start-point
                     ctx.moveTo(0, i * cellHeight);
-                    ctx.lineTo(cols * cellWidth + 5, i * cellHeight);
+                    ctx.lineTo(availableWidth + 5, i * cellHeight);
                     ctx.lineWidth = 0.5;
                     ctx.stroke();
                 }
