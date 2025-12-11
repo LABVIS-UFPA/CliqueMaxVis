@@ -12,7 +12,7 @@
     }
     #container { width: 100% }
 </style>
-<div id="topBar">
+<div id="topBar" style="display: none;">
     <h3>Individual Visualization</h3>
     <p id="status">Aguardando dados...</p>
 </div>
@@ -22,10 +22,16 @@
 </div>
 <script type="module">
 
+    // 1. Ler a dificuldade da URL (passada pelo ExpManager)
+    const urlParams = new URLSearchParams(window.location.search);
+    const MY_DIFFICULTY = urlParams.get('difficulty');
+    const MY_CONTEXT = urlParams.get('context');
+    const IS_NUMBERED = urlParams.get('numbered') === 'true';
+
     document.addEventListener("DOMContentLoaded", () => {
         const canvas = document.getElementById("canvasMatrix");
         const ctx = canvas.getContext("2d");
-        ctx.font = "8px monospace";
+        ctx.font = "14px monospace";
         ctx.fillStyle = "black";
 
         // --- NOVO CÓDIGO ---
@@ -77,13 +83,21 @@
                         });
                     }
                     break;
+                case "train":
+                    socket.send(JSON.stringify({ id:`heatmap-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                    break;
             }
 
         };
 
         socket.onopen = function () {
             console.log("Conectado ao servidor WebSocket");
-            socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            if (MY_DIFFICULTY) {
+                socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`heatmap-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
+            }else{
+                console.log("ATENÇÃO!!!! Não enviou mensagem ao socket!")
+            }
         };
 
 
@@ -102,7 +116,7 @@
             // --- CÁLCULO ATUALIZADO ---
             const availableWidth = canvas.width - RIGHT_PADDING;
             const cellWidth = availableWidth / cols;
-            const cellHeight = canvas.height / rows;
+            const cellHeight = Math.min(canvas.height / rows, 70);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             let fit_dif = 0;
@@ -118,17 +132,20 @@
                     // ctx.fillRect(cols * cellWidth+5, i * cellHeight, 10, cellHeight);
 
                 }
-                if (fit_dif !== population[i].fitness) {
-                    fit_dif = population[i].fitness;
-                    ctx.fillText(population[i].fitness, availableWidth + 5, i * cellHeight + cellHeight-2);
-                    ctx.beginPath();
-
-                    // Set a start-point
-                    ctx.moveTo(0, i * cellHeight);
-                    ctx.lineTo(availableWidth + 5, i * cellHeight);
-                    ctx.lineWidth = 0.5;
-                    ctx.stroke();
+                if(IS_NUMBERED){
+                    ctx.fillText(i+1, availableWidth + 5, i * cellHeight + cellHeight-5);
                 }
+                // if (fit_dif !== population[i].fitness) {
+                //     fit_dif = population[i].fitness;
+                //     ctx.fillText(population[i].fitness, availableWidth + 5, i * cellHeight + cellHeight-2);
+                //     ctx.beginPath();
+
+                //     // Set a start-point
+                //     ctx.moveTo(0, i * cellHeight);
+                //     ctx.lineTo(availableWidth + 5, i * cellHeight);
+                //     ctx.lineWidth = 0.5;
+                //     ctx.stroke();
+                // }
 
             }
         }

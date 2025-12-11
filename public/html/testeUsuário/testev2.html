@@ -29,7 +29,7 @@
         .screen {
             display: none;
             width: 90%;
-            max-width: 1200px;
+            max-width: 1600px;
             text-align: center;
             background: white;
             padding: 2rem;
@@ -88,8 +88,8 @@
 
         /* Layouts Específicos */
         .layout-similarity { display: flex; width: 100%; height: 100%; }
-        .sim-left { width: 30%; border-right: 2px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; }
-        .sim-right { width: 70%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .sim-left { width: 50%; border-right: 2px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; padding: 20px; }
+        .sim-right { width: 50%; display: flex; align-items: center; justify-content: center; padding: 20px; }
         
         .layout-center { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
 
@@ -179,7 +179,7 @@
             background: #f0f0f0;
             border-radius: 8px;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
             width: 100%;
             box-sizing: border-box;
@@ -194,7 +194,7 @@
 
         .response-buttons-row {
             display: flex;
-            gap: 10px;
+            gap: 5px;
             justify-content: center;
             flex-wrap: wrap;
         }
@@ -227,10 +227,79 @@
             transform: translateY(0);
         }
 
+        /* --- Camada de Iframes (Cache) --- */
+        #vis-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Deixa cliques passarem onde não tem iframe */
+            z-index: 50; /* Acima do layout normal */
+        }
+
+        .cached-iframe {
+            position: absolute;
+            border: none;
+            display: none; /* Escondido por padrão */
+            pointer-events: auto; /* Reativa cliques no iframe */
+            background: white; /* Evita transparência indesejada */
+            transition: opacity 0.2s;
+        }
+
+        /* --- Tela de Carregamento --- */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .loader-bar {
+            width: 300px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .loader-progress {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        #dev-skip {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+            text-decoration: underline;
+            cursor: pointer;
+            /* display: none; <--- Descomente essa linha para esconder na versão final */
+        }
+
+        #dev-skip:hover {
+            color: var(--accent-color);
+        }
 
     </style>
 </head>
 <body>
+
+    <div id="loading-overlay">
+        <h2>Preparando o Experimento...</h2>
+        <p id="loading-text">Inicializando visualizações...</p>
+        <div class="loader-bar"><div id="loader-progress" class="loader-progress"></div></div>
+
+        <a id="dev-skip" onclick="ExpManager.skipLoading()">[DEV] Pular (Skip Loading)</a>
+    </div>
+
+    <div id="vis-layer"></div>
 
     <div id="screen-start" class="screen active">
         <h1>Experimento de Visualização</h1>
@@ -287,16 +356,16 @@
             interTrial: 1000 // Intervalo entre testes
         },
         visualizations: [
-            { id: 'heatmap', name: 'Heatmap Binário', file: 'visualizations/heatmap.html'},
-            { id: 'scatter', name: 'Scatterplot (MDS)', file: 'visualizations/scatter.html' },
-            { id: 'cnn', name: 'Imagem (CNN)', file: 'visualizations/cnn.html'},
-            { id: 'sketch', name: 'Rabisco/Sketch', file: 'visualizations/sketch.html' },
-            { id: 'particles', name: 'Partículas Aleatórias', file: 'visualizations/particles.html'}
+            { id: 'heatmap', name: 'Heatmap Binário', file: 'vis/heatmap.html'},
+            { id: 'scatter', name: 'Scatterplot (MDS)', file: 'vis/scatter.html' },
+            { id: 'cnn', name: 'Imagem (CNN)', file: 'vis/cnn.html'},
+            { id: 'sketch', name: 'Rabisco/Sketch', file: 'vis/sketch.html' },
+            { id: 'particles', name: 'Partículas Aleatórias', file: 'vis/particles.html'}
         ],
         tasks: {
             similarity: {
                 name: "Similaridade Visual",
-                difficulties: ['low', 'medium', 'high', 'dense'], 
+                difficulties: ['medium', 'high', 'dense'], 
                 baseCount: 4, 
                 timeout: 40
             },
@@ -312,7 +381,9 @@
                 baseCount: 2, 
                 timeout: 90 
             }
-        }
+        },
+        // Mapeamento de contextos necessários para criar os iframes
+        contexts: ['target', 'candidates_grid', 'memory_target', 'carousel_page', 'loop_sequence']
     };
 
     const ExpManager = {
@@ -325,7 +396,10 @@
             carouselPage: 0,
             isTraining: false,
             dataLog: [],
-            timerInterval: null // Para controlar o countdown
+            timerInterval: null, // Para controlar o countdown
+            // Cache de Iframes: iframeCache[visID][difficulty][context]
+            iframeCache: {}, 
+            activeFrames: [] // Lista de iframes visíveis no momento (para resize)
         },
 
         init: function() {
@@ -339,6 +413,145 @@
             // Sorteia ordem das tarefas
             this.state.taskOrder = this.shuffle(['similarity', 'memory', 'loop']);
             console.log("Ordem das Tarefas:", this.state.taskOrder);
+
+            // Inicia o pré-carregamento
+            this.preloadVisualizations().then(() => {
+                // Quando tudo estiver pronto:
+                document.getElementById('loading-overlay').style.display = 'none';
+                console.log("Todas as visualizações carregadas e treinadas.");
+            });
+
+            // Listener para redimensionar os iframes se a janela mudar
+            window.addEventListener('resize', () => {
+                this.repositionActiveFrames();
+            });
+        },
+
+        /* --- SISTEMA DE PRELOAD COM WEBSOCKET CONTROL --- */
+        preloadVisualizations: function() {
+            let self = this;
+            return new Promise((resolve, reject) => {
+                const layer = document.getElementById('vis-layer');
+                const progressText = document.getElementById('loading-text');
+                const progressBar = document.getElementById('loader-progress');
+                
+                // 1. Prepara a Fila de Criação (Mantive sua lógica exata de cache/roles)
+                const allDiffs = ['low', 'medium', 'high', 'dense']; 
+                let loadQueue = [];
+
+                PROTOCOL.visualizations.forEach(vis => {
+                    this.state.iframeCache[vis.id] = {};
+                    allDiffs.forEach(diff => {
+                        this.state.iframeCache[vis.id][diff] = {};
+                        // Adiciona as instâncias necessárias
+                        loadQueue.push({ vis, diff, role: 'target', numbered: false});
+                        loadQueue.push({ vis, diff, role: 'candidates_grid', numbered: true });
+                        loadQueue.push({ vis, diff, role: 'carousel_page', numbered: true });
+                        loadQueue.push({ vis, diff, role: 'loop_sequence', numbered: false });
+                    });
+                });
+
+                const totalExpected = loadQueue.length;
+                if (totalExpected === 0) { resolve(); return; }
+
+                // 2. Conecta ao Servidor para Monitorar o Progresso Global
+                self.controlSocket = new WebSocket("ws://localhost:3214");
+
+                self.controlSocket.onopen = () => {
+                    console.log(`[Controller] Conectado. Aguardando ${totalExpected} visualizações.`);
+                    
+                    // Avisa o servidor: "Eu sou o controlador, espere X clientes ficarem prontos"
+                    self.controlSocket.send(JSON.stringify({ 
+                        act: "register_controller", 
+                        expected: totalExpected 
+                    }));
+
+                    // 3. Cria os Iframes APÓS conectar o controlador
+                    // Isso garante que o servidor já saiba que deve contar as conexões que virão
+                    loadQueue.forEach(item => {
+                        const iframe = document.createElement('iframe');
+                        iframe.className = 'cached-iframe';
+                        
+                        // Passamos 'preload=true' para que o script da visualização saiba que deve
+                        // conectar, treinar e avisar o servidor que está pronto.
+                        iframe.src = `${item.vis.file}?context=${item.role}&difficulty=${item.diff}&numbered=${item.numbered}`;
+                        iframe.id = `frame-${item.vis.id}-${item.diff}-${item.role}`;
+                        
+                        // Salva no Cache (para uso posterior no experimento)
+                        this.state.iframeCache[item.vis.id][item.diff][item.role] = iframe;
+                        layer.appendChild(iframe);
+                    });
+                };
+
+                self.controlSocket.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+
+                    // CASO A: Atualização da Barra de Progresso (Vinda do Servidor)
+                    if (msg.act === "progress_update") {
+                        const readyCount = msg.ready_count;
+                        const pct = Math.round((readyCount / totalExpected) * 100);
+                        
+                        console.log("ready", msg.ready);
+
+                        progressBar.style.width = pct + "%";
+                        progressText.innerText = `Treinando Modelos: ${readyCount}/${totalExpected}`;
+                    }
+
+                    // CASO B: Tudo Pronto
+                    if (msg.act === "all_systems_go") {
+                        console.log("[Controller] Todos os modelos treinados e sincronizados.");
+                        resolve(); // Libera o experimento para começar
+                    }
+                };
+
+                self.controlSocket.onerror = (err) => {
+                    console.error("Erro no WebSocket Controlador:", err);
+                    progressText.innerText = "Erro de Conexão com Servidor de Treino.";
+                };
+            });
+        },
+
+
+        /* --- GERENCIAMENTO DE FRAMES ATIVOS --- */
+        // Esconde todos os iframes
+        hideAllFrames: function() {
+            const frames = document.querySelectorAll('.cached-iframe');
+            frames.forEach(f => f.style.display = 'none');
+            this.state.activeFrames = [];
+        },
+
+        // Pega um frame do cache, mostra ele e posiciona sobre o placeholder
+        activateFrame: function(visId, diff, role, placeholderId) {
+            const iframe = this.state.iframeCache[visId][diff][role];
+            const placeholder = document.getElementById(placeholderId);
+
+            if (iframe && placeholder) {
+                iframe.style.display = 'block';
+                
+                // Registra par para reposicionamento no resize
+                this.state.activeFrames.push({ iframe, placeholder });
+                
+                // Posiciona agora
+                this.layoutIframeOver(iframe, placeholder);
+                
+                return iframe; // Retorna para podermos enviar dados via postMessage
+            }
+            return null;
+        },
+
+        // Matemática para colocar o iframe "em cima" da div vazia
+        layoutIframeOver: function(iframe, placeholder) {
+            const rect = placeholder.getBoundingClientRect();
+            iframe.style.width = rect.width + 'px';
+            iframe.style.height = rect.height + 'px';
+            iframe.style.top = rect.top + 'px';
+            iframe.style.left = rect.left + 'px';
+        },
+
+        repositionActiveFrames: function() {
+            this.state.activeFrames.forEach(pair => {
+                this.layoutIframeOver(pair.iframe, pair.placeholder);
+            });
         },
 
         /* --- FLUXO PRINCIPAL --- */
@@ -414,9 +627,30 @@
 
         /* --- EXECUÇÃO DO TESTE (COM SEQUÊNCIA DE MEMÓRIA) --- */
         runTrial: function() {
+            this.hideAllFrames(); // Limpa a tela anterior
             const trial = this.state.trialList[this.state.currentTrialIdx];
             const total = this.state.trialList.length;
-            
+
+            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                this.controlSocket.send(JSON.stringify({
+                    act: "start_task",
+                    task: trial.task,       // ex: 'similarity', 'memory'
+                    diff: trial.diff,  // ex: 'low', 'dense'
+                    vis: trial.vis.id,
+                    context: trial.task==="similarity"?'candidates_grid':(trial.task==="loop"?'loop_sequence':'carousel_page')
+                }));
+                if(trial.task==="similarity" || trial.task==="memory"){
+                    this.controlSocket.send(JSON.stringify({
+                        act: "start_task",
+                        task: trial.task,       // ex: 'similarity', 'memory'
+                        diff: trial.diff,  // ex: 'low', 'dense'
+                        vis: trial.vis.id,
+                        context: "target"
+                    }));
+                }
+            }
+
+
             // Reset HUD
             document.getElementById('hud-task').innerText = this.state.isTraining ? "TREINO" : PROTOCOL.tasks[trial.task].name;
             document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${total}`;
@@ -437,28 +671,34 @@
             const area = document.getElementById('experiment-area');
             const controls = document.getElementById('controls-area');
             this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
 
             // 1. CODIFICAÇÃO (Iframe Único)
             document.getElementById('hud-timer').innerText = "MEMORIZE!";
+            // Cria placeholder HTML
             area.innerHTML = `
                 <div class="layout-center">
-                    <h2 style="color:var(--accent-color)">MEMORIZE ESTA IMAGEM</h2>
-                    <div class="vis-placeholder vis-target" style="width:300px; height:300px; border: 4px solid var(--accent-color); padding:0;">
-                        ${this.createVisFrame(trial.vis, 'memory_target')}
-                    </div>
+                    <h2 style="color:var(--accent-color)">MEMORIZE</h2>
+                    <div id="ph-mem-target" class="vis-placeholder vis-target" style="width:800px; height:400px; border: 4px solid var(--accent-color);"></div>
                 </div>`;
-            controls.innerHTML = '';
+            
+            // Ativa o iframe correto sobre o placeholder
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-mem-target');
+            // ENVIA DADOS PARA O IFRAME (AQUI OCORRE A TROCA DE DADOS)
+            if(frame) frame.contentWindow.postMessage({ act: 'new_trial_data', data: { seed: Math.random() } }, '*');
 
             // Timer para Retenção
             setTimeout(() => {
                 // 2. RETENÇÃO (Tela Vazia)
+                this.hideAllFrames(); // Tela vazia (Retenção)
                 document.getElementById('hud-timer').innerText = "AGUARDE...";
                 area.innerHTML = `<div class="layout-center"><h3 style="color:#999">...</h3></div>`;
 
                 // Timer para Busca
                 setTimeout(() => {
                     document.getElementById('hud-timer').innerText = "ENCONTRE!";
-                    this.renderLayout(trial); // Chama o layout do carrossel
+                    this.renderLayout(trial); // Grid de busca
+                    setTimeout(() => this.repositionActiveFrames(), 50);
                 }, PROTOCOL.timings.retention);
 
             }, PROTOCOL.timings.encoding);
@@ -470,68 +710,64 @@
             const controls = document.getElementById('controls-area');
             area.innerHTML = ''; controls.innerHTML = '';
 
-            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem; z-index:100;">${trial.vis.name}</div>`;
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
             
             if (trial.task === 'similarity') {
-                // Layout: Esquerda (Alvo) | Direita (Grid Iframe + Botões)
                 area.innerHTML = visLabel + `
                     <div class="layout-similarity">
                         <div class="sim-left">
                             <h3>Referência</h3>
-                            <div class="vis-placeholder vis-target" style="padding:0; overflow:hidden;">
-                                ${this.createVisFrame(trial.vis, 'target')}
-                            </div>
+                            <div id="ph-sim-target" class="vis-placeholder vis-target" style="width:100%; height:400px;"></div>
                         </div>
                         <div class="sim-right" style="flex-direction:column;">
-                            <div style="width:100%; height:360px; border:1px solid #eee;">
-                                ${this.createVisFrame(trial.vis, 'candidates_grid')}
-                            </div>
+                            <div id="ph-sim-grid" style="width:100%; height:400px; border:1px solid #eee;"></div>
                             
                             <div class="response-container">
                                 <span class="response-label">Qual é a imagem correta?</span>
                                 <div class="response-buttons-row">
-                                    ${Array(9).fill(0).map((_, i) => 
-                                        `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`
-                                    ).join('')}
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>`;
-            
+
+                // Ativa os iframes sobre os placeholders
+                const f1 = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-sim-target');
+                const f2 = this.activateFrame(trial.vis.id, trial.diff, 'candidates_grid', 'ph-sim-grid');
+                
+                // Envia dados novos
+                if(f1) f1.contentWindow.postMessage({ act: 'data', mode: 'target', seed: Math.random() }, '*');
+                if(f2) f2.contentWindow.postMessage({ act: 'data', mode: 'grid', seed: Math.random() }, '*');
+
             } else if (trial.task === 'memory') {
                 this.state.carouselPage = 0;
                 area.innerHTML = visLabel + `
                     <div class="layout-center">
-                        <h3>Encontre a imagem (Tela <span id="car-page">1</span>/4)</h3>
+                        <h3>Encontre (Tela <span id="car-page">1</span>/4)</h3>
                         <div style="display:flex; align-items:center; gap:20px; width:90%; height:60%;">
-                            <button id="btn-prev" onclick="ExpManager.navCarousel(-1)" style="height:60px; font-weight:bold;">&#8592;</button>
+                            <button id="btn-prev" onclick="ExpManager.navCarousel(-1)" style="height:60px;">&#8592;</button>
                             
-                            <div id="memory-frame-container" style="flex:1; height:100%; border:1px solid #ccc;">
-                                </div>
-
-                            <button id="btn-next" onclick="ExpManager.navCarousel(1)" style="height:60px; font-weight:bold;">&#8594;</button>
-                        </div>
-
-                        <div class="response-container" style="max-width: 600px; margin-top:20px;">
-                            <span class="response-label">Selecione o número da imagem visualizada:</span>
-                            <div class="response-buttons-row">
-                                ${Array(6).fill(0).map((_, i) => 
-                                    `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`
-                                ).join('')}
+                            <div style="flex:1; display: flex; justify-content: center;">
+                                <div id="ph-mem-carousel" style="height:400px; width: 800px; max-width: 800px; border:1px solid #ccc;"></div>
                             </div>
+                            <button id="btn-next" onclick="ExpManager.navCarousel(1)" style="height:60px;">&#8594;</button>
+                        </div>
+                        <div class="response-container" style="max-width:600px; margin-top:20px;">
+                            ${Array(6).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
                         </div>
                     </div>`;
-                this.updateMemoryGrid(trial.vis);
+                
+                this.updateMemoryGrid(null); // Ativa o iframe do carrossel
 
             } else if (trial.task === 'loop') {
                 area.innerHTML = visLabel + `
                     <div class="layout-center">
-                        <div class="vis-loop-main" style="padding:0; border:none;">
-                             ${this.createVisFrame(trial.vis, 'loop_sequence')}
-                        </div>
+                        <div id="ph-loop" class="vis-loop-main" style="width:800px; height:400px; border:none;"></div>
                     </div>`;
-                // Botão único de ação
-                controls.innerHTML = `<button style="background:#d9534f; padding:15px; font-weight:bold; font-size:1.2rem;" onclick="ExpManager.registerAnswer('LOOP_DETECTED')">DETECTEI O LOOP</button>`;
+                controls.innerHTML = `<button style="background:#d9534f; padding:15px;" onclick="ExpManager.registerAnswer('LOOP')">DETECTEI O LOOP</button>`;
+                
+                const f = this.activateFrame(trial.vis.id, trial.diff, 'loop_sequence', 'ph-loop');
+                if(f) f.contentWindow.postMessage({ act: 'data', mode: 'loop', seed: Math.random() }, '*');
             }
         },
 
@@ -570,6 +806,7 @@
 
         /* --- QUESTIONÁRIO E UTILITÁRIOS --- */
         showQuestionnaire: function() {
+            this.hideAllFrames();
             const list = document.getElementById('likert-list');
             list.innerHTML = '';
             PROTOCOL.visualizations.forEach(vis => {
@@ -663,29 +900,31 @@
             document.getElementById('btn-prev').disabled = (page === 0);
             document.getElementById('btn-next').disabled = (page === totalPages - 1);
 
-            // 2. Injeta UM Iframe para a página inteira
-            const container = document.getElementById('memory-frame-container');
+            // Reativa o iframe (caso tenha se perdido) e atualiza os dados dele
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'carousel_page', 'ph-mem-carousel');
             
-            // Passamos 'page' na URL para o HTML saber quais 6 itens mostrar
-            // Ex: visualizations/heatmap.html?context=carousel_page&page=0
-            const src = `${vis.file}?context=carousel_page&page=${page}`;
-            
-            container.innerHTML = `<iframe src="${src}" 
-                                    style="width:100%; height:100%; border:none;" 
-                                    scrolling="no"></iframe>`;
+            // Manda o iframe mostrar a página X
+            if(frame) frame.contentWindow.postMessage({ act: 'set_page', page: page }, '*');
         },
 
         /* --- UTILITÁRIOS --- */
     
-        // Gera o HTML do iframe. 
-        // 'context' servirá no futuro para dizer ao iframe se ele é 'target', 'grid' ou 'loop' via URL
-        createVisFrame: function(visObject, context) {
-            // Ex: visualizations/heatmap.html?context=target
-            const src = `${visObject.file}?context=${context}`; 
-            return `<iframe src="${src}" 
-                            style="width:100%; height:100%; border:none; overflow:hidden;" 
-                            scrolling="no">
-                    </iframe>`;
+        // // Gera o HTML do iframe. 
+        // // 'context' servirá no futuro para dizer ao iframe se ele é 'target', 'grid' ou 'loop' via URL
+        // createVisFrame: function(visObject, context) {
+        //     // Ex: visualizations/heatmap.html?context=target
+        //     const src = `${visObject.file}?context=${context}`; 
+        //     return `<iframe src="${src}" 
+        //                     style="width:100%; height:100%; border:none; overflow:hidden;" 
+        //                     scrolling="no">
+        //             </iframe>`;
+        // },
+        skipLoading: function() {
+            console.warn("⚠️ MODO DEV: Carregamento pulado pelo usuário.");
+            document.getElementById('loading-overlay').style.display = 'none';
+            // Opcional: Se quiser matar o socket para parar os logs no console:
+            // if(this.controlSocket) this.controlSocket.close(); 
         }
     };
 

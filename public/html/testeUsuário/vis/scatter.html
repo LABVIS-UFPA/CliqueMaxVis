@@ -50,11 +50,17 @@
 <body>
     
     <canvas id="myCanvas" style="border: 1px solid black;"></canvas>
-    <svg id="legenda" width="70px" height="300px"></svg>
+    <!-- <svg id="legenda" width="70px" height="300px"></svg> -->
 
 
 
     <script>
+        // 1. Ler a dificuldade da URL (passada pelo ExpManager)
+        const urlParams = new URLSearchParams(window.location.search);
+        const MY_DIFFICULTY = urlParams.get('difficulty');
+        const MY_CONTEXT = urlParams.get('context');
+        const IS_NUMBERED = urlParams.get('numbered') === 'true';
+
 
         //função usada somente para teste. Gera bits aleatoriamente.
         function generateBinaryData(numSamples, numBits) {
@@ -183,7 +189,7 @@
 
         function drawCirclesOnCanvas(coordinates, colors, opacityThreshold = 0.45) {
             // Obtém o elemento canvas e o contexto 2D
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.fillStyle = 'rgb(255, 255, 255)'//'rgba(255, 255, 255, 0.08)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -201,10 +207,15 @@
             for (let i = 0; i < coordinates.length; i++) {
                 const [x, y] = coordinates[i];
                 // ctx.fillRect(x-2, y-2, 4, 4);
-                ctx.fillStyle = colors[i];
+                ctx.fillStyle = 'rgba(66, 105, 208,0.75)';//colors[i];
                 ctx.beginPath();
-                ctx.arc(x, y, 2, 0, 2 * Math.PI); // Círculo de raio 3px
+                ctx.arc(x, y, 5, 0, 2 * Math.PI); // Círculo de raio 3px
                 ctx.fill();
+
+                if(IS_NUMBERED){
+                    ctx.fillStyle = 'rgba(12, 12, 12,0.75)'
+                    ctx.fillText(i+1, x+4, y-4);
+                }
             }
         }
 
@@ -230,7 +241,8 @@
                 
                 // Desenha legenda
                 const arrFitness = data.population.map(i => i.fitness);
-                drawLegenda(Math.min(...arrFitness)/2, Math.max(...arrFitness)*2);
+                // drawLegenda(Math.min(...arrFitness)/2, Math.max(...arrFitness)*2);
+
             } 
             // 2. Lógica das Gerações Seguintes (Projeção Incremental)
             else {
@@ -243,7 +255,7 @@
             }
 
             // 3. Renderização
-            colors = data.population.map(i => colorScale(i.fitness));
+            // colors = data.population.map(i => colorScale(i.fitness));
             
             // Converte MDS coords -> Screen Pixels usando as escalas ATUAIS
             const screenCoords = currentPoints.map(p => [xScale(p[0]), yScale(p[1])]);
@@ -318,6 +330,7 @@
         let projectedPoints = null; // Âncoras (Gen 0)
         let binaryData = null;      // Dados binários das âncoras
         let lastFrameData = null;   // Último pacote recebido do socket
+        let firstFrameData = true;
         let isDrawingScheduled = false; // Controle de Throttling
         
         // Configuração de Margem para o gráfico não bater na borda
@@ -348,7 +361,11 @@
         // Chama uma vez para iniciar
         resizeCanvas();
 
-
+        document.addEventListener("DOMContentLoaded", () => {
+            const canvas = document.getElementById("myCanvas");
+            const ctx = canvas.getContext("2d");
+            ctx.font = "14px monospace";
+        });
 
 
 
@@ -367,6 +384,7 @@
                     // 1. Atualiza o estado global
                     lastFrameData = message.data;
 
+
                     // 2. Agenda o desenho
                     if (!isDrawingScheduled) {
                         isDrawingScheduled = true;
@@ -376,13 +394,33 @@
                         });
                     }
                     break;
+                case "train":
+                    if(firstFrameData){
+                        firstFrameData = false;
+                        lastFrameData = message.data;
+                        lastFrameData.generation = 0;
+                        if (!isDrawingScheduled) {
+                            isDrawingScheduled = true;
+                            requestAnimationFrame(() => {
+                                if (lastFrameData) drawFrame(lastFrameData);
+                                isDrawingScheduled = false;
+                                socket.send(JSON.stringify({id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                                console.log(`SERVER >>>>>>> scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`);
+                            });
+                        }
+                        break;
+                    }
+                    
             }
         };
 
         socket.onopen = function () {
             console.log("Conectado ao servidor WebSocket");
             socket.send(JSON.stringify({ act: "command", data: "initial_individuals" }));
-            socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            if (MY_DIFFICULTY) {
+                socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
+            }
         };
 
 
