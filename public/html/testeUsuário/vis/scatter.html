@@ -375,6 +375,11 @@
 
 
         socket.onmessage = function (event) {
+            // 1. TRAVA DE SEGURANÇA: Ignorar Binários (GZIP do modelo CNN)
+            if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                // Se for binário, esta visualização não precisa dele. Ignora.
+                return;
+            }
             const message = JSON.parse(event.data);
             switch (message.act) {
                 case "log":

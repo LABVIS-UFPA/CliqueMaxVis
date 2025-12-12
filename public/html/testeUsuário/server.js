@@ -1,8 +1,9 @@
 const WebSocket = require('ws');
-const server = new WebSocket.Server({ port: 3214 });
+const server = new WebSocket.Server({ port: 3214, maxPayload: 500 * 1024 * 1024 }); // 500 MB
 const fs = require("fs");
 const { Graph, CliqueBuilder, CliqueSolver, CliqueMask } = require("../../js-server/graph.js");
 const { GA } = require("../../js-server/gen_alg.js");
+const zlib = require('zlib');
 
 const clients = [];
 let controllerSocket = null; // Socket da página pai
@@ -12,6 +13,7 @@ const readyClients = new Set();
 const progressReport = { low: 0, medium: 0, high: 0, dense: 0 };
 
 let activeGAs = {}; // Armazena as instâncias dos GAs: { "nome_do_dataset": instanciaGA }
+let activeModels = {}; // Armazena os pesos da CNN: { "nome_dataset": { topology, weightsBase64, specs } }
 
 // --- MAPEAMENTO DO PROTOCOLO ---
 const DIFFICULTY_MAP = {
@@ -102,9 +104,23 @@ server.on('connection', ws => {
     // console.log("Client connected");
     clients.push(ws);
 
-    ws.on('message', async (message) => {
-        const obj = JSON.parse(message);
+    ws.on('message', async (message, isBinary) => {
+        let obj;
 
+        try {
+            // VERIFICAÇÃO DE BINÁRIO (GZIP)
+            if (isBinary) {
+                // Descomprime para ler o conteúdo (síncrono para simplificar, ou use zlib.gunzipSync)
+                const decompressed = zlib.gunzipSync(message); 
+                obj = JSON.parse(decompressed.toString());
+            } else {
+                obj = JSON.parse(message);
+            }
+        } catch (e) {
+            console.error("Erro ao processar mensagem (parse/zip):", e);
+            return;
+        }
+        
         switch (obj.act) {
 
             // 1. PÁGINA PAI REGISTRA O EXPERIMENTO
@@ -204,6 +220,86 @@ server.on('connection', ws => {
                 // Dispara o envio de dados específicos para essa dificuldade
                 runTaskUpdate(task, diff, context, vis);
                 break;
+
+
+            // ... dentro do switch(obj.act) ...
+
+            // 4. (NOVO) MESTRE ENVIA O MODELO TREINADO
+            case "share_model":
+                // Se chegou como binário (isBinary), já temos ele comprimido na variável 'message'.
+                // Podemos salvar o binário compactado direto para economizar espaço!
+                const { datasetName, artifacts } = obj.data;
+                console.log(`[SERVER] Modelo recebido de ${obj.id}. Armazenando para distribuição.`);
+                
+               // Salva o objeto JSON descomprimido se precisar ler topology, 
+                // MAS para retransmitir, o ideal é guardar o buffer compactado original 'message'.
+                
+                // Vamos salvar uma estrutura híbrida:
+                activeModels[datasetName] = {
+                    rawCompressed: isBinary ? message : null, // Guarda o blob GZIP original
+                    artifacts: artifacts // Guarda descomprimido caso precise (opcional)
+                };
+
+
+
+                // Verifica se há clientes esperando por esse modelo (da mesma dificuldade)
+                // Vamos varrer os subscribers dessa dificuldade e enviar
+                // Retransmitir para os interessados
+                const diffKey = Object.keys(DIFFICULTY_MAP).find(key => DIFFICULTY_MAP[key] === datasetName);
+                if (diffKey && subscribers[diffKey]) {
+
+                    // 1. Descobre quem é a visualização e dificuldade remetente (ex: "cnn", "sketch")
+                    const senderType = obj.id.slice(0, obj.id.lastIndexOf('-'));
+                    
+                    // 2. Itera sobre [ID, Socket] para poder filtrar pelo nome
+                    Object.entries(subscribers[diffKey]).forEach(([clientId, clientSocket]) => {
+
+                        // 3. Descobre quem é o destinatário
+                        const clientType = clientId.slice(0, clientId.lastIndexOf('-'));
+
+                        // LÓGICA DE FILTRO: 
+                        // - Deve ser do mesmo tipo (cnn manda pra cnn)
+                        // - Não pode ser o próprio remetente
+                        // - Socket deve estar aberto
+                        if (senderType === clientType && clientSocket !== ws && clientSocket.readyState === WebSocket.OPEN) {
+                            
+                            console.log(`[SERVER] Repassando modelo de ${obj.id} para ${clientId} (Par Compatível)`);
+                            
+                            if (activeModels[datasetName].rawCompressed) {
+                                // Envia Binário Original
+                                clientSocket.send(activeModels[datasetName].rawCompressed);
+                            } else {
+                                // Fallback Texto
+                                clientSocket.send(JSON.stringify({
+                                    act: "load_model",
+                                    data: { artifacts: artifacts }
+                                }));
+                            }
+                        }
+                    });
+                }
+                break;
+
+            // 5. (NOVO) ESCRAVO PEDE O MODELO (Caso tenha conectado atrasado)
+            case "request_model":
+                const reqDataset = DIFFICULTY_MAP[obj.data.difficulty]; // obj.data.difficulty = 'low', etc
+                if (activeModels[reqDataset]) {
+                    console.log(`[SERVER] Enviando modelo em cache para requisição tardia.`);
+                    
+                    if (activeModels[reqDataset].rawCompressed) {
+                         // Envia o binário original em cache
+                        ws.send(activeModels[reqDataset].rawCompressed);
+                    } else {
+                        // Fallback texto
+                        ws.send(JSON.stringify({
+                            act: "load_model",
+                            data: { artifacts: activeModels[reqDataset].artifacts }
+                        }));
+                    }
+                }
+                break;
+
+                
             // ... (Outros comandos like 'log' etc) ...
             case "log":
                 console.log("[CLIENT LOG]", obj.data);
@@ -314,7 +410,7 @@ async function runTaskUpdate(task, diffKey, context, vis) {
         const client = socketArray[`${vis}-${diffKey}-${context}`];
         // Envia para todos os inscritos daquela dificuldade
         // Object.values(socketArray).forEach(client => {
-            shuffleArray(simplePopulation);
+            // shuffleArray(simplePopulation);
             if (client.readyState === WebSocket.OPEN) {
                 let specificData = [];
                 const role = client.role;
@@ -357,7 +453,7 @@ async function runTaskUpdate(task, diffKey, context, vis) {
         // });
 
         // Opcional: Avançar o GA para a próxima vez
-        currentGA.nextGeneration();
+        // currentGA.nextGeneration();
     }
 }
 

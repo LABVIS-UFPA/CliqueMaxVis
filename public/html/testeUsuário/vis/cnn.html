@@ -198,6 +198,13 @@
                 if (MY_DIFFICULTY) {
                     socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`cnn-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
                 }
+                // Se eu NÃO sou target, peço o modelo, caso o target já tenha terminado antes de eu conectar
+                if (MY_CONTEXT !== 'target') {
+                    socket.send(JSON.stringify({ 
+                        act: "request_model", 
+                        data: { difficulty: MY_DIFFICULTY } 
+                    }));
+                }
             };
 
             socket.onclose = function() {
@@ -205,12 +212,49 @@
                 setTimeout(initWebSocket, 2000);
             };
 
-            socket.onmessage = function (event) {
-                const message = JSON.parse(event.data);
+            socket.onmessage = async function (event) {
+                // const message = JSON.parse(event.data);
+                let message;
 
+                // SE FOR BINÁRIO (Blob ou ArrayBuffer), DESCOMPRIME PRIMEIRO
+                if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                    try {
+                        // Se vier como Blob, pega o buffer; se for buffer, usa direto
+                        const buffer = (event.data instanceof Blob) ? await event.data.arrayBuffer() : event.data;
+                        message = await decompressData(buffer);
+                    } catch (e) {
+                        console.error("Erro ao descomprimir:", e);
+                        return;
+                    }
+                } else {
+                    // Texto normal (JSON direto)
+                    message = JSON.parse(event.data);
+                }
+                
+                
+                
+                
                 if ((message.act === "data" || message.act === "train") && message.data.population) {
                     handlePopulationData(message.data);
-                } else if (message.act === "log") {
+                } 
+                else if (message.act === "load_model" || message.act === "share_model") {
+                    console.log("Recebendo pesos do modelo...");
+                    await importAndLoadModel(message.data.artifacts);
+                    
+                    // Agora o escravo está pronto
+                    elOverlay.classList.add('hidden');
+                    elStatus.textContent = "Sincronizado e Pronto.";
+                    appState = STATE.VISUALIZING;
+                    
+                    if(lastPopulationBatch) renderGrid(lastPopulationBatch);
+
+                    // Avisa que está pronto
+                    socket.send(JSON.stringify({ 
+                        id:`cnn-${MY_DIFFICULTY}-${MY_CONTEXT}`,
+                        act: "visualization_ready" 
+                    }));
+                }
+                else if (message.act === "log") {
                     console.log("[SERVER]", message.data);
                 }
             };
@@ -220,57 +264,71 @@
         function handlePopulationData(data) {
             const population = data.population;
             const generation = data.generation;
+
+            if (appState === STATE.VISUALIZING) {
+                // Atualizar visualização
+                renderGrid(population);
+                return;
+            }
             
 
             elGen.textContent = `Geração: ${generation} (Pop: ${population.length})`;
 
-            // MAQUINA DE ESTADOS
-            if (appState === STATE.COLLECTING) {
-                // Primeiro pacote recebido!
-                if (population.length > 0 ) {
+            // --- LÓGICA MESTRE (TARGET) ---
+            if (MY_CONTEXT === 'target') {
+                // MAQUINA DE ESTADOS
+                if (appState === STATE.COLLECTING) {
+                    // Primeiro pacote recebido!
+                    if (population.length > 0 ) {
 
-                     // Detecta tamanho no primeiro pacote
-                    if (BITMAP_SIZE === 0 && population[0].nodeMask) {
-                        BITMAP_SIZE = population[0].nodeMask.length;
-                    }
-                    if(BITMAP_SIZE !== 0){
-                        DENSITY = Math.max(BITMAP_SIZE/data.bestFitness, DENSITY);
-                    }
+                        // Detecta tamanho no primeiro pacote
+                        if (BITMAP_SIZE === 0 && population[0].nodeMask) {
+                            BITMAP_SIZE = population[0].nodeMask.length;
+                        }
+                        if(BITMAP_SIZE !== 0){
+                            DENSITY = Math.max(BITMAP_SIZE/data.bestFitness, DENSITY);
+                        }
 
-                    // Acumula no buffer
-                    // Fazemos uma cópia leve para não perder referência se o objeto mudar
-                    trainingBuffer.push(...population);
+                        // Acumula no buffer
+                        // Fazemos uma cópia leve para não perder referência se o objeto mudar
+                        trainingBuffer.push(...population);
 
-                    // Atualiza UI
-                    const count = trainingBuffer.length;
-                    elProgress.value = (count / MIN_TRAINING_SAMPLES) * 100;
-                    elLog.textContent = `Amostras coletadas: ${count} / ${MIN_TRAINING_SAMPLES}`;
+                        // Atualiza UI
+                        const count = trainingBuffer.length;
+                        elProgress.value = (count / MIN_TRAINING_SAMPLES) * 100;
+                        elLog.textContent = `Amostras coletadas: ${count} / ${MIN_TRAINING_SAMPLES}`;
 
-                    // Checa se já temos o suficiente
-                    if (count >= MIN_TRAINING_SAMPLES) {
-                        elTitle.textContent = "Treinando Rede Neural";
-                        elLog.textContent = "Iniciando treinamento com dados reais...";
-                        appState = STATE.TRAINING;
+                        // Checa se já temos o suficiente
+                        if (count >= MIN_TRAINING_SAMPLES) {
+                            elTitle.textContent = "Treinando Rede Neural";
+                            elLog.textContent = "Iniciando treinamento com dados reais...";
+                            appState = STATE.TRAINING;
+                            
+                            // Guarda o último batch para exibir assim que acabar
+                            lastPopulationBatch = population;
+                            
+                            // Executa o Augmentation antes do treino
+                            augmentDataset();
+                            runTraining();
+                        }
                         
-                        // Guarda o último batch para exibir assim que acabar
-                        lastPopulationBatch = population;
-                        
-                        // Executa o Augmentation antes do treino
-                        augmentDataset();
-                        runTraining();
                     }
-                    
+                } 
+                else if (appState === STATE.TRAINING) {
+                    // Se chegar dados novos enquanto treina, atualizamos o "pendente"
+                    // para exibir o mais recente assim que o treino acabar
+                    lastPopulationBatch = population;
                 }
-            } 
-            else if (appState === STATE.TRAINING) {
-                // Se chegar dados novos enquanto treina, atualizamos o "pendente"
-                // para exibir o mais recente assim que o treino acabar
-                lastPopulationBatch = population;
-            } 
-            else if (appState === STATE.VISUALIZING) {
-                // Atualizar visualização
-                renderGrid(population);
-                // logAllPairwiseDistances(population);
+            }
+            // --- LÓGICA ESCRAVO (GRID, CAROUSEL, ETC) ---
+            else {
+                // Escravos apenas mostram status, mas não coletam e não treinam
+                // Se receberam população, guardam para renderizar assim que o modelo chegar
+                if(population.length > 0) {
+                     lastPopulationBatch = population;
+                     // Se precisar descobrir BITMAP_SIZE para renderizar grids vazios:
+                     if (BITMAP_SIZE === 0 && population[0].nodeMask) BITMAP_SIZE = population[0].nodeMask.length;
+                }
             }
         }
 
@@ -666,6 +724,26 @@
                 renderGrid(lastPopulationBatch);
             }
 
+            
+
+            // EXPORTA E ENVIA PARA O SERVER
+            await exportAndShareModel(); 
+            console.log("Modelo enviado para o servidor.");
+
+            // ... (restante do código de finalização de UI) ...
+            elOverlay.classList.add('hidden');
+            appState = STATE.VISUALIZING;
+            
+            if (lastPopulationBatch) renderGrid(lastPopulationBatch);
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ 
+                    id:`cnn-${MY_DIFFICULTY}-${MY_CONTEXT}`,
+                    act: "visualization_ready" 
+                }));
+            }
+
+
             // --- NOVA LINHA: Notifica o servidor que este cliente terminou ---
             if (socket && socket.readyState === WebSocket.OPEN) {
                 console.log("Treino concluído. Enviando sinal de PRONTO ao servidor.");
@@ -819,6 +897,112 @@
                 });
             });
         }
+
+
+        // --- UTILITÁRIOS DE MODELO ---
+        
+        // Converte ArrayBuffer para String Base64
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        // Converte String Base64 para ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Salva e envia o modelo
+        async function exportAndShareModel() {
+            // Usa o IO handler especial para capturar os artefatos em memória
+            await synthesizer.save(tf.io.withSaveHandler(async (artifacts) => {
+                const modelData = {
+                    modelTopology: artifacts.modelTopology,
+                    weightSpecs: artifacts.weightSpecs,
+                    weightData: arrayBufferToBase64(artifacts.weightData) // Binário -> Base64
+                };
+
+                // Cria o objeto completo da mensagem
+                const fullMessage = {
+                    act: "share_model",
+                    id: `cnn-${MY_DIFFICULTY}-${MY_CONTEXT}`,
+                    data: {
+                        datasetName: DIFFICULTY_MAP[MY_DIFFICULTY],
+                        artifacts: modelData
+                    }
+                };
+
+                // --- COMPRESSÃO AQUI ---
+                console.log("Comprimindo modelo antes do envio...");
+                const compressedBin = await compressData(fullMessage);
+                
+                // Envia como BINÁRIO
+                socket.send(compressedBin);
+                
+                return {modelArtifactsInfo: {dateSaved: new Date(), modelTopologyType: 'JSON'}};
+            }));
+        }
+
+        // Carrega modelo recebido
+        async function importAndLoadModel(artifacts) {
+            const weightBuffer = base64ToArrayBuffer(artifacts.weightData);
+            
+            // Reconstrói o modelo usando tf.io.fromMemory
+            synthesizer = await tf.loadLayersModel(tf.io.fromMemory(
+                artifacts.modelTopology,
+                artifacts.weightSpecs,
+                weightBuffer
+            ));
+            
+            // Compila (necessário para prever?) Geralmente não para predict, mas boa prática
+            synthesizer.compile({optimizer: 'adam', loss: 'meanSquaredError'});
+            
+            console.log("Modelo Sincronizado Carregado com Sucesso!");
+        }
+
+        // Mapa auxiliar simples (copie do server ou passe via msg, mas hardcoded aqui resolve rápido)
+        const DIFFICULTY_MAP = {
+            'low':    "gen200_p0.9_55.clq",
+            'medium': "hamming10-4.clq",
+            'high':   "C4000.5.clq",
+            'dense':  "MANN_a45.clq"
+        };
+
+        async function compressData(jsonObj) {
+            // 1. Converte JSON para String
+            const str = JSON.stringify(jsonObj);
+            // 2. Converte String para Stream de Bytes
+            const stream = new Blob([str]).stream();
+            // 3. Comprime usando GZIP nativo
+            const compressedReadableStream = stream.pipeThrough(new CompressionStream("gzip"));
+            const compressedResponse = await new Response(compressedReadableStream);
+            // 4. Retorna ArrayBuffer (Binário)
+            return await compressedResponse.arrayBuffer();
+        }
+
+        async function decompressData(arrayBuffer) {
+            // 1. Transforma ArrayBuffer em Stream
+            const stream = new Blob([arrayBuffer]).stream();
+            // 2. Descomprime
+            const decompressedStream = stream.pipeThrough(new DecompressionStream("gzip"));
+            const decompressedResponse = await new Response(decompressedStream);
+            // 3. Lê como texto e faz parse do JSON
+            const text = await decompressedResponse.text();
+            return JSON.parse(text);
+        }
+
+
 
         // Inicializar
         window.onload = initWebSocket;
