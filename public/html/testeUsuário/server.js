@@ -14,6 +14,7 @@ const progressReport = { low: 0, medium: 0, high: 0, dense: 0 };
 
 let activeGAs = {}; // Armazena as instâncias dos GAs: { "nome_do_dataset": instanciaGA }
 let activeModels = {}; // Armazena os pesos da CNN: { "nome_dataset": { topology, weightsBase64, specs } }
+let activeLoops = {}; // Armazena os IDs dos intervalos: { "vis-diff-context": intervalID }
 
 // --- MAPEAMENTO DO PROTOCOLO ---
 const DIFFICULTY_MAP = {
@@ -299,6 +300,17 @@ server.on('connection', ws => {
                 }
                 break;
 
+            case "stop_loop":
+                // O controlador deve mandar os dados para sabermos quem parar
+                // Ex: { act: "stop_loop", vis: "sketch", diff: "medium", context: "loop_sequence" }
+                const loopKey = `${obj.vis}-${obj.diff}-${obj.context}`;
+                
+                if (activeLoops[loopKey]) {
+                    clearInterval(activeLoops[loopKey]);
+                    delete activeLoops[loopKey];
+                    console.log(`[SERVER] Loop encerrado para: ${loopKey}`);
+                }
+                break;
                 
             // ... (Outros comandos like 'log' etc) ...
             case "log":
@@ -382,78 +394,195 @@ async function startDistributingData() {
     }
 }
 
+let lastTask = null;
+let lastTargetInd = null;
 // Função para enviar dados durante a execução da tarefa
 async function runTaskUpdate(task, diffKey, context, vis) {
+
     const datasetKey = DIFFICULTY_MAP[diffKey];
     const socketArray = subscribers[diffKey];
     
-    // Recupera o GA que já está na memória
+    // Pega o GA. O MELHOR indivíduo (índice 0) será sempre nossa REFERÊNCIA (Alvo)
+    // Assumindo que o GA já ordenou a população por fitness.
     const currentGA = getOrLoadGA(datasetKey);
 
-    if (currentGA && socketArray) {
-        // Envia apenas 1 geração (ou ajuste conforme necessário) para atualizar os iframes
-        const simplePopulation = currentGA.population.map(ind => ({
-            nodeMask: ind.nodeMask,
-            fitness: ind.fitness
-        }));
+    // Identifica o cliente específico que pediu a tarefa
+    const clientKey = `${vis}-${diffKey}-${context}`;
+    const client = socketArray[clientKey]; // Nota: Certifique-se que o 'obs' salvou com essa chave no server.js anterior
 
-        // const payload = JSON.stringify({
-        //     act: "data", // Ou 'train', dependendo de como seu iframe espera receber
-        //     mode: "update",
-        //     data: {
-        //         population: simplePopulation,
-        //         generation: currentGA.generation,
-        //         datasetName: datasetKey
-        //     }
-        // });
-        console.log(`${vis}-${diffKey}-${context}`);
-        const client = socketArray[`${vis}-${diffKey}-${context}`];
-        // Envia para todos os inscritos daquela dificuldade
-        // Object.values(socketArray).forEach(client => {
-            // shuffleArray(simplePopulation);
-            if (client.readyState === WebSocket.OPEN) {
-                let specificData = [];
-                const role = client.role;
-
-                // --- LÓGICA DE QUANTIDADE POR CONTEXTO ---
-                if (role === 'target') {
-                    // Envia apenas o 1º indivíduo (o melhor, se estiver ordenado, ou aleatório)
-                    specificData = simplePopulation.slice(0, 1); 
-                } 
-                else if (role === 'candidates_grid') {
-                    // Envia 9 indivíduos
-                    specificData = simplePopulation.slice(0, 9);
-                } 
-                else if (role === 'carousel_page') {
-                    // Exemplo: Memória usa 6 itens
-                    specificData = simplePopulation.slice(0, 6);
-                }
-                else if (role === 'loop_sequence') {
-                    // Exemplo: Loop usa 1 item animado
-                    specificData = simplePopulation.slice(0, 1);
-                }
-                else {
-                    // Fallback: Envia tudo ou um padrão seguro
-                    specificData = simplePopulation.slice(0, 9);
-                }
-
-                // Monta e envia o pacote
-                const payload = JSON.stringify({
-                    act: "data",
-                    context: role, // Útil para debug no client
-                    data: {
-                        population: specificData,
-                        generation: currentGA.generation,
-                        datasetName: datasetKey
-                    }
-                });
-
-                client.send(payload);
-            }
-        // });
-
+    if(lastTask!==task){
+        lastTask = task;
         // Opcional: Avançar o GA para a próxima vez
-        // currentGA.nextGeneration();
+        lastTargetInd = Math.floor(Math.random() * currentGA.population.length);
+        currentGA.nextGeneration();
+    }
+
+
+    if (currentGA && client && client.readyState === WebSocket.OPEN) {
+        
+        
+        const targetInd = {
+            nodeMask: currentGA.population[lastTargetInd].nodeMask,
+            fitness: currentGA.population[lastTargetInd].fitness
+        };
+
+        let payloadData = [];
+        let targetPos = -1; // Armazena onde o alvo caiu (índice 0-based)
+
+        // --- LÓGICA POR TAREFA (Protocolo) ---
+        
+        if (task === 'similarity') {
+            // Protocolo: 1 Alvo vs 9 Candidatas (1 Correta, 8 Distratores) [cite: 155-162]
+            
+            if (context === 'target') {
+                // Envia apenas a Referência
+                payloadData = [targetInd];
+            } 
+            else if (context === 'candidates_grid') {
+                // Gera 1 Correta (Jaccard 0.75 - 0.95)
+                const correct = generateVariant(targetInd, 0.75, 0.95);
+                
+                // Gera 8 Distratores (Jaccard 0.25 - 0.50)
+                const distractors = [];
+                for(let i=0; i<8; i++) {
+                    distractors.push(generateVariant(targetInd, 0.25, 0.50));
+                }
+                // 1. Embaralha somente os distratores
+                shuffleArray(distractors);
+
+                // 2. Define posição aleatória (0 a 8)
+                targetPos = Math.floor(Math.random() * (distractors.length + 1));
+                
+                // 3. Insere o alvo na posição sorteada
+                distractors.splice(targetPos, 0, correct);
+                
+                payloadData = distractors;
+            }
+        }
+
+        else if (task === 'memory') {
+            // Protocolo: Carrossel de 30 itens (5 telas x 6). 1 Alvo escondido. [cite: 166-173]
+            
+            if (context === 'target') {
+                payloadData = [targetInd];
+            } 
+            else if (context === 'carousel_page') {
+                // Precisamos de 29 Distratores (Jaccard baixo para não confundir memória)
+                // Usamos range 0.2 - 0.6 para ser "distinto" mas não óbvio demais
+                const memoryDistractors = [];
+                for(let i=0; i<29; i++) {
+                    memoryDistractors.push(generateVariant(targetInd, 0.2, 0.6));
+                }
+                
+                // 1. Embaralha somente os distratores
+                shuffleArray(memoryDistractors);
+                
+                // 2. Define posição aleatória (0 a 29)
+                targetPos = Math.floor(Math.random() * (memoryDistractors.length + 1));
+                
+                // 3. Insere o alvo na posição sorteada
+                memoryDistractors.splice(targetPos, 0, targetInd);
+
+                payloadData = memoryDistractors;
+            }
+        }
+
+        // ... dentro de runTaskUpdate ...
+        
+        else if (task === 'loop') {
+            if (context === 'loop_sequence') {
+                
+                // 1. Define tamanho aleatório N entre 15 e 20 [cite: 180]
+                const minSize = 15;
+                const maxSize = 20;
+                const loopSize = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+
+                // 2. Gera a sequência de N imagens ÚNICAS (Novidade) [cite: 183]
+                // A primeira é o alvo, as outras N-1 são variantes
+                const sequence = [targetInd]; 
+                for(let i=1; i<loopSize; i++) {
+                    // Variantes com Jaccard variável para criar "movimento" mas serem distintas
+                    sequence.push(generateVariant(targetInd, 0.3, 0.8));
+                }
+
+                // 3. Envia o GABARITO (Tamanho do Loop) para o Controlador [cite: 119]
+                if (controllerSocket && controllerSocket.readyState === WebSocket.OPEN) {
+                    console.log(`[CTRL] Gabarito Loop enviado. Tamanho: ${loopSize}`);
+                    controllerSocket.send(JSON.stringify({
+                        act: "answer_key",
+                        task: task,
+                        loopSize: loopSize // O HTML Pai usa isso para saber quando o loop começou
+                    }));
+                }
+
+                // 4. INICIA O STREAMING (INTERVAL)
+                // Limpa intervalo anterior se existir (segurança)
+                if (activeLoops[clientKey]) clearInterval(activeLoops[clientKey]);
+
+                let frameIndex = 0;
+
+                // Configura o intervalo de 800ms 
+                activeLoops[clientKey] = setInterval(() => {
+                    // Segurança: Se o cliente desconectou, para o loop
+                    if (client.readyState !== WebSocket.OPEN) {
+                        clearInterval(activeLoops[clientKey]);
+                        delete activeLoops[clientKey];
+                        return;
+                    }
+
+                    // Lógica Circular: Fase 1 (Novidade) -> Fase 2 (Repetição) [cite: 110, 114]
+                    // O operador % faz o índice voltar a 0 quando chega em loopSize
+                    const currentIndex = frameIndex % loopSize;
+                    const currentInd = sequence[currentIndex];
+
+                    const payload = JSON.stringify({
+                        act: "data",
+                        context: context,
+                        data: {
+                            population: [currentInd], // Envia array de 1 elemento
+                            generation: currentGA.generation,
+                            datasetName: datasetKey,
+                            sequenceIndex: frameIndex // Útil para debug no front
+                        }
+                    });
+
+                    client.send(payload);
+                    frameIndex++;
+
+                }, 800); // 0.8 segundos conforme protocolo
+
+                // RETORNA AGORA para não executar o envio padrão no final da função
+                return; 
+            }
+        }
+        else {
+            // Fallback para debug
+            payloadData = [targetInd];
+        }
+
+        // --- ENVIO DA RESPOSTA PARA O HTML PAI (CONTROLADOR) ---
+        // Se calculamos uma posição válida, avisamos o controlador
+        if (targetPos !== -1 && controllerSocket && controllerSocket.readyState === WebSocket.OPEN) {
+            console.log(`[CTRL] Gabarito enviado. Tarefa: ${task} | Alvo no índice: ${targetPos}`);
+            controllerSocket.send(JSON.stringify({
+                act: "answer_key",
+                task: task,
+                correctIndex: targetPos + 1 // +1 pois seus botões no HTML são 1-9, não 0-8
+            }));
+        }
+
+        // ENVIO
+        const payload = JSON.stringify({
+            act: "data",
+            context: context,
+            data: {
+                population: payloadData, // O iframe vai renderizar isso
+                generation: currentGA.generation,
+                datasetName: datasetKey
+            }
+        });
+
+        client.send(payload);
     }
 }
 
@@ -464,4 +593,80 @@ function shuffleArray(array) {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
+}
+
+
+// --- UTILITÁRIOS DO PROTOCOLO ---
+
+// Calcula Similaridade de Jaccard entre duas máscaras binárias
+function calculateJaccard(maskA, maskB) {
+    let intersection = 0;
+    let union = 0;
+    for (let i = 0; i < maskA.length; i++) {
+        if (maskA[i] === 1 && maskB[i] === 1) intersection++;
+        if (maskA[i] === 1 || maskB[i] === 1) union++;
+    }
+    return union === 0 ? 0 : intersection / union;
+}
+// Calcula quantos pares de bits (1->0 e 0->1) precisam ser trocados 
+// para atingir um Jaccard alvo aproximado.
+function getSwapCountForJaccard(totalOnes, targetJaccard) {
+    if (targetJaccard >= 1.0) return 0;
+    if (targetJaccard <= 0.0) return totalOnes; // Troca tudo
+    
+    // Fórmula derivada: k = N * (1 - J) / (1 + J)
+    return Math.round(totalOnes * (1 - targetJaccard) / (1 + targetJaccard));
+}
+
+// Gera variante baseada na média de swaps necessários para o range
+function generateVariant(baseInd, minJaccard, maxJaccard) {
+    const mask = [...baseInd.nodeMask];
+    
+    // Mapeia índices onde temos 1s e 0s
+    const onesIndices = [];
+    const zerosIndices = [];
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) onesIndices.push(i);
+        else zerosIndices.push(i);
+    }
+    
+    const N = onesIndices.length;
+
+    // 1. Calcula swaps necessários para os limites
+    // Nota: Jaccard MAIOR requer MENOS swaps. Jaccard MENOR requer MAIS swaps.
+    const minSwaps = getSwapCountForJaccard(N, maxJaccard); // Para atingir o máximo (ex: 0.95), muda pouco
+    const maxSwaps = getSwapCountForJaccard(N, minJaccard); // Para atingir o mínimo (ex: 0.75), muda muito
+    
+    // 2. Define a meta (Média)
+    const targetSwaps = Math.floor((minSwaps + maxSwaps) / 2);
+    
+    // Limite de segurança (não podemos trocar mais do que temos disponível)
+    const actualSwaps = Math.min(targetSwaps, onesIndices.length, zerosIndices.length);
+
+    // 3. Executa os Swaps (Aleatório sem verificação de colisão)
+    // Embaralha os índices para garantir aleatoriedade na escolha de quais bits trocar
+    shuffleArray(onesIndices);
+    shuffleArray(zerosIndices);
+
+    for (let i = 0; i < actualSwaps; i++) {
+        const idxOne = onesIndices[i];
+        const idxZero = zerosIndices[i];
+        
+        // Swap
+        mask[idxOne] = 0;
+        mask[idxZero] = 1;
+    }
+
+    // 4. Verificação e Notificação (apenas log)
+    const actualJaccard = calculateJaccard(baseInd.nodeMask, mask);
+    
+    if (actualJaccard < minJaccard || actualJaccard > maxJaccard) {
+        console.log(`[WARN] Jaccard fora do range! Range: [${minJaccard}-${maxJaccard}] | Real: ${actualJaccard.toFixed(3)} | Swaps realizados: ${actualSwaps}`);
+    }
+
+    return {
+        nodeMask: mask,
+        fitness: baseInd.fitness * actualJaccard, // Fitness simulado
+        isGenerated: true
+    };
 }
