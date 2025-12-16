@@ -135,17 +135,53 @@
         }
 
         .likert-thumb {
-            width: 60px;
-            height: 60px;
-            background: #ccc;
+            width: 80px;  /* Aumentei um pouco para melhor visibilidade */
+            height: 80px;
+            background: #fff;
             margin-right: 20px;
+            
+            /* Garante que a imagem não vaze do quadrado */
+            overflow: hidden; 
+            border: 1px solid #999;
+            border-radius: 4px;
+            
+            /* Impede que o flexbox esmague a imagem */
+            flex-shrink: 0; 
+            
+            /* Centraliza conteúdo (caso a imagem falhe) */
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-            color: #555;
+        }
+
+        /* --- Atualização no CSS --- */
+
+        .likert-thumb {
+            width: 80px;  /* Aumentei um pouco para melhor visibilidade */
+            height: 80px;
+            background: #fff;
+            margin-right: 20px;
+            
+            /* Garante que a imagem não vaze do quadrado */
+            overflow: hidden; 
             border: 1px solid #999;
+            border-radius: 4px;
+            
+            /* Impede que o flexbox esmague a imagem */
+            flex-shrink: 0; 
+            
+            /* Centraliza conteúdo (caso a imagem falhe) */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Regra para a imagem ficar do mesmo tamanho */
+        .likert-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* A mágica: preenche o quadrado cortando excessos */
+            display: block;
         }
 
         .likert-info {
@@ -200,7 +236,7 @@
         }
 
         .resp-btn {
-            width: 50px;
+            width: 45px;
             height: 50px;
             font-size: 1.4rem;
             font-weight: bold;
@@ -287,6 +323,48 @@
             color: var(--accent-color);
         }
 
+        /* Classe para esconder visualmente enquanto carrega */
+        .invisible {
+            opacity: 0;
+            pointer-events: none; /* Impede cliques acidentais enquanto carrega */
+        }
+
+        /* Adiciona transição suave ao iframe */
+        .cached-iframe {
+            position: absolute;
+            border: none;
+            display: none;
+            background: white;
+            transition: opacity 0.3s ease-in-out; /* Suavidade */
+        }
+
+        /* --- TIMER TIPO PIZZA --- */
+        .timer-pie {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent-color) 360deg, #e0e0e0 0deg);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 2000;
+            display: none; /* Escondido por padrão */
+            transition: transform 0.2s;
+            border: 4px solid #fff;
+        }
+
+        /* Cores do Timer */
+        .timer-pie.safe { --accent-color: #28a745; }   /* Verde */
+        .timer-pie.warn { --accent-color: #ffc107; }   /* Amarelo */
+        .timer-pie.danger { --accent-color: #dc3545; animation: pulse 1s infinite; } /* Vermelho pulsante */
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
     </style>
 </head>
 <body>
@@ -312,7 +390,7 @@
     <div id="screen-instruction" class="screen">
         <h2 id="instr-title">Instruções</h2>
         <div id="instr-content" style="text-align: left; max-width: 800px; margin-bottom: 20px;"></div>
-        <div class="vis-placeholder" style="width:100%; height:250px; margin-bottom:20px;">[GIF DEMO]</div>
+        
         <button onclick="ExpManager.startTraining()">Iniciar Treino</button>
     </div>
 
@@ -341,11 +419,56 @@
         <button onclick="ExpManager.submitQuestionnaire()">Enviar e Continuar</button>
     </div>
 
+    <!-- <div id="screen-end" class="screen">
+        <h1>Fim do Experimento</h1>
+        <p>Obrigado! Seus dados foram salvos automaticamente.</p>
+        <p>Downloads disponíveis:</p>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+            <button onclick="ExpManager.downloadTSV()" style="background-color: #28a745;">Dados do Teste (TSV)</button>
+            <button onclick="ExpManager.downloadJSON()" style="background-color: #17a2b8;">Dados Completos (JSON)</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+            <button onclick="ExpManager.downloadQuestTSV()" style="background-color: #ffc107; color: #333;">Questionário (TSV)</button>
+            <button onclick="ExpManager.downloadQuestJSON()" style="background-color: #fd7e14; color: white;">Questionário (JSON)</button>
+        </div>
+    </div> -->
+
     <div id="screen-end" class="screen">
         <h1>Fim do Experimento</h1>
-        <p>Obrigado! Seus dados foram salvos.</p>
-        <button onclick="alert('Download CSV simulado')">Baixar Dados</button>
+        <p>Obrigado! Seus dados brutos (JSON) foram salvos automaticamente.</p>
+        
+        <div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
+            
+            <div style="border:1px solid #ddd; padding:15px; border-radius:8px; width:100%; max-width:600px;">
+                <h3>1. Dados de Performance (TSV)</h3>
+                <p style="font-size:0.9rem; color:#666;">Para análise de Tempos e Erros no JASP</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="ExpManager.downloadTaskTSV('similarity')" style="background-color: #28a745;">Similaridade</button>
+                    <button onclick="ExpManager.downloadTaskTSV('memory')" style="background-color: #28a745;">Memória</button>
+                    <button onclick="ExpManager.downloadTaskTSV('loop')" style="background-color: #28a745;">Loop</button>
+                </div>
+            </div>
+
+            <div style="border:1px solid #ddd; padding:15px; border-radius:8px; width:100%; max-width:600px;">
+                <h3>2. Questionários Likert (TSV)</h3>
+                <p style="font-size:0.9rem; color:#666;">Para análise de percepção subjetiva</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('similarity')" style="background-color: #ffc107; color:#333;">Similaridade</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('memory')" style="background-color: #ffc107; color:#333;">Memória</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('loop')" style="background-color: #ffc107; color:#333;">Loop</button>
+                </div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <button onclick="ExpManager.downloadJSON()" style="background-color: #6c757d;">Baixar Backup Completo (.JSON)</button>
+            </div>
+        </div>
     </div>
+
+
+    <div id="timeout-pie" class="timer-pie"></div>
 
     <script>
         /* --- CONFIGURAÇÃO DO PROTOCOLO --- */
@@ -386,6 +509,8 @@
         contexts: ['target', 'candidates_grid', 'memory_target', 'carousel_page', 'loop_sequence']
     };
 
+    const RENDER_DELAY = 1000; // 500ms de espera para estabilizar
+
     const ExpManager = {
         state: {
             participantID: null,
@@ -398,6 +523,10 @@
             dataLog: [],
             timerInterval: null, // Para controlar o countdown
             // Cache de Iframes: iframeCache[visID][difficulty][context]
+
+            currentAnswerKey: null, // Guarda o objeto { correctIndex: X } ou { loopSize: Y }
+            trialStartTime: 0,
+
             iframeCache: {}, 
             activeFrames: [] // Lista de iframes visíveis no momento (para resize)
         },
@@ -495,13 +624,25 @@
 
                         progressBar.style.width = pct + "%";
                         progressText.innerText = `Treinando Modelos: ${readyCount}/${totalExpected}`;
-                    }
+                    }else 
 
                     // CASO B: Tudo Pronto
                     if (msg.act === "all_systems_go") {
                         console.log("[Controller] Todos os modelos treinados e sincronizados.");
                         resolve(); // Libera o experimento para começar
+                    }else
+                    // CASO C: RECEBIMENTO DO GABARITO
+                    if (msg.act === "answer_key") {
+                        console.log(`[GABARITO RECEBIDO]`, msg);
+                        self.state.currentAnswerKey = msg;
+                        self.state.trialStartTime = Date.now();
+                        
+                        // Se for loop, zera contadores visuais se necessário
+                        if(msg.task === 'loop') {
+                            console.log(`Loop de tamanho ${msg.loopSize}. Aguardando detecção...`);
+                        }
                     }
+
                 };
 
                 self.controlSocket.onerror = (err) => {
@@ -526,11 +667,14 @@
             const placeholder = document.getElementById(placeholderId);
 
             if (iframe && placeholder) {
+                //Começa invisível para não mostrar dados antigos
+                iframe.classList.add('invisible');
                 iframe.style.display = 'block';
+
+
                 
                 // Registra par para reposicionamento no resize
                 this.state.activeFrames.push({ iframe, placeholder });
-                
                 // Posiciona agora
                 this.layoutIframeOver(iframe, placeholder);
                 
@@ -568,13 +712,17 @@
             let details = "";
             
             if(taskKey === 'memory') {
-                details = `<li>1. Memorize a imagem (${PROTOCOL.timings.encoding/1000}s).</li>
-                           <li>2. Aguarde a tela branca (${PROTOCOL.timings.retention/1000}s).</li>
-                           <li>3. Encontre a imagem no grid.</li>`;
+                details = `<li>Memorize o elemento (${PROTOCOL.timings.encoding/1000}s).</li>
+                           <li>Aguarde a tela vazia (${PROTOCOL.timings.retention/1000}s).</li>
+                           <li>Encontre o elemento memorizado no grid e clique no botão de número correspondente.</li>
+                           <li>O elemento que você deve encontrar é exatamente igual à referência.</li>`;
             } else if (taskKey === 'loop') {
-                details = `<li>Identifique quando a sequência de imagens começar a repetir.</li>`;
+                details = `<li>Identifique quando a sequência de elementos começar a repetir.</li>
+                            <li>Assim que você perceber que a sequência está se repetindo clique no botão.</li>`;
             } else {
-                details = `<li>Encontre a imagem mais similar à referência.</li>`;
+                details = `<li>Encontre o elemento mais similar à referência.</li>
+                            <li>O elemento correto não é exatamente igual à referência.</li>
+                            <li>Escolha a mais semelhante.</li>`;
             }
 
             document.getElementById('instr-content').innerHTML = `
@@ -589,10 +737,22 @@
 
         // --- SEU START TRAINING CORRIGIDO ---
         startTraining: function() {
+            // this.state.isTraining = true;
+            // const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+            // // Gera 1 trial de treino qualquer, INCLUINDO A TASK
+            // this.state.trialList = [{ vis: PROTOCOL.visualizations[0], diff: 'low', task: taskKey}]; 
+            // this.state.currentTrialIdx = 0;
+            // this.runTrial();
             this.state.isTraining = true;
             const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
-            // Gera 1 trial de treino qualquer, INCLUINDO A TASK
-            this.state.trialList = [{ vis: PROTOCOL.visualizations[0], diff: 'low', task: taskKey}]; 
+            
+            // Cria um trial especial do tipo 'static'
+            this.state.trialList = [{ 
+                vis: { id: 'static', name: 'Treino Prático (Imagens)' }, 
+                diff: 'training', 
+                task: taskKey
+            }]; 
+            
             this.state.currentTrialIdx = 0;
             this.runTrial();
         },
@@ -628,41 +788,78 @@
         /* --- EXECUÇÃO DO TESTE (COM SEQUÊNCIA DE MEMÓRIA) --- */
         runTrial: function() {
             this.hideAllFrames(); // Limpa a tela anterior
-            const trial = this.state.trialList[this.state.currentTrialIdx];
-            const total = this.state.trialList.length;
 
-            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
-                this.controlSocket.send(JSON.stringify({
-                    act: "start_task",
-                    task: trial.task,       // ex: 'similarity', 'memory'
-                    diff: trial.diff,  // ex: 'low', 'dense'
-                    vis: trial.vis.id,
-                    context: trial.task==="similarity"?'candidates_grid':(trial.task==="loop"?'loop_sequence':'carousel_page')
-                }));
-                if(trial.task==="similarity" || trial.task==="memory"){
+            // LIMPEZA DO ESTADO ANTERIOR
+            this.state.currentAnswerKey = null; 
+            this.state.trialStartTime = Date.now(); // Define um tempo inicial provisório
+
+            if (this.state.staticLoopInterval) clearInterval(this.state.staticLoopInterval);
+
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            
+            // --- ENVIO AO SERVIDOR ---
+            if (trial.vis.id !== 'static') {
+                if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
                     this.controlSocket.send(JSON.stringify({
                         act: "start_task",
                         task: trial.task,       // ex: 'similarity', 'memory'
                         diff: trial.diff,  // ex: 'low', 'dense'
                         vis: trial.vis.id,
-                        context: "target"
+                        context: trial.task==="similarity"?'candidates_grid':(trial.task==="loop"?'loop_sequence':'carousel_page')
                     }));
+                    if(trial.task==="similarity" || trial.task==="memory"){
+                        this.controlSocket.send(JSON.stringify({
+                            act: "start_task",
+                            task: trial.task,       // ex: 'similarity', 'memory'
+                            diff: trial.diff,  // ex: 'low', 'dense'
+                            vis: trial.vis.id,
+                            context: "target"
+                        }));
+                    }
                 }
             }
 
 
             // Reset HUD
-            document.getElementById('hud-task').innerText = this.state.isTraining ? "TREINO" : PROTOCOL.tasks[trial.task].name;
-            document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${total}`;
-            document.getElementById('hud-timer').innerText = "Prep...";
+            document.getElementById('hud-task').innerText = this.state.isTraining ? "TREINO PRÁTICO" : PROTOCOL.tasks[trial.task].name;
+            document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${this.state.trialList.length}`;
+            document.getElementById('hud-timer').innerText = "Carregando..."; // Feedback visual
+
+            // --- LÓGICA DE DELAY ---
+            
+
+            // Função que roda após o layout ser montado
+            const onLayoutReady = () => {
+                setTimeout(() => {
+                    // 1. Mostra os iframes (Fade-in)
+                    this.revealActiveFrames();
+                    
+                    // 2. Atualiza o HUD
+                    document.getElementById('hud-timer').innerText = "VALENDO!";
+                    
+                    // 3. CRÍTICO: Reinicia o timer para ser justo com o usuário
+                    // O tempo de reação conta a partir de AGORA
+                    this.state.trialStartTime = Date.now();
+
+                    // --- INICIA TIMER AQUI ---
+                    const limit = PROTOCOL.tasks[trial.task].timeout; // 40 ou 90
+                    this.startTimeoutTimer(limit);
+
+                }, RENDER_DELAY);
+            };
 
             // Lógica de Ramificação por Tipo de Tarefa
             if (trial.task === 'memory') {
-                this.runMemorySequence(trial);
+                if (trial.vis.id === 'static') this.runStaticMemorySequence(); // <--- NOVA FUNÇÃO
+                else this.runMemorySequence(trial);
             } else {
                 // Similaridade e Loop carregam direto
-                this.renderLayout(trial);
-                this.showScreen('screen-test');
+                if (trial.vis.id === 'static') this.renderStaticLayout(trial); // <--- NOVA FUNÇÃO
+                else {
+                    this.renderLayout(trial);
+                    this.showScreen('screen-test');
+                    onLayoutReady(); // Dispara o delay e reveal
+                }
             }
         },
 
@@ -687,6 +884,11 @@
             // ENVIA DADOS PARA O IFRAME (AQUI OCORRE A TROCA DE DADOS)
             if(frame) frame.contentWindow.postMessage({ act: 'new_trial_data', data: { seed: Math.random() } }, '*');
 
+            // --- Revela o Target após um breve delay ---
+            setTimeout(() => {
+                if(frame) frame.classList.remove('invisible');
+            }, 200); // 200ms para garantir que posicionou
+
             // Timer para Retenção
             setTimeout(() => {
                 // 2. RETENÇÃO (Tela Vazia)
@@ -698,7 +900,18 @@
                 setTimeout(() => {
                     document.getElementById('hud-timer').innerText = "ENCONTRE!";
                     this.renderLayout(trial); // Grid de busca
-                    setTimeout(() => this.repositionActiveFrames(), 50);
+                    // --- CORREÇÃO 2: Revela o Grid de Busca ---
+                    setTimeout(() => {
+                        this.revealActiveFrames(); // Tira o .invisible
+                        this.repositionActiveFrames(); // Garante posição
+                        
+                        // Reinicia o timer de reação AGORA (para ser justo)
+                        this.state.trialStartTime = Date.now(); 
+
+                        // --- INICIA TIMER AQUI (FASE DE BUSCA) ---
+                        // Memória tem timeout de 60s
+                        this.startTimeoutTimer(PROTOCOL.tasks.memory.timeout);
+                    }, RENDER_DELAY); // delay para carregar visual
                 }, PROTOCOL.timings.retention);
 
             }, PROTOCOL.timings.encoding);
@@ -740,24 +953,48 @@
                 if(f2) f2.contentWindow.postMessage({ act: 'data', mode: 'grid', seed: Math.random() }, '*');
 
             } else if (trial.task === 'memory') {
-                this.state.carouselPage = 0;
+                // this.state.carouselPage = 0;
+                // area.innerHTML = visLabel + `
+                //     <div class="layout-center">
+                //         <h3>Encontre (Tela <span id="car-page">1</span>/4)</h3>
+                //         <div style="display:flex; align-items:center; gap:20px; width:90%; height:60%;">
+                //             <button id="btn-prev" onclick="ExpManager.navCarousel(-1)" style="height:60px;">&#8592;</button>
+                            
+                //             <div style="flex:1; display: flex; justify-content: center;">
+                //                 <div id="ph-mem-carousel" style="height:400px; width: 800px; max-width: 800px; border:1px solid #ccc;"></div>
+                //             </div>
+                //             <button id="btn-next" onclick="ExpManager.navCarousel(1)" style="height:60px;">&#8594;</button>
+                //         </div>
+                //         <div class="response-container" style="max-width:600px; margin-top:20px;">
+                //             ${Array(6).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                //         </div>
+                //     </div>`;
+                
+                // this.updateMemoryGrid(null); // Ativa o iframe do carrossel
+
+                // Removemos a lógica de paginação. Agora é tela única.
                 area.innerHTML = visLabel + `
                     <div class="layout-center">
-                        <h3>Encontre (Tela <span id="car-page">1</span>/4)</h3>
-                        <div style="display:flex; align-items:center; gap:20px; width:90%; height:60%;">
-                            <button id="btn-prev" onclick="ExpManager.navCarousel(-1)" style="height:60px;">&#8592;</button>
-                            
-                            <div style="flex:1; display: flex; justify-content: center;">
-                                <div id="ph-mem-carousel" style="height:400px; width: 800px; max-width: 800px; border:1px solid #ccc;"></div>
-                            </div>
-                            <button id="btn-next" onclick="ExpManager.navCarousel(1)" style="height:60px;">&#8594;</button>
+                        <h3>Encontre a imagem memorizada</h3>
+                        
+                        <div style="display:flex; justify-content: center; margin-bottom: 15px;">
+                            <div id="ph-mem-carousel" style="height:400px; width: 800px; border:1px solid #ccc; background: #fff;"></div>
                         </div>
-                        <div class="response-container" style="max-width:600px; margin-top:20px;">
-                            ${Array(6).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+
+                        <div class="response-container" style="max-width:800px;">
+                            <span class="response-label" style="width:250px; text-align:center;">Qual é a imagem correta?</span>
+                            <div class="response-buttons-row">
+                                ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                            </div>
                         </div>
                     </div>`;
                 
-                this.updateMemoryGrid(null); // Ativa o iframe do carrossel
+                // Ativa o iframe. O contexto continua sendo 'carousel_page' para aproveitar o cache,
+                // mas agora ele receberá 9 itens de uma vez só do servidor.
+                const frame = this.activateFrame(trial.vis.id, trial.diff, 'carousel_page', 'ph-mem-carousel');
+                
+                // Se precisar forçar um resize ou algo específico da visualização, pode fazer aqui
+                // mas geralmente o activateFrame já lida com o tamanho do placeholder.
 
             } else if (trial.task === 'loop') {
                 area.innerHTML = visLabel + `
@@ -771,14 +1008,305 @@
             }
         },
 
+
+        // --- MEMÓRIA ESTÁTICA ---
+        runStaticMemorySequence: function() {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // 1. CODIFICAÇÃO
+            document.getElementById('hud-timer').innerText = "MEMORIZE!";
+            
+            // Mostra o Target
+            area.innerHTML = `
+                <div class="layout-center">
+                    <h2 style="color:var(--accent-color)">MEMORIZE</h2>
+                    <img src="imgTrain/memory/memory-target.jpg" style="width:auto; height:400px; border: 4px solid var(--accent-color); object-fit: contain;">
+                </div>`;
+            
+            // Timer para Retenção
+            setTimeout(() => {
+                // 2. RETENÇÃO
+                area.innerHTML = `<div class="layout-center"><h3 style="color:#999">...</h3></div>`;
+                document.getElementById('hud-timer').innerText = "AGUARDE...";
+
+                // Timer para Busca
+                setTimeout(() => {
+                    document.getElementById('hud-timer').innerText = "ENCONTRE!";
+                    
+                    // Prepara o Gabarito Local
+                    // Temos 1 target + 8 options = 9 imagens.
+                    let options = [];
+                    // Adiciona as opções erradas
+                    for(let i=1; i<=8; i++) options.push({src: `imgTrain/memory/memory-option${i}.jpg`, isTarget: false});
+                    // Adiciona o target correto
+                    options.push({src: `imgTrain/memory/memory-target.jpg`, isTarget: true});
+                    
+                    // Embaralha
+                    options = this.shuffle(options);
+                    
+                    // Encontra onde o target caiu (índice 1-based para bater com os botões)
+                    const correctIndex = options.findIndex(o => o.isTarget) + 1;
+                    
+                    // Salva o gabarito manualmente no estado
+                    this.state.currentAnswerKey = { correctIndex: correctIndex };
+                    this.state.trialStartTime = Date.now();
+
+                    // Renderiza Grid 3x3 com imagens
+                    // Usamos Flexbox com wrap para simular o grid, ou CSS grid inline
+                    const gridHtml = options.map((opt, i) => `
+                        <div style="width:120px; height:120px; display:flex; align-items:center; justify-content:center; border:1px solid #ccc; margin:5px;">
+                            <img src="${opt.src}" style="max-width:100%; max-height:100%;">
+                            <div style="position:absolute; font-weight:bold; color:red; background:white;">${i+1}</div> </div>
+                    `).join('');
+
+                    area.innerHTML = `
+                        <div class="layout-center">
+                            <h3>Encontre a imagem memorizada</h3>
+                            <div style="display:flex; flex-wrap:wrap; width:420px; justify-content:center; align-items:center;">
+                                ${gridHtml}
+                            </div>
+                            <div class="response-container" style="max-width:420px; margin-top:10px;">
+                                <div class="response-buttons-row">
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>`;
+
+                }, PROTOCOL.timings.retention);
+
+            }, PROTOCOL.timings.encoding);
+        },
+
+
+        renderStaticLayout: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            area.innerHTML = ''; controls.innerHTML = '';
+            
+            this.showScreen('screen-test');
+
+            // --- CASO 1: SIMILARIDADE ---
+            if (trial.task === 'similarity') {
+                // Prepara dados
+                let options = [];
+                // 1 Correta, 8 Opções erradas
+                for(let i=1; i<=8; i++) options.push({src: `imgTrain/similarity/similarity-option${i}.jpg`, isTarget: false});
+                options.push({src: `imgTrain/similarity/similarity-correct.jpg`, isTarget: true});
+                
+                options = this.shuffle(options);
+                const correctIndex = options.findIndex(o => o.isTarget) + 1;
+                
+                // Salva gabarito
+                this.state.currentAnswerKey = { correctIndex: correctIndex };
+                this.state.trialStartTime = Date.now();
+
+                // Renderiza HTML (Flex Layout)
+                const gridHtml = options.map((opt, i) => `
+                    <div style="width:30%; height:100px; margin:1%; border:1px solid #ddd; display:flex; justify-content:center; align-items:center;">
+                        <img src="${opt.src}" style="max-width:95%; max-height:95%;">
+                        <div style="position:relative; background:rgba(255,255,255,0.9); border:1px solid #999; padding:2px 6px; font-weight:bold; color:#333; border-radius:4px; font-size: 12px;">
+                            ${i+1}
+                        </div>
+                    </div>
+                `).join('');
+
+                area.innerHTML = `
+                    <div class="layout-similarity">
+                        <div class="sim-left">
+                            <h3>Referência</h3>
+                            <img src="imgTrain/similarity/similarity-target.jpg" style="max-width:80%; max-height:300px;">
+                        </div>
+                        <div class="sim-right" style="flex-direction:column;">
+                            <div style="display:flex; flex-wrap:wrap; width:100%; justify-content:center;">
+                                ${gridHtml}
+                            </div>
+                            <div class="response-container">
+                                <span class="response-label">Qual é a correta?</span>
+                                <div class="response-buttons-row">
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            // --- CASO 2: LOOP ---
+            else if (trial.task === 'loop') {
+                // Configuração Local
+                const loopSize = 10; // Temos 10 imagens na pasta
+                // Vamos simular que o loop é o tamanho total (10). 
+                // Sequência: 1..10, 1..10.
+                
+                this.state.currentAnswerKey = { loopSize: loopSize };
+                this.state.trialStartTime = Date.now();
+
+                area.innerHTML = `
+                    <div class="layout-center">
+                        <img id="static-loop-img" src="imgTrain/loop/loop-option1.jpg" style="max-width:500px; max-height:500px; border:1px solid #ccc;">
+                    </div>`;
+                controls.innerHTML = `<button style="background:#d9534f; padding:15px;" onclick="ExpManager.registerAnswer('LOOP')">DETECTEI O LOOP</button>`;
+
+                // Lógica de Intervalo Local
+                let frameIndex = 0;
+                this.state.staticLoopInterval = setInterval(() => {
+                    frameIndex++;
+                    // Aritmética modular para voltar ao 1 quando passar de 10
+                    // frameIndex 0 -> img 1
+                    // frameIndex 9 -> img 10
+                    // frameIndex 10 -> img 1 (Loop começou!)
+                    
+                    const imgNum = (frameIndex % loopSize) + 1; 
+                    const img = document.getElementById('static-loop-img');
+                    if(img) img.src = `imgTrain/loop/loop-option${imgNum}.jpg`;
+
+                }, 800); // 800ms conforme protocolo
+            }
+        },
+
+
+
         // Função chamada pelos botões numéricos
         registerAnswer: function(answerValue) {
-            // Aqui você pode salvar o valor escolhido no log
-            // Ex: this.state.currentResponse = answerValue;
+
+            //PARA O TIMER IMEDIATAMENTE
+            this.stopTimeoutTimer();
+
+
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            const key = this.state.currentAnswerKey;
+            // const reactionTime = Date.now() - this.state.trialStartTime;
+            const reactionTime = (answerValue === "TIMEOUT") 
+                ? PROTOCOL.tasks[trial.task].timeout * 1000 
+                : Date.now() - this.state.trialStartTime;
+
+            let isCorrect = false;
+            let logDetails = {};
+
+            // --- TRATAMENTO ESPECIAL PARA TIMEOUT ---
+            if (answerValue === "TIMEOUT") {
+                isCorrect = false;
+                logDetails = { outcome: "TIMEOUT", choice: "NONE" };
+                
+                // Se for Loop, precisa limpar intervalos extras
+                if (trial.task === 'loop') {
+                     if (this.state.staticLoopInterval) clearInterval(this.state.staticLoopInterval);
+                     else if (this.controlSocket) {
+                         this.controlSocket.send(JSON.stringify({ act: "stop_loop", vis: trial.vis.id, diff: trial.diff, context: 'loop_sequence' }));
+                     }
+                     logDetails.lagTime = null; 
+                }
+            } 
+            else {
+
+                // --- LÓGICA 1: SIMILARIDADE ---
+                if (trial.task === 'similarity') {
+                    // answerValue é o número do botão (1 a 9)
+                    // key.correctIndex vem do servidor (1 a 9)
+                    if (answerValue == key.correctIndex) {
+                        isCorrect = true;
+                    }
+                    logDetails = { type: 'selection', choice: answerValue, correctTarget: key.correctIndex };
+                } 
+
+                // --- LÓGICA 2: MEMÓRIA (CARROSSEL) ---
+                else if (trial.task === 'memory') {
+                    // Como agora é tela única com 9 itens, o botão clicado (1-9)
+                    // corresponde diretamente ao índice enviado pelo servidor.
+                    
+                    if (answerValue == key.correctIndex) {
+                        isCorrect = true;
+                    }
+                    
+                    logDetails = { 
+                        type: 'memory_selection', 
+                        choice: answerValue, 
+                        correctTarget: key.correctIndex 
+                    };
+                }
+
+                // --- LÓGICA 3: LOOP ---
+                else if (trial.task === 'loop') {
+                    // O usuário clicou "DETECTEI O LOOP". 
+                    // Precisamos calcular quantos frames passaram.
+                    // Protocolo: Intervalo de 800ms por frame.
+                    const frameDuration = 800;
+                    const framesPassed = Math.floor(reactionTime / frameDuration);
+                    const loopSize = key.loopSize; // Ex: 15
+
+                    // 1. SE FOR TREINO ESTÁTICO: Para o intervalo local
+                    if (this.state.staticLoopInterval) {
+                        clearInterval(this.state.staticLoopInterval);
+                        this.state.staticLoopInterval = null;
+                    }else
+
+                    // Envia comando para PARAR o envio do servidor
+                    if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                        this.controlSocket.send(JSON.stringify({
+                            act: "stop_loop",
+                            vis: trial.vis.id,
+                            diff: trial.diff,
+                            context: 'loop_sequence'
+                        }));
+                    }
+
+                    // Verificação: O usuário só acerta se clicar DEPOIS que o loop começou
+                    // O loop começa após 'loopSize' frames.
+                    // Ex: Tamanho 15. Frames 0 a 14 são novos. Frame 15 é repetido.
+                    // Acerto: framesPassed >= loopSize
+                    // Erro (Antecipação): framesPassed < loopSize
+                    let outcome = "";
+                    let lagTime = null;
+                    let detectedCycle = null;
+                    
+                    if (framesPassed < loopSize) {
+                        // ERRO: ANTECIPAÇÃO
+                        isCorrect = false;
+                        outcome = "ANTICIPATION";
+                    } else {
+                        // SUCESSO (ou Timeout se o server mandar stop depois, mas aqui tratamos o clique)
+                        isCorrect = true;
+                        outcome = "HIT";
+                        
+                        // Em qual volta ele estava?
+                        // Volta 1: framesPassed >= loopSize E framesPassed < 2*loopSize
+                        detectedCycle = Math.floor((framesPassed - loopSize) / loopSize) + 1;
+                    }
+                    // Calcula o tempo exato que passou DESDE que o loop reiniciou
+                    // Ex: Se o loop é 15 (12000ms) e clicou em 13000ms. O Lag é 1000ms.
+                    lagTime = reactionTime - (loopSize * frameDuration);
+
+                    logDetails = {
+                        type: 'loop_detection',
+                        loopSize: loopSize,
+                        framesSeen: framesPassed,
+                        outcome: outcome,       // "ANTICIPATION", "HIT", "TIMEOUT"
+                        lagTime: lagTime,    // Tempo ms após o início do loop
+                        cycle: detectedCycle    // 1, 2, 3...
+                    };
+                }
+            }
+            // --- LOG E FEEDBACK ---
+            console.log(`Resposta: ${isCorrect ? "CORRETO" : "ERRO"} | RT: ${reactionTime}ms`, logDetails);
             
-            console.log(`Resposta registrada: ${answerValue}`);
-            
-            // Avança para o próximo
+            // Salva no histórico de dados
+            this.state.dataLog.push({
+                participantID: this.state.participantID,
+                trialIdx: this.state.currentTrialIdx,
+                task: trial.task,
+                vis: trial.vis.id,
+                diff: trial.diff,
+                correct: isCorrect,
+                rt: reactionTime,
+                details: logDetails
+            });
+
+            // Feedback Visual (Opcional - Bordas verdes/vermelhas rapidas)
+            // alert(isCorrect ? "Acertou!" : "Errou!"); 
+
+            // Avança
             this.endTrial();
         },
 
@@ -813,7 +1341,9 @@
                 const row = document.createElement('div');
                 row.className = 'likert-row';
                 row.innerHTML = `
-                    <div class="likert-thumb">[Img ${vis.id}]</div>
+                    <div class="likert-thumb">
+                        <img src="imgQuest/${vis.id}.jpg" alt="${vis.name}">
+                    </div>
                     <div class="likert-info">
                         <h4>${vis.name}</h4>
                         <div class="likert-scale">
@@ -853,11 +1383,17 @@
             }
 
             // 4. Se passou na validação, salva e prossegue
-            console.log("Questionário Salvo:", ratings); // Aqui você salvaria no log real
-            
+            console.log("Questionário Salvo:", ratings);
+            this.state.dataLog.push({
+                type: 'questionnaire',
+                task: PROTOCOL.tasks[this.state.taskOrder[this.state.currentTaskIdx]].name,
+                ratings: ratings // ratings vem do seu código anterior
+            });
+
+
             this.state.currentTaskIdx++;
             if (this.state.currentTaskIdx >= this.state.taskOrder.length) {
-                this.showScreen('screen-end');
+                this.finalizeExperiment(); // Chama a função que salva e mostra a tela final
             } else {
                 this.loadTaskInstruction();
             }
@@ -925,7 +1461,292 @@
             document.getElementById('loading-overlay').style.display = 'none';
             // Opcional: Se quiser matar o socket para parar os logs no console:
             // if(this.controlSocket) this.controlSocket.close(); 
+        },
+
+        /* --- FUNÇÕES DE EXPORTAÇÃO E DOWNLOAD --- */
+
+        finalizeExperiment: function() {
+            this.showScreen('screen-end');
+            // Backup automático apenas do JSON
+            setTimeout(() => { this.downloadJSON(); }, 500);
+        },
+
+        // Gera e baixa o arquivo JSON bruto
+        downloadJSON: function() {
+            const fileName = `EXP_${this.state.participantID}_FULL_BACKUP.json`;
+            this.triggerDownload(JSON.stringify(this.state, null, 2), fileName, 'application/json');
+        },
+
+        // --- EXPORTAÇÃO DE MÉTRICAS (PERFORMANCE) ---
+        downloadTaskTSV: function(taskName) {
+            // Filtra logs apenas dessa tarefa (exclui questionários e outras tasks)
+            const logs = this.state.dataLog.filter(e => e.task === taskName && e.type !== 'questionnaire');
+            
+            if (logs.length === 0) {
+                alert(`Nenhum dado encontrado para a tarefa: ${taskName}`);
+                return;
+            }
+
+            let headers = [];
+            let rows = [];
+
+            // CONFIGURAÇÃO DAS COLUNAS POR TAREFA
+            if (taskName === 'loop') {
+                // Colunas Específicas para Loop
+                headers = [
+                    "ParticipantID", "Visualization", "Difficulty", "Trial_Index", 
+                    "Loop_Size_N", "Frames_Seen", "Outcome_Class", "Lag_Time_ms", "Detection_Cycle"
+                ];
+
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.diff,
+                    e.trialIdx,
+                    e.details.loopSize,
+                    e.details.framesSeen,
+                    e.details.outcome,  // HIT, ANTICIPATION
+                    e.details.lagTime,  // Métrica principal
+                    e.details.cycle || "NA" // Ciclo (se houve acerto)
+                ].join('\t'));
+
+            } else {
+                // Colunas Padrão para Similarity e Memory
+                headers = [
+                    "ParticipantID", "Visualization", "Difficulty", "Trial_Index", 
+                    "User_Choice", "Correct_Target", "Is_Correct", "Reaction_Time_ms"
+                ];
+
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.diff,
+                    e.trialIdx,
+                    e.details.choice,        // Botão clicado
+                    e.details.correctTarget, // Gabarito
+                    e.correct ? 1 : 0,       // 1 ou 0 para média fácil
+                    e.rt
+                ].join('\t'));
+            }
+
+            // Gera Arquivo
+            const content = headers.join('\t') + '\n' + rows.join('\n');
+            const fileName = `DATA_${taskName.toUpperCase()}_${this.state.participantID}.tsv`;
+            this.triggerDownload(content, fileName, 'text/tab-separated-values');
+        },
+
+        // --- EXPORTAÇÃO DE QUESTIONÁRIOS (SUBJETIVO) ---
+        downloadSpecificQuestTSV: function(taskFilter) {
+            // Filtra logs do tipo questionário E que pertencem à tarefa pedida
+            // Nota: No seu protocolo, os nomes das tasks são: "Similaridade Visual", "Memória Visual", "Detecção de Loop"
+            // Mas o ID interno é 'similarity', 'memory', 'loop'.
+            // Vamos filtrar pelo nome interno que salvamos no log anteriormente.
+            
+            // Precisamos garantir que no submitQuestionnaire a gente salve o ID da task ('similarity') e não o nome extenso.
+            // Vou assumir que você ajustou o submitQuestionnaire ou vamos filtrar pelo ID mapeado.
+            
+            const taskMapName = PROTOCOL.tasks[taskFilter].name; // Pega o nome extenso "Detecção de Loop"
+            
+            const logs = this.state.dataLog.filter(e => e.type === 'questionnaire' && e.task === taskMapName);
+
+            if (logs.length === 0) {
+                alert(`Nenhum questionário encontrado para: ${taskFilter}`);
+                return;
+            }
+
+            const headers = ["ParticipantID", "Task_Type", "Visualization", "Likert_Rating"];
+            let rows = [];
+
+            logs.forEach(entry => {
+                Object.entries(entry.ratings).forEach(([visId, ratingValue]) => {
+                    rows.push([
+                        this.state.participantID,
+                        taskFilter, // Nome curto para facilitar JASP (loop, memory...)
+                        visId,
+                        ratingValue
+                    ].join('\t'));
+                });
+            });
+
+            const content = headers.join('\t') + '\n' + rows.join('\n');
+            const fileName = `QUEST_${taskFilter.toUpperCase()}_${this.state.participantID}.tsv`;
+            this.triggerDownload(content, fileName, 'text/tab-separated-values');
+        },
+
+        triggerDownload: function(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+
+        // Gera e baixa o arquivo TSV (Tab-Separated Values) otimizado para Excel/R/Python
+        // downloadTSV: function() {
+        //     const fileName = `EXP_${this.state.participantID}_DATA.tsv`;
+        //     const log = this.state.dataLog;
+
+        //     if (!log || log.length === 0) {
+        //         alert("Nenhum dado registrado para baixar.");
+        //         return;
+        //     }
+
+        //     // 1. Definir Cabeçalhos
+        //     // Incluímos ID e Timestamp para facilitar a análise posterior
+        //     const headers = [
+        //         "ParticipantID", 
+        //         "Task", 
+        //         "Visualization", 
+        //         "Difficulty", 
+        //         "Trial_Index", 
+        //         "Correct", 
+        //         "ReactionTime_ms", 
+        //         "Details_JSON" // Detalhes específicos da tarefa vão aqui
+        //     ];
+
+        //     // 2. Construir Linhas
+        //     const rows = log.filter(entry => entry.trialIdx !== undefined).map(entry => {
+        //         return [
+        //             this.state.participantID,
+        //             entry.task,
+        //             entry.vis,
+        //             entry.diff,
+        //             entry.trialIdx,
+        //             entry.correct ? 1 : 0, // Converte booleano para 1/0
+        //             entry.rt,
+        //             JSON.stringify(entry.details) // Serializa o objeto de detalhes
+        //         ].join('\t');
+        //     });
+
+        //     // 3. Juntar tudo
+        //     const tsvContent = headers.join('\t') + '\n' + rows.join('\n');
+            
+        //     this.triggerDownload(tsvContent, fileName, 'text/tab-separated-values');
+        // },
+
+        // // Baixa apenas os dados do questionário em JSON
+        // downloadQuestJSON: function() {
+        //     const fileName = `EXP_${this.state.participantID}_QUEST.json`;
+        //     // Filtra apenas os logs do tipo 'questionnaire'
+        //     const questLogs = this.state.dataLog.filter(entry => entry.type === 'questionnaire');
+            
+        //     if (questLogs.length === 0) {
+        //         alert("Nenhum dado de questionário encontrado.");
+        //         return;
+        //     }
+
+        //     this.triggerDownload(JSON.stringify(questLogs, null, 2), fileName, 'application/json');
+        // },
+
+        // // Baixa os dados do questionário em TSV (Formato Tidy/Long para análise)
+        // downloadQuestTSV: function() {
+        //     const fileName = `EXP_${this.state.participantID}_QUEST.tsv`;
+        //     const questLogs = this.state.dataLog.filter(entry => entry.type === 'questionnaire');
+
+        //     if (questLogs.length === 0) {
+        //         alert("Nenhum dado de questionário encontrado.");
+        //         return;
+        //     }
+
+        //     // 1. Cabeçalhos
+        //     const headers = ["ParticipantID", "Task", "Visualization", "Rating"];
+        //     let rows = [];
+
+        //     // 2. Processa os dados
+        //     questLogs.forEach(entry => {
+        //         // entry.ratings é algo como { heatmap: "5", scatter: "2" ... }
+        //         // Vamos transformar cada chave em uma linha
+        //         Object.entries(entry.ratings).forEach(([visId, ratingValue]) => {
+        //             rows.push([
+        //                 this.state.participantID,
+        //                 entry.task,
+        //                 visId,
+        //                 ratingValue
+        //             ].join('\t'));
+        //         });
+        //     });
+
+        //     // 3. Monta o arquivo
+        //     const tsvContent = headers.join('\t') + '\n' + rows.join('\n');
+        //     this.triggerDownload(tsvContent, fileName, 'text/tab-separated-values');
+        // },
+
+        // // Função auxiliar genérica para criar o blob e clicar no link
+        // triggerDownload: function(content, fileName, mimeType) {
+        //     try {
+        //         const blob = new Blob([content], { type: mimeType });
+        //         const url = URL.createObjectURL(blob);
+                
+        //         const link = document.createElement('a');
+        //         link.href = url;
+        //         link.download = fileName;
+                
+        //         document.body.appendChild(link);
+        //         link.click();
+                
+        //         document.body.removeChild(link);
+        //         URL.revokeObjectURL(url);
+        //         console.log(`Download iniciado: ${fileName}`);
+        //     } catch (e) {
+        //         console.error("Erro ao tentar baixar arquivo:", e);
+        //         alert("Erro ao baixar dados automaticamente. Tente os botões manuais ou copie os dados do console.");
+        //     }
+        // },
+
+        // Remove a invisibilidade de todos os frames ativos
+        revealActiveFrames: function() {
+            this.state.activeFrames.forEach(pair => {
+                pair.iframe.classList.remove('invisible');
+            });
+        },
+
+        /* --- CONTROLE DO TIMER VISUAL --- */
+        
+        startTimeoutTimer: function(durationSeconds) {
+            // 1. Limpa anterior se existir
+            this.stopTimeoutTimer();
+            
+            const pie = document.getElementById('timeout-pie');
+            pie.style.display = 'block';
+            pie.className = 'timer-pie safe'; // Começa verde
+            
+            let timeLeft = durationSeconds;
+            const totalTime = durationSeconds;
+            
+            // Atualiza a cada 100ms para suavidade
+            this.state.timeoutInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                
+                // Cálculo da porcentagem para o gradiente
+                const pct = (timeLeft / totalTime) * 360;
+                pie.style.background = `conic-gradient(var(--accent-color) ${pct}deg, #e0e0e0 0deg)`;
+                
+                // Muda a cor baseado no tempo restante
+                const ratio = timeLeft / totalTime;
+                if (ratio < 0.2) pie.className = 'timer-pie danger'; // < 20%
+                else if (ratio < 0.5) pie.className = 'timer-pie warn'; // < 50%
+                
+                // ACABOU O TEMPO
+                if (timeLeft <= 0) {
+                    this.stopTimeoutTimer();
+                    console.warn("TIMEOUT ALCANÇADO!");
+                    this.registerAnswer("TIMEOUT"); // Dispara resposta automática
+                }
+            }, 100);
+        },
+
+        stopTimeoutTimer: function() {
+            if (this.state.timeoutInterval) {
+                clearInterval(this.state.timeoutInterval);
+                this.state.timeoutInterval = null;
+            }
+            document.getElementById('timeout-pie').style.display = 'none';
         }
+
+
     };
 
     window.onload = () => ExpManager.init();

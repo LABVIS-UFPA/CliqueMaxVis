@@ -467,22 +467,22 @@ async function runTaskUpdate(task, diffKey, context, vis) {
                 payloadData = [targetInd];
             } 
             else if (context === 'carousel_page') {
-                // Precisamos de 29 Distratores (Jaccard baixo para não confundir memória)
-                // Usamos range 0.2 - 0.6 para ser "distinto" mas não óbvio demais
+                // Fase de busca: Gera 8 distratores
                 const memoryDistractors = [];
-                for(let i=0; i<29; i++) {
-                    memoryDistractors.push(generateVariant(targetInd, 0.2, 0.6));
+                for(let i=0; i<8; i++) {
+                    memoryDistractors.push(generateVariant(targetInd, 0.25, 0.75));
                 }
                 
-                // 1. Embaralha somente os distratores
+                // 1. Embaralha os distratores
                 shuffleArray(memoryDistractors);
                 
-                // 2. Define posição aleatória (0 a 29)
-                targetPos = Math.floor(Math.random() * (memoryDistractors.length + 1));
+                // 2. Define posição do alvo (0 a 8)
+                targetPos = Math.floor(Math.random() * 9); 
                 
-                // 3. Insere o alvo na posição sorteada
+                // 3. Insere o alvo
                 memoryDistractors.splice(targetPos, 0, targetInd);
 
+                // Payload final: array de 9 itens
                 payloadData = memoryDistractors;
             }
         }
@@ -493,8 +493,8 @@ async function runTaskUpdate(task, diffKey, context, vis) {
             if (context === 'loop_sequence') {
                 
                 // 1. Define tamanho aleatório N entre 15 e 20 [cite: 180]
-                const minSize = 15;
-                const maxSize = 20;
+                const minSize = 5;
+                const maxSize = 15;
                 const loopSize = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
 
                 // 2. Gera a sequência de N imagens ÚNICAS (Novidade) [cite: 183]
