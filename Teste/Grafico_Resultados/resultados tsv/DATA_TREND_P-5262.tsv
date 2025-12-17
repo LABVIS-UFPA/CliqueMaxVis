@@ -1,0 +1,17 @@
+ParticipantID	Visualization	Trial_Index	Scenario_Correct	User_Choice	Is_Correct	Reaction_Time_ms
+P-5262	static	0		convergence	0	3927
+P-5262	particles	0	divergence	divergence	1	11995
+P-5262	cnn	1	convergence	convergence	1	12049
+P-5262	scatter	2	convergence	random	0	11564
+P-5262	cnn	3	random	random	1	12401
+P-5262	heatmap	4	convergence	convergence	1	11797
+P-5262	particles	5	random	random	1	12170
+P-5262	particles	6	convergence	convergence	1	11733
+P-5262	heatmap	7	random	random	1	11636
+P-5262	sketch	8	random	random	1	12005
+P-5262	sketch	9	divergence	divergence	1	14708
+P-5262	heatmap	10	divergence	divergence	1	10763
+P-5262	scatter	11	divergence	random	0	12730
+P-5262	scatter	12	random	convergence	0	10588
+P-5262	cnn	13	divergence	divergence	1	11886
+P-5262	sketch	14	convergence	convergence	1	12497

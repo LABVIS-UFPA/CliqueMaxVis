@@ -1,0 +1,953 @@
+{
+  "participantID": "P-7662",
+  "taskOrder": [
+    "similarity",
+    "trend",
+    "memory",
+    "loop"
+  ],
+  "currentTaskIdx": 4,
+  "trialList": [
+    {
+      "vis": {
+        "id": "sketch",
+        "name": "Rabisco/Sketch",
+        "file": "vis/sketch.html"
+      },
+      "diff": "high",
+      "task": "loop"
+    },
+    {
+      "vis": {
+        "id": "cnn",
+        "name": "Imagem (CNN)",
+        "file": "vis/cnn.html"
+      },
+      "diff": "high",
+      "task": "loop"
+    },
+    {
+      "vis": {
+        "id": "particles",
+        "name": "Partículas Aleatórias",
+        "file": "vis/particles.html"
+      },
+      "diff": "high",
+      "task": "loop"
+    },
+    {
+      "vis": {
+        "id": "heatmap",
+        "name": "Heatmap Binário",
+        "file": "vis/heatmap.html"
+      },
+      "diff": "high",
+      "task": "loop"
+    },
+    {
+      "vis": {
+        "id": "scatter",
+        "name": "Scatterplot (MDS)",
+        "file": "vis/scatter.html"
+      },
+      "diff": "high",
+      "task": "loop"
+    }
+  ],
+  "currentTrialIdx": 5,
+  "carouselPage": 0,
+  "isTraining": false,
+  "dataLog": [
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 4363,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "high",
+      "correct": true,
+      "rt": 6884,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 1,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": true,
+      "rt": 14202,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 2,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 16445,
+      "details": {
+        "type": "selection",
+        "choice": 1,
+        "correctTarget": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 3,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 16919,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 4,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 10780,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 5,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 4925,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 6,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 3959,
+      "details": {
+        "type": "selection",
+        "choice": 2,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 7,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 7032,
+      "details": {
+        "type": "selection",
+        "choice": 2,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 8,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": false,
+      "rt": 23941,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 9,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": false,
+      "rt": 22507,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correctTarget": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 10,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": false,
+      "rt": 11021,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 11,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 4142,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 12,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11231,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 13,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 29030,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 14,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": false,
+      "rt": 8731,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 2
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Similaridade Visual",
+      "ratings": {
+        "heatmap": "3",
+        "scatter": "3",
+        "cnn": "5",
+        "sketch": "4",
+        "particles": "4"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "trend",
+      "vis": "static",
+      "diff": "training",
+      "correct": false,
+      "rt": 10585,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11252,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 1,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 12155,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 2,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 10666,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 3,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 12588,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 4,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11481,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 5,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 13147,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 6,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11587,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 7,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11773,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 8,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11089,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 9,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 10610,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 10,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 14142,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 11,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11267,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 12,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11834,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 13,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11244,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 14,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 12689,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "random"
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Análise de Tendência",
+      "ratings": {
+        "heatmap": "5",
+        "scatter": "4",
+        "cnn": "4",
+        "sketch": "3",
+        "particles": "3"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 2111,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 3223,
+      "details": {
+        "type": "memory_selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 1,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": true,
+      "rt": 3686,
+      "details": {
+        "type": "memory_selection",
+        "choice": 2,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 2,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 3885,
+      "details": {
+        "type": "memory_selection",
+        "choice": 8,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 3,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 5419,
+      "details": {
+        "type": "memory_selection",
+        "choice": 1,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 4,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 5247,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 5,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": true,
+      "rt": 2848,
+      "details": {
+        "type": "memory_selection",
+        "choice": 1,
+        "correctTarget": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 6,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 14808,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 7,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 2940,
+      "details": {
+        "type": "memory_selection",
+        "choice": 2,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 8,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 8200,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 9,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 7788,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 4
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Memória Visual",
+      "ratings": {
+        "heatmap": "2",
+        "scatter": "5",
+        "cnn": "4",
+        "sketch": "5",
+        "particles": "3"
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 10494,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 10,
+        "framesSeen": 13,
+        "outcome": "HIT",
+        "lagTime": 2494,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": true,
+      "rt": 11388,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 5,
+        "framesSeen": 14,
+        "outcome": "HIT",
+        "lagTime": 7388,
+        "cycle": 2
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 1,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": true,
+      "rt": 11327,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 5,
+        "framesSeen": 14,
+        "outcome": "HIT",
+        "lagTime": 7327,
+        "cycle": 2
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 2,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "high",
+      "correct": true,
+      "rt": 14296,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 9,
+        "framesSeen": 17,
+        "outcome": "HIT",
+        "lagTime": 7096,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 3,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": true,
+      "rt": 23406,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 6,
+        "framesSeen": 29,
+        "outcome": "HIT",
+        "lagTime": 18606,
+        "cycle": 4
+      }
+    },
+    {
+      "participantID": "P-7662",
+      "trialIdx": 4,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": true,
+      "rt": 9733,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 9,
+        "framesSeen": 12,
+        "outcome": "HIT",
+        "lagTime": 2533,
+        "cycle": 1
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Detecção de Loop",
+      "ratings": {
+        "heatmap": "1",
+        "scatter": "3",
+        "cnn": "4",
+        "sketch": "4",
+        "particles": "3"
+      }
+    }
+  ],
+  "timerInterval": null,
+  "currentAnswerKey": {
+    "act": "answer_key",
+    "task": "loop",
+    "loopSize": 9
+  },
+  "trialStartTime": 1765981300269,
+  "iframeCache": {
+    "heatmap": {
+      "low": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "medium": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "high": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "dense": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      }
+    },
+    "scatter": {
+      "low": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "medium": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "high": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "dense": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      }
+    },
+    "cnn": {
+      "low": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "medium": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "high": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "dense": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      }
+    },
+    "sketch": {
+      "low": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "medium": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "high": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "dense": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      }
+    },
+    "particles": {
+      "low": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "medium": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "high": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      },
+      "dense": {
+        "target": {},
+        "candidates_grid": {},
+        "carousel_page": {},
+        "loop_sequence": {}
+      }
+    }
+  },
+  "activeFrames": [],
+  "timeoutInterval": null,
+  "staticTrendInterval": null,
+  "trendTimeout": null,
+  "staticLoopInterval": null
+}

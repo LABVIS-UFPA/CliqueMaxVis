@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Análise de Tarefas - Memória e Similaridade</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    .label {
+      font-size: 16px;
+      alignment-baseline: middle;
+    }
+
+    .dot {
+      stroke: black;
+      stroke-width: 1px;
+    }
+
+    .line {
+      stroke: gray;
+      stroke-width: 2px;
+    }
+
+    .question-label {
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    h2 {
+      margin-top: 40px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Tarefa: DATA_MEMORY</h2>
+  <svg id="chart-memory"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-memory')">Download Memory SVG</button>
+
+  <h2>Tarefa: DATA_SIMILARITY</h2>
+  <svg id="chart-similarity"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-similarity')">Download Similarity SVG</button>
+
+  <h2>Tarefa: DATA_TREND</h2>
+  <svg id="chart-trend"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-trend')">Download Trend SVG</button>
+
+  <h2>Tarefa: DATA_LOOP</h2>
+  <svg id="chart-loop"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-loop')">Download Loop SVG</button>
+
+  <script>
+    // Mapeamento de cores para as visualizações
+    const visualizationColors = {
+      "static": "#7f7f7f",
+      "particles": "#1f77b4",
+      "cnn": "#ff7f0e",
+      "scatter": "#2ca02c",
+      "sketch": "#d62728",
+      "heatmap": "#9467bd"
+    };
+
+    // Ordem desejada para a dificuldade
+    const difficultyOrder = ["training", "medium", "dense", "high", "convergence", "divergence", "random"];
+
+    // Função de Bootstrap para IC de 95%
+    function calculateBootstrapStats(values, iterations = 2000) {
+      const n = values.length;
+      const mean = d3.mean(values);
+
+      if (n < 2) {
+        return { mean: mean, lower: mean, upper: mean };
+      }
+
+      const means = [];
+      for (let i = 0; i < iterations; i++) {
+        let sum = 0;
+        for (let j = 0; j < n; j++) {
+          const idx = Math.floor(Math.random() * n);
+          sum += values[idx];
+        }
+        means.push(sum / n);
+      }
+      means.sort((a, b) => a - b);
+      const lower = means[Math.floor(0.025 * iterations)];
+      const upper = means[Math.floor(0.975 * iterations)];
+
+      return { mean, lower, upper };
+    }
+
+    function processData(data, columnName) {
+      // Agrupar por Difficulty e depois Visualization
+      const grouped = d3.group(data, d => d.Difficulty, d => d.Visualization);
+      
+      const processed = [];
+
+      // Iterar na ordem definida de dificuldade
+      difficultyOrder.forEach(diff => {
+        if (grouped.has(diff)) {
+          const visGroup = grouped.get(diff);
+          // Ordenar visualizações alfabeticamente ou manter ordem de aparição
+          const visualizations = Array.from(visGroup.keys()).sort();
+          
+          visualizations.forEach(vis => {
+            const records = visGroup.get(vis);
+            let values = records.map(d => d[columnName]);
+
+            if (columnName === 'Reaction_Time_ms' || columnName === 'Lag_Time_ms') {
+              values = values.map(v => v / 1000); // Converter para segundos
+            }
+
+            const stats = calculateBootstrapStats(values);
+            
+            processed.push({
+              Pergunta: diff, // Usando 'Pergunta' para manter compatibilidade com a lógica de renderização
+              estrategia: vis,
+              media: stats.mean,
+              IC95_inferior: stats.lower,
+              IC95_superior: stats.upper
+            });
+          });
+        }
+      });
+
+      return processed;
+    }
+
+    function renderAccuracyChart(svg, rawData, offsetX, bgWidth, options) {
+      const {
+        controlewidth = 340,
+        col1Header = "Difficulty",
+        posStrategyFactor = 0.75,
+        posEstimateFactor = 0.43
+      } = options || {};
+
+      const margin = { top: 30, right: 40, bottom: 40, left: controlewidth };
+      const width = 350;
+      const rowHeight = 30;
+
+      const posstrategy = -controlewidth * posStrategyFactor;
+      const posestimate = -controlewidth * posEstimateFactor;
+
+      const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+      // Cabeçalhos
+      g.append("line")
+        .attr("x1", -controlewidth)
+        .attr("x2", 0)
+        .attr("y1", -5)
+        .attr("y2", -5)
+        .attr("stroke", "black")
+        .attr("stroke-width", 2);
+
+      g.append("text").attr("x", -controlewidth).attr("y", -15).text(col1Header).attr("font-weight", "bold");
+      g.append("text").attr("x", posstrategy).attr("y", -15).text("Visualization").attr("font-weight", "bold");
+      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold");
+
+      // Escala X (Acurácia de 0 a 1)
+      const x = d3.scaleLinear()
+        .domain([0, 1])
+        .range([0, width]);
+
+      g.append("text")
+        .attr("x", width / 2)
+        .attr("y", rowHeight * rawData.length + 45)
+        .text("Accuracy")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "middle");
+
+      const y = d3.scaleBand()
+        .domain(rawData.map((_, i) => i))
+        .range([0, rowHeight * rawData.length])
+        .padding(0.2);
+
+      // Eixo X
+      g.append("g")
+        .attr("transform", `translate(0,${rowHeight * rawData.length})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")))
+        .selectAll("text").style("font-size", "11pt");
+
+      // Linhas de IC
+      g.selectAll(".line")
+        .data(rawData)
+        .enter()
+        .append("line")
+        .attr("class", "line")
+        .attr("x1", d => x(d.IC95_inferior))
+        .attr("x2", d => x(d.IC95_superior))
+        .attr("y1", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("y2", (d, i) => y(i) + y.bandwidth() / 2)
+        .style("stroke", d => visualizationColors[d.estrategia] || "black");
+
+      // Pontos médios
+      g.selectAll(".dot")
+        .data(rawData)
+        .enter()
+        .append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => x(d.media))
+        .attr("cy", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("r", 5)
+        .style("fill", d => visualizationColors[d.estrategia] || "black");
+
+      // Labels de texto
+      g.selectAll(".estrategia-label")
+        .data(rawData)
+        .enter()
+        .append("text")
+        .attr("x", posstrategy)
+        .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
+        .style("fill", d => visualizationColors[d.estrategia] || "black")
+        .style("font-size", "16px")
+        .text(d => d.estrategia);
+
+      g.selectAll(".valor-label")
+        .data(rawData)
+        .enter()
+        .append("text")
+        .attr("x", posestimate)
+        .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
+        .style("fill", d => visualizationColors[d.estrategia] || "black")
+        .style("font-size", "16px")
+        .text(d => `${d.media.toFixed(2)} (${d.IC95_inferior.toFixed(2)} - ${d.IC95_superior.toFixed(2)})`);
+
+      // Agrupamento visual por Dificuldade (Retângulos de fundo e Labels)
+      const perguntasUnicas = [...new Set(rawData.map(d => d.Pergunta))];
+      perguntasUnicas.forEach((pergunta, idx) => {
+        const indices = rawData.map((d, i) => ({ i, pergunta: d.Pergunta }))
+          .filter(d => d.pergunta === pergunta)
+          .map(d => d.i);
+
+        const perguntaData = rawData.filter(d => d.Pergunta === pergunta);
+        const firstIndex = indices[0];
+        const lastIndex = indices[indices.length - 1];
+        
+        // Retângulo de fundo alternado
+        g.insert("rect", ":first-child")
+          .attr("x", -controlewidth)
+          .attr("y", y(firstIndex) - 5)
+          .attr("width", bgWidth)
+          .attr("height", (y(lastIndex) + y.bandwidth()) - y(firstIndex) + 10)
+          .attr("fill", idx % 2 === 0 ? "#f0f0f0" : "white")
+          .attr("opacity", 0.5);
+
+        const yMean = d3.mean(indices, i => y(i) + y.bandwidth() / 2);
+
+        g.append("text")
+          .attr("x", -controlewidth + 5)
+          .attr("y", yMean + 4)
+          .attr("text-anchor", "start")
+          .style("font-weight", "bold")
+          .text(pergunta);
+      });
+    }
+
+    function renderTimeChart(svg, rawData, offsetX) {
+      const controlewidth = 170;
+      const margin = { top: 30, right: 40, bottom: 40, left: controlewidth };
+      const width = 350;
+      const rowHeight = 30;
+
+      const posestimate = -controlewidth * 0.90;
+
+      const g = svg.append("g").attr("transform", `translate(${offsetX + margin.left},${margin.top})`);
+
+      // Cabeçalhos
+      g.append("line")
+        .attr("x1", posestimate)
+        .attr("x2", 1)
+        .attr("y1", -5)
+        .attr("y2", -5)
+        .attr("stroke", "black")
+        .attr("stroke-width", 2);
+
+      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold");
+
+      const maxValue = d3.max(rawData, d => d.IC95_superior);
+
+      // Escala X
+      const x = d3.scaleLinear()
+        .domain([0, maxValue]) // Domain termina exatamente no valor máximo
+        .range([0, width]);
+
+      // Gera os valores dos ticks para garantir que o último seja o valor máximo
+      // .ticks(5) sugere 6 ticks (incluindo 0)
+      const tickValues = x.ticks(5); 
+      tickValues[tickValues.length - 1] = maxValue; // Garante que o último tick é o valor máximo exato
+
+      g.append("text")
+        .attr("x", width / 2)
+        .attr("y", rowHeight * rawData.length + 45)
+        .text("Time (s)")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "middle");
+
+      const y = d3.scaleBand()
+        .domain(rawData.map((_, i) => i))
+        .range([0, rowHeight * rawData.length])
+        .padding(0.2);
+
+      // Eixo X
+      g.append("g")
+        .attr("transform", `translate(0,${rowHeight * rawData.length})`)
+        .call(d3.axisBottom(x).tickValues(tickValues).tickFormat(d => d.toFixed(1)))
+        .selectAll("text").style("font-size", "11pt");
+
+      // Linhas de IC
+      g.selectAll(".line")
+        .data(rawData)
+        .enter()
+        .append("line")
+        .attr("class", "line")
+        .attr("x1", d => x(d.IC95_inferior))
+        .attr("x2", d => x(d.IC95_superior))
+        .attr("y1", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("y2", (d, i) => y(i) + y.bandwidth() / 2)
+        .style("stroke", d => visualizationColors[d.estrategia] || "black");
+
+      // Pontos médios
+      g.selectAll(".dot")
+        .data(rawData)
+        .enter()
+        .append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => x(d.media))
+        .attr("cy", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("r", 5)
+        .style("fill", d => visualizationColors[d.estrategia] || "black");
+
+      // Labels de texto
+      g.selectAll(".valor-label")
+        .data(rawData)
+        .enter()
+        .append("text")
+        .attr("x", posestimate)
+        .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
+        .style("fill", d => visualizationColors[d.estrategia] || "black")
+        .style("font-size", "16px")
+        .text(d => `${d.media.toFixed(1)} (${d.IC95_inferior.toFixed(1)} - ${d.IC95_superior.toFixed(1)})`);
+    }
+
+
+    function downloadSVG(svgId) {
+      const svgElement = document.getElementById(svgId);
+      if (!svgElement) {
+        console.error("SVG não encontrado");
+        return;
+      }
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgElement);
+      const blob = new Blob([svgString], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = svgId + ".svg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Main logic
+    const memoryFile = "resultados tsv/DATA_MEMORY_P-9391.tsv";
+    const similarityFile = "resultados tsv/DATA_SIMILARITY_P-5262.tsv";
+    const trendFile = "resultados tsv/DATA_TREND_P-5262.tsv";
+    const loopFile = "resultados tsv/DATA_LOOP_P-5262.tsv";
+
+    const rowParser = d => {
+      return {
+        ...d,
+        Is_Correct: +d.Is_Correct,
+        Reaction_Time_ms: +d.Reaction_Time_ms
+      };
+    };
+
+    const trendRowParser = d => {
+      return {
+        ...d,
+        Is_Correct: +d.Is_Correct,
+        Reaction_Time_ms: +d.Reaction_Time_ms,
+        Difficulty: d.Scenario_Correct ? d.Scenario_Correct : "training"
+      };
+    };
+
+    const loopRowParser = d => {
+      return {
+        ...d,
+        Is_Correct: d.Outcome_Class === 'HIT' ? 1 : 0,
+        Lag_Time_ms: +d.Lag_Time_ms
+      };
+    };
+
+    Promise.all([
+      d3.tsv(memoryFile, rowParser),
+      d3.tsv(similarityFile, rowParser),
+      d3.tsv(trendFile, trendRowParser),
+      d3.tsv(loopFile, loopRowParser)
+    ]).then(([memoryData, similarityData, trendData, loopData]) => {
+
+      // Configs for Memory and Similarity charts
+      const plotWidth = 350;
+      const timeControleWidth = 190;
+
+      const accControleWidthDefault = 340;
+      const accWidthDefault = accControleWidthDefault + plotWidth + 40;
+      const totalWidthDefault = accWidthDefault + timeControleWidth + plotWidth;
+
+      // --- MEMORY CHART ---
+      const svgMem = d3.select("#chart-memory");
+      const accMemData = processData(memoryData, 'Is_Correct');
+      const timeMemData = processData(memoryData, 'Reaction_Time_ms');
+      const rowHeightMem = 30;
+      const heightMem = rowHeightMem * accMemData.length + 80;
+      svgMem.attr("width", totalWidthDefault).attr("height", heightMem);
+      renderAccuracyChart(svgMem, accMemData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+      renderTimeChart(svgMem, timeMemData, accWidthDefault);
+
+      // --- SIMILARITY CHART ---
+      const svgSim = d3.select("#chart-similarity");
+      const accSimData = processData(similarityData, 'Is_Correct');
+      const timeSimData = processData(similarityData, 'Reaction_Time_ms');
+      const rowHeightSim = 30;
+      const heightSim = rowHeightSim * accSimData.length + 80;
+      svgSim.attr("width", totalWidthDefault).attr("height", heightSim);
+      renderAccuracyChart(svgSim, accSimData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+      renderTimeChart(svgSim, timeSimData, accWidthDefault);
+
+      // Configs for Trend chart (with more space)
+      const accControleWidthTrend = 380;
+      const accWidthTrend = accControleWidthTrend + plotWidth + 40;
+      const totalWidthTrend = accWidthTrend + timeControleWidth + plotWidth;
+      const trendOptions = {
+        controlewidth: accControleWidthTrend,
+        col1Header: "Scenario",
+        posStrategyFactor: 0.70,
+        posEstimateFactor: 0.39
+      };
+
+      // --- TREND CHART ---
+      const svgTrend = d3.select("#chart-trend");
+      const accTrendData = processData(trendData, 'Is_Correct');
+      const timeTrendData = processData(trendData, 'Reaction_Time_ms');
+      const rowHeightTrend = 30;
+      const heightTrend = rowHeightTrend * accTrendData.length + 80;
+      svgTrend.attr("width", totalWidthTrend).attr("height", heightTrend);
+      renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, trendOptions);
+      renderTimeChart(svgTrend, timeTrendData, accWidthTrend);
+
+      // --- LOOP CHART ---
+      const svgLoop = d3.select("#chart-loop");
+      const accLoopData = processData(loopData, 'Is_Correct');
+      const timeLoopData = processData(loopData, 'Lag_Time_ms');
+      const rowHeightLoop = 30;
+      const heightLoop = rowHeightLoop * accLoopData.length + 80;
+      svgLoop.attr("width", totalWidthDefault).attr("height", heightLoop);
+      renderAccuracyChart(svgLoop, accLoopData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+      renderTimeChart(svgLoop, timeLoopData, accWidthDefault);
+
+    }).catch(error => {
+      console.error("Erro ao carregar os arquivos TSV:", error);
+      d3.select("body").append("p").text("Erro ao carregar dados. Verifique o console.");
+    });
+  </script>
+</body>
+
+</html>

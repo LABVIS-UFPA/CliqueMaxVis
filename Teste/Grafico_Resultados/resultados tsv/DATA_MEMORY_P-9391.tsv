@@ -1,0 +1,12 @@
+ParticipantID	Visualization	Difficulty	Trial_Index	User_Choice	Correct_Target	Is_Correct	Reaction_Time_ms
+P-9391	static	training	0	9	9	1	2852
+P-9391	particles	medium	0	3	3	1	5432
+P-9391	cnn	dense	1	7	7	1	11382
+P-9391	cnn	medium	2	6	6	1	6574
+P-9391	heatmap	medium	3	1	8	0	9285
+P-9391	sketch	dense	4	5	5	1	4056
+P-9391	scatter	medium	5	5	5	1	8077
+P-9391	sketch	medium	6	8	2	0	17317
+P-9391	heatmap	dense	7	2	2	1	9486
+P-9391	scatter	dense	8	8	7	0	7719
+P-9391	particles	dense	9	4	3	0	21921
