@@ -10,11 +10,14 @@ let controllerSocket = null; // Socket da página pai
 let expectedClients = 0;     // Quantos iframes a página pai disse que virão
 let connectedCount = 0;      // Quantos iframes já se conectaram e deram "obs"
 const readyClients = new Set();
-const progressReport = { low: 0, medium: 0, high: 0, dense: 0 };
+let progressReport = { low: 0, medium: 0, high: 0, dense: 0 };
 
 let activeGAs = {}; // Armazena as instâncias dos GAs: { "nome_do_dataset": instanciaGA }
 let activeModels = {}; // Armazena os pesos da CNN: { "nome_dataset": { topology, weightsBase64, specs } }
 let activeLoops = {}; // Armazena os IDs dos intervalos: { "vis-diff-context": intervalID }
+
+
+const TREND_POP_SIZE = 15;
 
 // --- MAPEAMENTO DO PROTOCOLO ---
 const DIFFICULTY_MAP = {
@@ -134,7 +137,8 @@ server.on('connection', ws => {
                 // Reseta estados para novo teste
                 connectedCount = 0;
                 readyClients.clear();
-                Object.keys(subscribers).forEach(k => subscribers[k] = []);
+                Object.keys(subscribers).forEach(k => subscribers[k] = {});
+                progressReport = { low: 0, medium: 0, high: 0, dense: 0 };
                 
                 console.log(`[CTRL] Controlador registrado. Aguardando ${expectedClients} visualizações.`);
                 break;
@@ -215,11 +219,11 @@ server.on('connection', ws => {
 
             // NOVO CASE: O HTML avisa que uma tarefa começou
             case "start_task":
-                const { task, diff, context, vis } = obj; 
-                console.log(`[CTRL] Iniciando Tarefa: ${task} | Dificuldade: ${diff} | Visualização: ${vis} | Contexto: ${context}`);
+                const { task, diff, context, vis, trendType } = obj; 
+                console.log(`[CTRL] Iniciando Tarefa: ${task} | Dificuldade: ${diff} | Visualização: ${vis} | Contexto: ${context} | Cenario: ${trendType || 'N/A'}`);
                 
                 // Dispara o envio de dados específicos para essa dificuldade
-                runTaskUpdate(task, diff, context, vis);
+                runTaskUpdate(task, diff, context, vis, trendType);
                 break;
 
 
@@ -324,6 +328,7 @@ server.on('connection', ws => {
      ws.on('close', () => {
         const idx = clients.indexOf(ws);
         if (idx > -1) clients.splice(idx, 1);
+        if (connectedCount > 0) connectedCount--;
         console.log("Client disconnected");
     });
 });
@@ -397,7 +402,7 @@ async function startDistributingData() {
 let lastTask = null;
 let lastTargetInd = null;
 // Função para enviar dados durante a execução da tarefa
-async function runTaskUpdate(task, diffKey, context, vis) {
+async function runTaskUpdate(task, diffKey, context, vis, trendType = null) {
 
     const datasetKey = DIFFICULTY_MAP[diffKey];
     const socketArray = subscribers[diffKey];
@@ -408,7 +413,13 @@ async function runTaskUpdate(task, diffKey, context, vis) {
 
     // Identifica o cliente específico que pediu a tarefa
     const clientKey = `${vis}-${diffKey}-${context}`;
-    const client = socketArray[clientKey]; // Nota: Certifique-se que o 'obs' salvou com essa chave no server.js anterior
+    const client = socketArray[clientKey];
+
+    if (!client) {
+        console.warn(`[WARN] Cliente não encontrado: ${clientKey}`);
+        console.warn(`       Clientes disponíveis em '${diffKey}':`, Object.keys(socketArray));
+        return;
+    }
 
     if(lastTask!==task){
         lastTask = task;
@@ -522,7 +533,7 @@ async function runTaskUpdate(task, diffKey, context, vis) {
                 let frameIndex = 0;
 
                 // Configura o intervalo de 800ms 
-                activeLoops[clientKey] = setInterval(() => {
+                const sendLoopFrame = () => {
                     // Segurança: Se o cliente desconectou, para o loop
                     if (client.readyState !== WebSocket.OPEN) {
                         clearInterval(activeLoops[clientKey]);
@@ -549,11 +560,109 @@ async function runTaskUpdate(task, diffKey, context, vis) {
                     client.send(payload);
                     frameIndex++;
 
-                }, 800); // 0.8 segundos conforme protocolo
+                };
+
+                // 3. EXECUTA IMEDIATAMENTE
+                sendLoopFrame(); 
+
+                // 4. Agenda os próximos para rodar a cada 800ms
+                activeLoops[clientKey] = setInterval(sendLoopFrame, 800);
 
                 // RETORNA AGORA para não executar o envio padrão no final da função
                 return; 
             }
+        }
+        else if (task === 'trend') {
+            
+            // Limpa intervalos anteriores para não encavalar
+            if (activeLoops[clientKey]) clearInterval(activeLoops[clientKey]);
+
+            let step = 0; // Contador de gerações enviadas
+            
+            // Inicia o Intervalo de 1 segundo (1000ms)
+            const sendTrendData = () => {
+                
+                // Segurança: Cliente desconectou?
+                if (client.readyState !== WebSocket.OPEN) {
+                    clearInterval(activeLoops[clientKey]);
+                    delete activeLoops[clientKey];
+                    return;
+                }
+
+                // 1. Calcula Intervalos Jaccard baseados no Cenário e no Passo
+                let minJ, maxJ;
+
+                if (trendType === 'convergence') {
+                    // Começa: 0.3 - 0.4
+                    // Desliza: +0.05 a cada passo
+                    const slide = step * 0.05;
+                    minJ = Math.min(0.95, 0.3 + slide); // Trava em 0.95 max
+                    maxJ = Math.min(1.0,  0.4 + slide); // Trava em 1.0 max
+                } 
+                else if (trendType === 'divergence') {
+                    // Começa: 0.8 - 0.9
+                    // Desliza: -0.05 a cada passo
+                    const slide = step * 0.05;
+                    minJ = Math.max(0.0, 0.8 - slide); // Trava em 0.0 min
+                    maxJ = Math.max(0.1, 0.9 - slide); // Trava em 0.1 min
+                } 
+                else {
+                    // Aleatório (fallback ou 'random')
+                    // Não define intervalo fixo aqui, faremos individualmente abaixo
+                    minJ = 0; maxJ = 1;
+                }
+
+                // 2. Gera a População do Frame
+                // O primeiro indivíduo pode ser o alvo para manter referência visual (opcional), 
+                // ou geramos todos variantes. Vamos gerar todos variantes do alvo base.
+                const trendPop = [];
+
+                for(let i=0; i < TREND_POP_SIZE; i++) {
+                    if (trendType === 'random') {
+                        // Aleatório: Cada indivíduo tem um range Jaccard totalmente aleatório
+                        // Isso cria o efeito de "ruído" total
+                        const r1 = Math.random();
+                        const r2 = Math.random();
+                        const rndMin = Math.min(r1, r2);
+                        const rndMax = Math.max(r1, r2);
+                        trendPop.push(generateVariant(targetInd, rndMin, rndMax));
+                    } else {
+                        // Convergência/Divergência: Respeitam a janela deslizante calculada
+                        trendPop.push(generateVariant(targetInd, minJ, maxJ));
+                    }
+                }
+
+                // 3. Envia o Pacote
+                const payload = JSON.stringify({
+                    act: "data",
+                    context: context,
+                    data: {
+                        population: trendPop, // Array de 15 indivíduos
+                        generation: step,     // Para o front saber o progresso
+                        datasetName: datasetKey,
+                        trendInfo: { type: trendType, step: step, range: [minJ, maxJ] } // Meta-dados úteis
+                    }
+                });
+
+                client.send(payload);
+                step++;
+
+                // Opcional: Parar automaticamente após X segundos para economizar server?
+                // O front já mata o iframe em 10s. Vamos colocar 15s de segurança.
+                if (step > 15) {
+                    clearInterval(activeLoops[clientKey]);
+                }
+
+            };
+        
+            // 2. EXECUTA IMEDIATAMENTE (T=0)
+            // Isso garante que o iframe tenha dados novos ANTES de ficar visível (no delay de 1s do front)
+            sendTrendData();
+
+            // 3. Agenda os próximos (T=1s, T=2s...)
+            activeLoops[clientKey] = setInterval(sendTrendData, 1000);
+
+            return; // Retorna para não executar o envio padrão abaixo
         }
         else {
             // Fallback para debug

@@ -205,7 +205,7 @@
         
         .scale-option input { margin-bottom: 5px; cursor: pointer; }
         .scale-label { font-size: 0.8rem; }
-        .scale-header { margin-left: 142px; justify-content: flex-start; display: flex; font-size: 0.8rem; margin-bottom: 5px; width: 200px;}
+        .scale-header { margin-left: 181px; justify-content: flex-start; display: flex; font-size: 0.8rem; width: 200px;}
 
 
         /* --- Botões de Resposta Numéricos --- */
@@ -383,7 +383,7 @@
         <h1>Experimento de Visualização</h1>
         <p>Clique no ID para copiar:</p>
         <div id="participant-id" class="id-box" title="Clique para copiar">Gerando...</div>
-        <p>O teste consiste em 3 tarefas com diferentes visualizações.</p>
+        <p>O teste consiste em 4 tarefas com diferentes visualizações.</p>
         <button onclick="ExpManager.startExperiment()">INICIAR</button>
     </div>
 
@@ -419,25 +419,10 @@
         <button onclick="ExpManager.submitQuestionnaire()">Enviar e Continuar</button>
     </div>
 
-    <!-- <div id="screen-end" class="screen">
-        <h1>Fim do Experimento</h1>
-        <p>Obrigado! Seus dados foram salvos automaticamente.</p>
-        <p>Downloads disponíveis:</p>
-        
-        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-            <button onclick="ExpManager.downloadTSV()" style="background-color: #28a745;">Dados do Teste (TSV)</button>
-            <button onclick="ExpManager.downloadJSON()" style="background-color: #17a2b8;">Dados Completos (JSON)</button>
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-            <button onclick="ExpManager.downloadQuestTSV()" style="background-color: #ffc107; color: #333;">Questionário (TSV)</button>
-            <button onclick="ExpManager.downloadQuestJSON()" style="background-color: #fd7e14; color: white;">Questionário (JSON)</button>
-        </div>
-    </div> -->
 
     <div id="screen-end" class="screen">
         <h1>Fim do Experimento</h1>
-        <p>Obrigado! Seus dados brutos (JSON) foram salvos automaticamente.</p>
+        <p>Obrigado!</p>
         
         <div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
             
@@ -448,6 +433,7 @@
                     <button onclick="ExpManager.downloadTaskTSV('similarity')" style="background-color: #28a745;">Similaridade</button>
                     <button onclick="ExpManager.downloadTaskTSV('memory')" style="background-color: #28a745;">Memória</button>
                     <button onclick="ExpManager.downloadTaskTSV('loop')" style="background-color: #28a745;">Loop</button>
+                    <button onclick="ExpManager.downloadTaskTSV('trend')" style="background-color: #28a745;">Tendência</button>
                 </div>
             </div>
 
@@ -458,6 +444,7 @@
                     <button onclick="ExpManager.downloadSpecificQuestTSV('similarity')" style="background-color: #ffc107; color:#333;">Similaridade</button>
                     <button onclick="ExpManager.downloadSpecificQuestTSV('memory')" style="background-color: #ffc107; color:#333;">Memória</button>
                     <button onclick="ExpManager.downloadSpecificQuestTSV('loop')" style="background-color: #ffc107; color:#333;">Loop</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('trend')" style="background-color: #ffc107; color:#333;">Tendência</button>
                 </div>
             </div>
 
@@ -500,9 +487,17 @@
             },
             loop: {
                 name: "Detecção de Loop",
-                difficulties: ['medium', 'dense'], 
-                baseCount: 2, 
-                timeout: 90 
+                difficulties: ['high'], 
+                baseCount: 1, 
+                timeout: 60 
+            },
+            trend: {
+                name: "Análise de Tendência",
+                difficulties: ['medium'], // Reusa o iframe 'medium'
+                scenarios: ['divergence', 'convergence', 'random'], 
+                sequenceDuration: 10, // Tempo vendo a animação
+                responseWindow: 5,    // Tempo após sumir
+                get timeout() { return this.sequenceDuration + this.responseWindow; }
             }
         },
         // Mapeamento de contextos necessários para criar os iframes
@@ -540,7 +535,7 @@
             };
             
             // Sorteia ordem das tarefas
-            this.state.taskOrder = this.shuffle(['similarity', 'memory', 'loop']);
+            this.state.taskOrder = this.shuffle(['trend','similarity', 'memory', 'loop']);
             console.log("Ordem das Tarefas:", this.state.taskOrder);
 
             // Inicia o pré-carregamento
@@ -719,6 +714,16 @@
             } else if (taskKey === 'loop') {
                 details = `<li>Identifique quando a sequência de elementos começar a repetir.</li>
                             <li>Assim que você perceber que a sequência está se repetindo clique no botão.</li>`;
+            } else if (taskKey === 'trend') {
+                details = `<li>Observe a evolução da população durante <strong>${taskConfig.sequenceDuration}s</strong>.</li>
+                           <li>Identifique o comportamento global:
+                                <ul>
+                                   <li><strong>Convergência:</strong> Os elementos vão ficando todos iguais.</li>
+                                   <li><strong>Divergência:</strong> Os elementos se separam em grupos distintos.</li>
+                                   <li><strong>Aleatório:</strong> Não há padrão.</li>
+                                </ul>
+                           </li>
+                           <li>Após a animação, o gráfico sumirá e você terá <strong>${taskConfig.responseWindow} segundos</strong> para clicar na resposta.</li>`;
             } else {
                 details = `<li>Encontre o elemento mais similar à referência.</li>
                             <li>O elemento correto não é exatamente igual à referência.</li>
@@ -775,13 +780,27 @@
         generateBlockTrials: function(taskKey) {
             const config = PROTOCOL.tasks[taskKey];
             let trials = [];
-            PROTOCOL.visualizations.forEach(vis => {
-                config.difficulties.forEach(diff => {
-                    trials.push({
-                        vis: vis, diff: diff, task: taskKey
+            if (config.scenarios) {
+                PROTOCOL.visualizations.forEach(vis => {
+                    config.scenarios.forEach(scenario => {
+                        // Nota: Usamos a dificuldade [0] ('medium') fixa para o visual
+                        trials.push({
+                            vis: vis, 
+                            diff: config.difficulties[0], 
+                            task: taskKey,
+                            scenario: scenario // <--- Guarda 'convergence', 'random', etc.
+                        });
                     });
                 });
-            });
+            }else{
+                PROTOCOL.visualizations.forEach(vis => {
+                    config.difficulties.forEach(diff => {
+                        trials.push({
+                            vis: vis, diff: diff, task: taskKey
+                        });
+                    });
+                });
+            }
             return this.shuffle(trials);
         },
 
@@ -798,14 +817,21 @@
             const trial = this.state.trialList[this.state.currentTrialIdx];
             
             // --- ENVIO AO SERVIDOR ---
-            if (trial.vis.id !== 'static') {
+            if (trial.vis.id !== 'static' && trial.task !== 'trend') {
                 if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+
+                    // Lógica de Contexto Atualizada para incluir 'trend'
+                    let contextToSend;
+                    if (trial.task === 'similarity') contextToSend = 'candidates_grid';
+                    else if (trial.task === 'loop') contextToSend = 'loop_sequence';
+                    else contextToSend = 'carousel_page'; // memory
+
                     this.controlSocket.send(JSON.stringify({
                         act: "start_task",
                         task: trial.task,       // ex: 'similarity', 'memory'
                         diff: trial.diff,  // ex: 'low', 'dense'
                         vis: trial.vis.id,
-                        context: trial.task==="similarity"?'candidates_grid':(trial.task==="loop"?'loop_sequence':'carousel_page')
+                        context: contextToSend
                     }));
                     if(trial.task==="similarity" || trial.task==="memory"){
                         this.controlSocket.send(JSON.stringify({
@@ -843,7 +869,9 @@
 
                     // --- INICIA TIMER AQUI ---
                     const limit = PROTOCOL.tasks[trial.task].timeout; // 40 ou 90
-                    this.startTimeoutTimer(limit);
+                    // Passa 'false' se for loop, 'true' para os outros
+                    const showVisual = (trial.task !== 'loop');
+                    this.startTimeoutTimer(limit, showVisual);
 
                 }, RENDER_DELAY);
             };
@@ -852,6 +880,15 @@
             if (trial.task === 'memory') {
                 if (trial.vis.id === 'static') this.runStaticMemorySequence(); // <--- NOVA FUNÇÃO
                 else this.runMemorySequence(trial);
+            } else if (trial.task === 'trend') {
+                // --- NOVA RAMIFICAÇÃO PARA TENDÊNCIA ---
+                // Não usa onLayoutReady, pois tem temporização própria (10s + 5s)
+                // Verifica se é treino estático ou teste real
+                if (trial.vis.id === 'static') {
+                    this.runStaticTrendSequence(trial);
+                } else {
+                    this.runTrendSequence(trial);
+                }
             } else {
                 // Similaridade e Loop carregam direto
                 if (trial.vis.id === 'static') this.renderStaticLayout(trial); // <--- NOVA FUNÇÃO
@@ -910,7 +947,7 @@
 
                         // --- INICIA TIMER AQUI (FASE DE BUSCA) ---
                         // Memória tem timeout de 60s
-                        this.startTimeoutTimer(PROTOCOL.tasks.memory.timeout);
+                        this.startTimeoutTimer(PROTOCOL.tasks.memory.timeout, true);
                     }, RENDER_DELAY); // delay para carregar visual
                 }, PROTOCOL.timings.retention);
 
@@ -1080,6 +1117,160 @@
             }, PROTOCOL.timings.encoding);
         },
 
+        // --- SEQUÊNCIA DE TENDÊNCIA (EXTRA) ---
+        runTrendSequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // Configurações de Tempo
+            const taskConfig = PROTOCOL.tasks.trend;
+            const seqTime = taskConfig.sequenceDuration * 1000;
+            
+            // 1. Renderiza Layout (Iframe + Botões)
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
+            
+            area.innerHTML = visLabel + `
+                <div class="layout-center">
+                    <h3>Analise a Evolução</h3>
+                    
+                    <div id="ph-trend" class="vis-placeholder vis-target" style="width:600px; height:400px; transition: opacity 0.3s;"></div>
+                    
+                    <div style="margin-top:20px; display:flex; gap:20px;">
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('convergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            CONVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Unificando)</small>
+                        </button>
+                        
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('divergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            DIVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Separando)</small>
+                        </button>
+                        
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('random')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            ALEATÓRIO<br><small style="font-weight:normal; font-size:0.7rem">(Ruído)</small>
+                        </button>
+                    </div>
+                </div>`;
+
+            // 2. Ativa o Iframe (Reutilizando 'target' pois é um iframe único simples)
+            // Usamos 'target' pois ele já está no cache com diff 'medium'
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-trend');
+            
+            // 3. Envia sinal ao servidor (mesmo sem dados ainda, mantemos o protocolo)
+            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                this.controlSocket.send(JSON.stringify({
+                    act: "start_task",
+                    task: "trend",
+                    diff: trial.diff,
+                    vis: trial.vis.id,
+                    context: "target",
+                    trendType: trial.scenario
+                }));
+            }
+
+            // 4. Inicia Feedback Visual
+            document.getElementById('hud-task').innerText = taskConfig.name;
+            document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${this.state.trialList.length}`;
+            document.getElementById('hud-timer').innerText = "OBSERVE...";
+
+            setTimeout(() => {
+                // Revela iframe
+                this.revealActiveFrames();
+                this.state.trialStartTime = Date.now();
+                
+                // Inicia Timer Principal (Pizza)
+                this.startTimeoutTimer(taskConfig.timeout, true);
+
+                // --- ALTERAÇÃO AQUI: Salva o timeout no estado ---
+                if (this.state.trendTimeout) clearTimeout(this.state.trendTimeout);
+
+                // 4. Agenda o Desaparecimento do Iframe
+                this.state.trendTimeout = setTimeout(() => {
+                    // Esconde o iframe (apenas visualmente, botões continuam)
+                    if(frame) frame.classList.add('invisible');
+                    const ph = document.getElementById('ph-trend');
+                    if(ph) ph.innerHTML = '<h2 style="color:#666">RESPONDA AGORA!</h2>'; // Feedback no buraco
+                    
+                    document.getElementById('hud-timer').innerText = "RESPONDA!";
+                    
+                    // O Timer principal continua rodando os 5s restantes até o timeout total
+                }, seqTime);
+
+            }, 500); // Pequeno delay inicial padrão
+        },
+
+        // --- TENDÊNCIA ESTÁTICA (TREINO COM IMAGENS) ---
+        runStaticTrendSequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            const taskConfig = PROTOCOL.tasks.trend;
+            const seqTime = taskConfig.sequenceDuration * 1000; // 10s
+            
+            // 1. Layout (Mesmo estilo do teste real, mas com IMG)
+            area.innerHTML = `
+                <div class="layout-center">
+                    <h3>Analise a Evolução (Treino)</h3>
+                    
+                    <div id="ph-trend-static" style="width:600px; height:400px; display:flex; align-items:center; justify-content:center; border: 4px solid #ccc;">
+                        <img id="trend-img" src="imgTrain/trend/trend1.jpg" style="max-width:100%; max-height:100%; display:block;">
+                        <h2 id="trend-msg" style="display:none; color:#666;">RESPONDA AGORA!</h2>
+                    </div>
+                    
+                    <div style="margin-top:20px; display:flex; gap:20px;">
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('convergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            CONVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Unificando)</small>
+                        </button>
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('divergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            DIVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Separando)</small>
+                        </button>
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('random')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            ALEATÓRIO<br><small style="font-weight:normal; font-size:0.7rem">(Ruído)</small>
+                        </button>
+                    </div>
+                </div>`;
+
+            // 2. Feedback HUD
+            document.getElementById('hud-task').innerText = "TREINO: TENDÊNCIA";
+            document.getElementById('hud-timer').innerText = "OBSERVE...";
+            this.state.trialStartTime = Date.now();
+
+            // 3. Animação das Imagens (1 a 10)
+            let imgIndex = 1;
+            const totalImages = 10;
+            const frameDuration = seqTime / totalImages; // 1000ms
+
+            if (this.state.staticTrendInterval) clearInterval(this.state.staticTrendInterval);
+
+            this.state.staticTrendInterval = setInterval(() => {
+                imgIndex++;
+                const img = document.getElementById('trend-img');
+                
+                if (imgIndex <= totalImages) {
+                    if(img) img.src = `imgTrain/trend/trend${imgIndex}.jpg`;
+                } else {
+                    // Fim da sequência de imagens
+                    clearInterval(this.state.staticTrendInterval);
+                    this.state.staticTrendInterval = null;
+                }
+            }, frameDuration);
+
+            // 4. Timer para esconder a imagem e pedir resposta (Igual ao protocolo real)
+            if (this.state.trendTimeout) clearTimeout(this.state.trendTimeout);
+            
+            this.state.trendTimeout = setTimeout(() => {
+                const img = document.getElementById('trend-img');
+                const msg = document.getElementById('trend-msg');
+                
+                if(img) img.style.display = 'none'; // Esconde imagem
+                if(msg) msg.style.display = 'block'; // Mostra texto
+                
+                document.getElementById('hud-timer').innerText = "RESPONDA!";
+            }, seqTime);
+        },
+
 
         renderStaticLayout: function(trial) {
             const area = document.getElementById('experiment-area');
@@ -1174,6 +1365,21 @@
             //PARA O TIMER IMEDIATAMENTE
             this.stopTimeoutTimer();
 
+            // Cancela o agendamento do "RESPONDA AGORA" se ele ainda não aconteceu
+            if (this.state.trendTimeout) {
+                clearTimeout(this.state.trendTimeout);
+                this.state.trendTimeout = null;
+            }
+
+            // NOVO: Limpa intervalo de animação do Trend Estático (imagens .jpg)
+            if (this.state.staticTrendInterval) {
+                clearInterval(this.state.staticTrendInterval);
+                this.state.staticTrendInterval = null;
+            }
+
+            // Remove o texto visualmente agora mesmo (para não ficar piscando)
+            const phTrend = document.getElementById('ph-trend');
+            if (phTrend) phTrend.innerHTML = '';
 
             const trial = this.state.trialList[this.state.currentTrialIdx];
             const key = this.state.currentAnswerKey;
@@ -1285,6 +1491,20 @@
                         outcome: outcome,       // "ANTICIPATION", "HIT", "TIMEOUT"
                         lagTime: lagTime,    // Tempo ms após o início do loop
                         cycle: detectedCycle    // 1, 2, 3...
+                    };
+                }else 
+                // --- LÓGICA 4: TENDÊNCIA (TREND) ---
+                if (trial.task === 'trend') {
+                    // key.correctTrend virá do server ("convergence", "divergence", "random")
+                    // Como "ainda sem dados do server", vamos assumir acerto ou deixar null por enquanto
+                    const correct = trial.scenario;
+                    
+                    if (answerValue === correct) isCorrect = true;
+                    
+                    logDetails = { 
+                        type: 'trend_analysis', 
+                        choice: answerValue, 
+                        correct: correct
                     };
                 }
             }
@@ -1510,6 +1730,20 @@
                     e.details.cycle || "NA" // Ciclo (se houve acerto)
                 ].join('\t'));
 
+            } else if (taskName === 'trend') {
+                headers = [
+                    "ParticipantID", "Visualization", "Trial_Index", 
+                    "Scenario_Correct", "User_Choice", "Is_Correct", "Reaction_Time_ms"
+                ];
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.trialIdx,
+                    e.details.correct, // O cenário real (ex: convergence)
+                    e.details.choice,  // O que o usuário clicou
+                    e.correct ? 1 : 0,
+                    e.rt
+                ].join('\t'));
             } else {
                 // Colunas Padrão para Similarity e Memory
                 headers = [
@@ -1705,13 +1939,19 @@
 
         /* --- CONTROLE DO TIMER VISUAL --- */
         
-        startTimeoutTimer: function(durationSeconds) {
+        startTimeoutTimer: function(durationSeconds, isVisual = true) {
             // 1. Limpa anterior se existir
             this.stopTimeoutTimer();
             
             const pie = document.getElementById('timeout-pie');
-            pie.style.display = 'block';
-            pie.className = 'timer-pie safe'; // Começa verde
+            // Só mostra o elemento se for visual
+            if (isVisual) {
+                pie.style.display = 'block';
+                pie.className = 'timer-pie safe';
+                pie.style.background = `conic-gradient(var(--accent-color) 360deg, #e0e0e0 0deg)`;
+            } else {
+                pie.style.display = 'none';
+            }
             
             let timeLeft = durationSeconds;
             const totalTime = durationSeconds;
@@ -1720,15 +1960,17 @@
             this.state.timeoutInterval = setInterval(() => {
                 timeLeft -= 0.1;
                 
-                // Cálculo da porcentagem para o gradiente
-                const pct = (timeLeft / totalTime) * 360;
-                pie.style.background = `conic-gradient(var(--accent-color) ${pct}deg, #e0e0e0 0deg)`;
-                
-                // Muda a cor baseado no tempo restante
-                const ratio = timeLeft / totalTime;
-                if (ratio < 0.2) pie.className = 'timer-pie danger'; // < 20%
-                else if (ratio < 0.5) pie.className = 'timer-pie warn'; // < 50%
-                
+                if (isVisual) {
+                    // Cálculo da porcentagem para o gradiente
+                    const pct = (timeLeft / totalTime) * 360;
+                    pie.style.background = `conic-gradient(var(--accent-color) ${pct}deg, #e0e0e0 0deg)`;
+                    
+                    // Muda a cor baseado no tempo restante
+                    const ratio = timeLeft / totalTime;
+                    if (ratio < 0.2) pie.className = 'timer-pie danger'; // < 20%
+                    else if (ratio < 0.5) pie.className = 'timer-pie warn'; // < 50%
+                }
+
                 // ACABOU O TEMPO
                 if (timeLeft <= 0) {
                     this.stopTimeoutTimer();
