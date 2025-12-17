@@ -713,7 +713,9 @@
                            <li>O elemento que você deve encontrar é exatamente igual à referência.</li>`;
             } else if (taskKey === 'loop') {
                 details = `<li>Identifique quando a sequência de elementos começar a repetir.</li>
-                            <li>Assim que você perceber que a sequência está se repetindo clique no botão.</li>`;
+                           <li>Assim que perceber a repetição, clique em <strong>"DETECTEI O LOOP"</strong>.</li>
+                           <li>Se você achar que não existe padrão ou não conseguir encontrar, clique em <strong>"NÃO VEJO REPETIÇÃO"</strong>.</li>
+                           <li>Evite "chutar" baseando-se apenas no tempo decorrido.</li>`;
             } else if (taskKey === 'trend') {
                 details = `<li>Observe a evolução da população durante <strong>${taskConfig.sequenceDuration}s</strong>.</li>
                            <li>Identifique o comportamento global:
@@ -1038,10 +1040,33 @@
                     <div class="layout-center">
                         <div id="ph-loop" class="vis-loop-main" style="width:800px; height:400px; border:none;"></div>
                     </div>`;
-                controls.innerHTML = `<button style="background:#d9534f; padding:15px;" onclick="ExpManager.registerAnswer('LOOP')">DETECTEI O LOOP</button>`;
-                
+                controls.innerHTML = `
+                    <div style="display:flex; gap:20px; justify-content:center;">
+                        <button class="resp-btn" style="width:200px; height:60px; background:#d9534f; color:white; font-size:1rem;" onclick="ExpManager.registerAnswer('LOOP')">
+                            DETECTEI O LOOP
+                        </button>
+                        
+                        <button id="btn-no-loop" disabled class="resp-btn" style="width:200px; height:60px; background:#6c757d; color:white; font-size:1rem;" onclick="ExpManager.registerAnswer('NO_LOOP')">
+                            NÃO VEJO REPETIÇÃO
+                        </button>
+                    </div>`;
+
                 const f = this.activateFrame(trial.vis.id, trial.diff, 'loop_sequence', 'ph-loop');
                 if(f) f.contentWindow.postMessage({ act: 'data', mode: 'loop', seed: Math.random() }, '*');
+                
+                
+                // Ele espera 15 segundos (15000ms) e então habilita o botão cinza
+                setTimeout(() => {
+                    const btn = document.getElementById('btn-no-loop');
+                    // Verifica se o botão ainda existe (o usuário pode ter respondido antes)
+                    if (btn) {
+                        btn.disabled = false;           // Habilita o clique
+                        btn.style.opacity = '1';        // Remove transparência
+                        btn.style.cursor = 'pointer';   // Muda o cursor do mouse
+                        // Opcional: Feedback visual de que agora pode clicar
+                        // btn.innerText = "NÃO VEJO REPETIÇÃO (Disponível)";
+                    }
+                }, 15000);
             }
         },
 
@@ -1439,7 +1464,7 @@
                     // Precisamos calcular quantos frames passaram.
                     // Protocolo: Intervalo de 800ms por frame.
                     const frameDuration = 800;
-                    const framesPassed = Math.floor(reactionTime / frameDuration);
+                    
                     const loopSize = key.loopSize; // Ex: 15
 
                     // 1. SE FOR TREINO ESTÁTICO: Para o intervalo local
@@ -1447,7 +1472,6 @@
                         clearInterval(this.state.staticLoopInterval);
                         this.state.staticLoopInterval = null;
                     }else
-
                     // Envia comando para PARAR o envio do servidor
                     if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
                         this.controlSocket.send(JSON.stringify({
@@ -1458,40 +1482,57 @@
                         }));
                     }
 
-                    // Verificação: O usuário só acerta se clicar DEPOIS que o loop começou
-                    // O loop começa após 'loopSize' frames.
-                    // Ex: Tamanho 15. Frames 0 a 14 são novos. Frame 15 é repetido.
-                    // Acerto: framesPassed >= loopSize
-                    // Erro (Antecipação): framesPassed < loopSize
-                    let outcome = "";
-                    let lagTime = null;
-                    let detectedCycle = null;
-                    
-                    if (framesPassed < loopSize) {
-                        // ERRO: ANTECIPAÇÃO
-                        isCorrect = false;
-                        outcome = "ANTICIPATION";
-                    } else {
-                        // SUCESSO (ou Timeout se o server mandar stop depois, mas aqui tratamos o clique)
-                        isCorrect = true;
-                        outcome = "HIT";
-                        
-                        // Em qual volta ele estava?
-                        // Volta 1: framesPassed >= loopSize E framesPassed < 2*loopSize
-                        detectedCycle = Math.floor((framesPassed - loopSize) / loopSize) + 1;
-                    }
-                    // Calcula o tempo exato que passou DESDE que o loop reiniciou
-                    // Ex: Se o loop é 15 (12000ms) e clicou em 13000ms. O Lag é 1000ms.
-                    lagTime = reactionTime - (loopSize * frameDuration);
+                    if (answerValue === 'NO_LOOP') {
+                         isCorrect = false; // Errou pois o loop existia
+                         
+                         logDetails = {
+                            type: 'loop_detection',
+                            loopSize: loopSize,
+                            framesSeen: Math.floor(reactionTime / frameDuration),
+                            outcome: "GIVE_UP", // <--- Nova Categoria Importante
+                            lagTime: null,      // Não há lag pois não houve detecção
+                            cycle: null
+                        };
+                    } 
+                    // --- TRATAMENTO DO BOTÃO "DETECTEI" ---
+                    else {
 
-                    logDetails = {
-                        type: 'loop_detection',
-                        loopSize: loopSize,
-                        framesSeen: framesPassed,
-                        outcome: outcome,       // "ANTICIPATION", "HIT", "TIMEOUT"
-                        lagTime: lagTime,    // Tempo ms após o início do loop
-                        cycle: detectedCycle    // 1, 2, 3...
-                    };
+                        // Verificação: O usuário só acerta se clicar DEPOIS que o loop começou
+                        // O loop começa após 'loopSize' frames.
+                        // Ex: Tamanho 15. Frames 0 a 14 são novos. Frame 15 é repetido.
+                        // Acerto: framesPassed >= loopSize
+                        // Erro (Antecipação): framesPassed < loopSize
+                        const framesPassed = Math.floor(reactionTime / frameDuration);
+                        let outcome = "";
+                        let lagTime = null;
+                        let detectedCycle = null;
+                        
+                        if (framesPassed < loopSize) {
+                            // ERRO: ANTECIPAÇÃO
+                            isCorrect = false;
+                            outcome = "ANTICIPATION";
+                        } else {
+                            // SUCESSO (ou Timeout se o server mandar stop depois, mas aqui tratamos o clique)
+                            isCorrect = true;
+                            outcome = "HIT";
+                            
+                            // Em qual volta ele estava?
+                            // Volta 1: framesPassed >= loopSize E framesPassed < 2*loopSize
+                            detectedCycle = Math.floor((framesPassed - loopSize) / loopSize) + 1;
+                        }
+                        // Calcula o tempo exato que passou DESDE que o loop reiniciou
+                        // Ex: Se o loop é 15 (12000ms) e clicou em 13000ms. O Lag é 1000ms.
+                        lagTime = reactionTime - (loopSize * frameDuration);
+
+                        logDetails = {
+                            type: 'loop_detection',
+                            loopSize: loopSize,
+                            framesSeen: framesPassed,
+                            outcome: outcome,       // "ANTICIPATION", "HIT", "TIMEOUT"
+                            lagTime: lagTime,    // Tempo ms após o início do loop
+                            cycle: detectedCycle    // 1, 2, 3...
+                        };
+                    }
                 }else 
                 // --- LÓGICA 4: TENDÊNCIA (TREND) ---
                 if (trial.task === 'trend') {

@@ -88,7 +88,8 @@ function getOrLoadGA(datasetKey) {
         
         newGA.setParameters({
             populationSize: 25, 
-            survivalRate: 0.1,
+            survivalRate: 0.01,
+            mutationRate: 0.4,
             nodeIncludeProb: 0.01
         });
         
@@ -146,17 +147,17 @@ server.on('connection', ws => {
             // 2. VISUALIZAÇÕES SE REGISTRAM (OBS)
             // O cliente envia: { act: "obs", data: ["medium"] }
             case "obs":
-                const difficulty = obj.data[0]; // Pega a string 'low', 'medium', etc.
+                const difficulty_obs = obj.data[0]; // Pega a string 'low', 'medium', etc.
                 const id = obj.id || "unknown";
                 const role = obj.context || "unknown";
 
-                if (subscribers[difficulty]) {
+                if (subscribers[difficulty_obs]) {
                     // Adiciona este socket à lista de inscritos daquela dificuldade
                     ws.role = role;
-                    subscribers[difficulty][id] = ws;
+                    subscribers[difficulty_obs][id] = ws;
 
                     connectedCount++;
-                    console.log(`[VIS] Cliente registrado para '${difficulty}'. Total: ${connectedCount}/${expectedClients}`);
+                    console.log(`[VIS] Cliente registrado para '${difficulty_obs}'. Total: ${connectedCount}/${expectedClients}`);
 
                     // SE TODOS ESTIVEREM CONECTADOS, INICIA O ENVIO DE DADOS
                     if (connectedCount === expectedClients) {
@@ -233,7 +234,8 @@ server.on('connection', ws => {
             case "share_model":
                 // Se chegou como binário (isBinary), já temos ele comprimido na variável 'message'.
                 // Podemos salvar o binário compactado direto para economizar espaço!
-                const { datasetName, artifacts } = obj.data;
+                const { difficulty, artifacts } = obj.data;
+                const datasetName = DIFFICULTY_MAP[difficulty];
                 console.log(`[SERVER] Modelo recebido de ${obj.id}. Armazenando para distribuição.`);
                 
                // Salva o objeto JSON descomprimido se precisar ler topology, 
@@ -250,14 +252,14 @@ server.on('connection', ws => {
                 // Verifica se há clientes esperando por esse modelo (da mesma dificuldade)
                 // Vamos varrer os subscribers dessa dificuldade e enviar
                 // Retransmitir para os interessados
-                const diffKey = Object.keys(DIFFICULTY_MAP).find(key => DIFFICULTY_MAP[key] === datasetName);
-                if (diffKey && subscribers[diffKey]) {
+                // const diffKey = Object.keys(DIFFICULTY_MAP).find(key => DIFFICULTY_MAP[key] === datasetName);
+                if (difficulty && subscribers[difficulty]) {
 
                     // 1. Descobre quem é a visualização e dificuldade remetente (ex: "cnn", "sketch")
                     const senderType = obj.id.slice(0, obj.id.lastIndexOf('-'));
                     
                     // 2. Itera sobre [ID, Socket] para poder filtrar pelo nome
-                    Object.entries(subscribers[diffKey]).forEach(([clientId, clientSocket]) => {
+                    Object.entries(subscribers[difficulty]).forEach(([clientId, clientSocket]) => {
 
                         // 3. Descobre quem é o destinatário
                         const clientType = clientId.slice(0, clientId.lastIndexOf('-'));

@@ -939,7 +939,7 @@
                     act: "share_model",
                     id: `cnn-${MY_DIFFICULTY}-${MY_CONTEXT}`,
                     data: {
-                        datasetName: DIFFICULTY_MAP[MY_DIFFICULTY],
+                        difficulty: MY_DIFFICULTY,
                         artifacts: modelData
                     }
                 };
@@ -973,12 +973,12 @@
         }
 
         // Mapa auxiliar simples (copie do server ou passe via msg, mas hardcoded aqui resolve rápido)
-        const DIFFICULTY_MAP = {
-            'low':    "gen200_p0.9_55.clq",
-            'medium': "hamming10-4.clq",
-            'high':   "C4000.5.clq",
-            'dense':  "MANN_a45.clq"
-        };
+        // const DIFFICULTY_MAP = {
+        //     'low':    "gen200_p0.9_55.clq",
+        //     'medium': "hamming10-4.clq",
+        //     'high':   "C4000.5.clq",
+        //     'dense':  "MANN_a45.clq"
+        // };
 
         async function compressData(jsonObj) {
             // 1. Converte JSON para String

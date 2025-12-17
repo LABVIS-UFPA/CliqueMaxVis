@@ -219,48 +219,100 @@
             }
         }
 
+
         function drawFrame(data) {
             let currentPoints;
-            let colors;
+            let colors; // (Se você usar cores baseadas em fitness futuramente)
 
-            // 1. Lógica da Geração 0 (Inicialização das Âncoras)
+            // --- GERAÇÃO 0 (Inicialização) ---
             if (data.generation === 0) {
-                binaryData = data.population.map(i => i.nodeMask);
-                projectedPoints = projectBinaryArraysTo2D(binaryData);
                 
-                // Define as escalas baseadas nos dados projetados
-                xScale = d3.scaleLinear()
-                    .domain([d3.min(projectedPoints, d => d[0]), d3.max(projectedPoints, d => d[0])])
-                    .range([PADDING, canvas.width - PADDING]); // Usa tamanho dinâmico
-
-                yScale = d3.scaleLinear()
-                    .domain([d3.min(projectedPoints, d => d[1]), d3.max(projectedPoints, d => d[1])])
-                    .range([PADDING, canvas.height - PADDING]); // Usa tamanho dinâmico
+                // LÓGICA DO MESTRE (TARGET)
+                if (MY_CONTEXT === 'target') {
+                    // Calcula MDS localmente
+                    binaryData = data.population.map(i => i.nodeMask);
+                    projectedPoints = projectBinaryArraysTo2D(binaryData);
+                    
+                    // Define escalas
+                    setupScales(projectedPoints);
+                    
+                    // COMPARTILHA O MODELO COM O SERVIDOR
+                    shareProjectionModel(binaryData, projectedPoints);
+                } 
+                
+                // LÓGICA DO ESCRAVO
+                else {
+                    // Se sou escravo e recebi Gen 0, mas ainda não tenho o modelo (projectedPoints),
+                    // NÃO POSSO FAZER NADA AINDA. O 'load_model' vai chamar drawFrame depois.
+                    if (!projectedPoints) {
+                        console.warn("Aguardando modelo de projeção do Target...");
+                        return; 
+                    }
+                    // Se já tenho projectedPoints (veio pelo load_model), apenas configuro as escalas
+                    if (!xScale) setupScales(projectedPoints);
+                }
 
                 currentPoints = projectedPoints;
-                
-                // Desenha legenda
-                const arrFitness = data.population.map(i => i.fitness);
-                // drawLegenda(Math.min(...arrFitness)/2, Math.max(...arrFitness)*2);
-
             } 
-            // 2. Lógica das Gerações Seguintes (Projeção Incremental)
+            
+            // --- GERAÇÕES SEGUINTES (Projeção Incremental) ---
             else {
-                // Se não tivermos as âncoras ainda (bug de ordem), ignora
+                // Se não tivermos as âncoras ainda, ignora
                 if (!binaryData || !projectedPoints) return;
 
+                // Projeta novos pontos baseado nas âncoras fixas
                 currentPoints = data.population.map(bitarray => 
                     projectNewPoint(bitarray.nodeMask, binaryData, projectedPoints)
                 );
             }
 
-            // 3. Renderização
-            // colors = data.population.map(i => colorScale(i.fitness));
-            
-            // Converte MDS coords -> Screen Pixels usando as escalas ATUAIS
+            // Renderização
             const screenCoords = currentPoints.map(p => [xScale(p[0]), yScale(p[1])]);
-            drawCirclesOnCanvas(screenCoords, colors);
+            drawCirclesOnCanvas(screenCoords);
         }
+
+        // function drawFrame(data) {
+        //     let currentPoints;
+        //     let colors;
+
+        //     // 1. Lógica da Geração 0 (Inicialização das Âncoras)
+        //     if (data.generation === 0) {
+        //         binaryData = data.population.map(i => i.nodeMask);
+        //         projectedPoints = projectBinaryArraysTo2D(binaryData);
+                
+        //         // Define as escalas baseadas nos dados projetados
+        //         xScale = d3.scaleLinear()
+        //             .domain([d3.min(projectedPoints, d => d[0]), d3.max(projectedPoints, d => d[0])])
+        //             .range([PADDING, canvas.width - PADDING]); // Usa tamanho dinâmico
+
+        //         yScale = d3.scaleLinear()
+        //             .domain([d3.min(projectedPoints, d => d[1]), d3.max(projectedPoints, d => d[1])])
+        //             .range([PADDING, canvas.height - PADDING]); // Usa tamanho dinâmico
+
+        //         currentPoints = projectedPoints;
+                
+        //         // Desenha legenda
+        //         const arrFitness = data.population.map(i => i.fitness);
+        //         // drawLegenda(Math.min(...arrFitness)/2, Math.max(...arrFitness)*2);
+
+        //     } 
+        //     // 2. Lógica das Gerações Seguintes (Projeção Incremental)
+        //     else {
+        //         // Se não tivermos as âncoras ainda (bug de ordem), ignora
+        //         if (!binaryData || !projectedPoints) return;
+
+        //         currentPoints = data.population.map(bitarray => 
+        //             projectNewPoint(bitarray.nodeMask, binaryData, projectedPoints)
+        //         );
+        //     }
+
+        //     // 3. Renderização
+        //     // colors = data.population.map(i => colorScale(i.fitness));
+            
+        //     // Converte MDS coords -> Screen Pixels usando as escalas ATUAIS
+        //     const screenCoords = currentPoints.map(p => [xScale(p[0]), yScale(p[1])]);
+        //     drawCirclesOnCanvas(screenCoords, colors);
+        // }
 
         function drawLegenda(min, max) {
             const width = 70, height = 300;
@@ -304,6 +356,51 @@
             legend.append("g")
                 .attr("transform", "translate(20,0)")
                 .call(axis);
+        }
+
+        // --- FUNÇÕES DE SINCRONIZAÇÃO DE MODELO ---
+
+        // Configura as escalas D3 baseadas nos pontos (Comum a todos)
+        function setupScales(points) {
+            xScale = d3.scaleLinear()
+                .domain([d3.min(points, d => d[0]), d3.max(points, d => d[0])])
+                .range([PADDING, canvas.width - PADDING]);
+
+            yScale = d3.scaleLinear()
+                .domain([d3.min(points, d => d[1]), d3.max(points, d => d[1])])
+                .range([PADDING, canvas.height - PADDING]);
+        }
+
+        // Mestre: Envia os pontos calculados para o servidor
+        function shareProjectionModel(binaryData, projectedPoints) {
+            const modelData = {
+                binaryData: binaryData,         // As máscaras binárias originais (âncoras)
+                projectedPoints: projectedPoints // As coordenadas X,Y calculadas pelo MDS
+            };
+
+            console.log("Enviando modelo de projeção MDS para o servidor...");
+            
+            // Reutilizamos a estrutura 'share_model' que o servidor já conhece da CNN
+            // O servidor vai guardar em 'artifacts' e repassar para quem pedir
+            socket.send(JSON.stringify({
+                act: "share_model",
+                id: `scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`,
+                data: {
+                    difficulty: MY_DIFFICULTY, // O servidor usa isso para mapear quem precisa do que
+                    artifacts: modelData
+                }
+            }));
+        }
+
+        // Escravo: Carrega os pontos recebidos do servidor
+        function loadProjectionModel(artifacts) {
+            binaryData = artifacts.binaryData;
+            projectedPoints = artifacts.projectedPoints;
+            
+            // Recria as escalas exatamente iguais ao do Mestre
+            setupScales(projectedPoints);
+            
+            console.log("Modelo MDS carregado e escalas sincronizadas.");
         }
 
 
@@ -373,6 +470,28 @@
 
         const socket = new WebSocket("ws://localhost:3214");
 
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            socket.send(JSON.stringify({ act: "command", data: "initial_individuals" }));
+            // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            if (MY_DIFFICULTY) {
+                socket.send(JSON.stringify({ 
+                    act: "obs", 
+                    data: [MY_DIFFICULTY], 
+                    id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, 
+                    context: MY_CONTEXT 
+                }));
+            }
+
+            // 2. Se NÃO for o Mestre (Target), pede o modelo de projeção imediatamente
+            if (MY_CONTEXT !== 'target') {
+                console.log("Solicitando modelo de projeção ao servidor...");
+                socket.send(JSON.stringify({ 
+                    act: "request_model", 
+                    data: { difficulty: MY_DIFFICULTY } 
+                }));
+            }
+        };
 
         socket.onmessage = function (event) {
             // 1. TRAVA DE SEGURANÇA: Ignorar Binários (GZIP do modelo CNN)
@@ -389,12 +508,13 @@
                     // 1. Atualiza o estado global
                     lastFrameData = message.data;
 
-
                     // 2. Agenda o desenho
                     if (!isDrawingScheduled) {
                         isDrawingScheduled = true;
                         requestAnimationFrame(() => {
-                            if (lastFrameData) drawFrame(lastFrameData);
+                            if (lastFrameData && (projectedPoints || MY_CONTEXT === 'target')) {
+                                drawFrame(lastFrameData);
+                            }
                             isDrawingScheduled = false;
                         });
                     }
@@ -404,29 +524,41 @@
                         firstFrameData = false;
                         lastFrameData = message.data;
                         lastFrameData.generation = 0;
-                        if (!isDrawingScheduled) {
-                            isDrawingScheduled = true;
-                            requestAnimationFrame(() => {
-                                if (lastFrameData) drawFrame(lastFrameData);
-                                isDrawingScheduled = false;
-                                socket.send(JSON.stringify({id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
-                                console.log(`SERVER >>>>>>> scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`);
-                            });
+                        // Se sou target, desenho e crio o modelo.
+                        // Se sou slave, espero o modelo chegar via 'load_model' antes de desenhar.
+                        if (MY_CONTEXT === 'target') {
+                             if (!isDrawingScheduled) {
+                                isDrawingScheduled = true;
+                                requestAnimationFrame(() => {
+                                    drawFrame(lastFrameData); // Isso vai criar e enviar o modelo
+                                    isDrawingScheduled = false;
+                                    // Avisa que está pronto
+                                    socket.send(JSON.stringify({id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                                });
+                            }
                         }
-                        break;
                     }
+                    break;
+                
+                case "load_model":
+                case "share_model": // Compatibilidade caso o server reenvie com esse nome
+                    console.log("Modelo de projeção recebido!");
+                    loadProjectionModel(message.data.artifacts);
                     
+                    // Agora que temos o modelo, podemos desenhar o último frame recebido (se houver)
+                    if (lastFrameData) drawFrame(lastFrameData);
+                    
+                    // Avisa que está pronto
+                    socket.send(JSON.stringify({
+                        id: `scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, 
+                        act: "visualization_ready" 
+                    }));
+                    break;
             }
         };
 
-        socket.onopen = function () {
-            console.log("Conectado ao servidor WebSocket");
-            socket.send(JSON.stringify({ act: "command", data: "initial_individuals" }));
-            // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
-            if (MY_DIFFICULTY) {
-                socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`scatter-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
-            }
-        };
+
+        
 
 
     </script>
