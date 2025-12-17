@@ -423,6 +423,10 @@
     <div id="screen-end" class="screen">
         <h1>Fim do Experimento</h1>
         <p>Obrigado!</p>
+
+        <p id="server-status" style="font-weight:bold; color:#666;">Salvando dados no servidor...</p>
+        
+        
         
         <div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
             
@@ -635,6 +639,19 @@
                         // Se for loop, zera contadores visuais se necessário
                         if(msg.task === 'loop') {
                             console.log(`Loop de tamanho ${msg.loopSize}. Aguardando detecção...`);
+                        }
+                    } else if (msg.act === "results_saved_success") {
+                        const statusEl = document.getElementById('server-status');
+                        if (statusEl) {
+                            statusEl.innerText = "✅ Dados salvos no servidor com sucesso!";
+                            statusEl.style.color = "#28a745"; // Verde
+                        }
+                    } 
+                    else if (msg.act === "results_saved_error") {
+                        const statusEl = document.getElementById('server-status');
+                        if (statusEl) {
+                            statusEl.innerText = "❌ Erro ao salvar no servidor. Verifique o console.";
+                            statusEl.style.color = "#dc3545"; // Vermelho
                         }
                     }
 
@@ -1728,6 +1745,19 @@
 
         finalizeExperiment: function() {
             this.showScreen('screen-end');
+
+            // 1. Envia para o servidor salvar automaticamente
+            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                console.log("Enviando dados para o servidor...");
+                this.controlSocket.send(JSON.stringify({
+                    act: "save_results",
+                    data: this.state.dataLog // Envia o objeto inteiro que seria o JSON de backup
+                }));
+            } else {
+                document.getElementById('server-status').innerText = "Erro: Não conectado ao servidor. Faça o download manual.";
+                document.getElementById('server-status').style.color = "red";
+            }
+
             // Backup automático apenas do JSON
             setTimeout(() => { this.downloadJSON(); }, 500);
         },

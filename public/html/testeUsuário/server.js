@@ -317,6 +317,52 @@ server.on('connection', ws => {
                     console.log(`[SERVER] Loop encerrado para: ${loopKey}`);
                 }
                 break;
+             
+            // 6. SALVAR RESULTADOS NO SERVIDOR (APPEND)
+            case "save_results":
+                console.log(`[SERVER] Recebendo dados do participante ${obj.data.participantID} para salvar.`);
+                
+                const resultsDir = "./analysis/results";
+                const filePath = `${resultsDir}/global_results.json`;
+
+                try {
+                    // 1. Garante que a pasta existe
+                    if (!fs.existsSync(resultsDir)){
+                        fs.mkdirSync(resultsDir);
+                    }
+
+                    // 2. Lê o arquivo atual (se existir)
+                    let globalData = [];
+                    if (fs.existsSync(filePath)) {
+                        const fileContent = fs.readFileSync(filePath, 'utf8');
+                        try {
+                            globalData = JSON.parse(fileContent);
+                        } catch (err) {
+                            console.error("Erro ao ler JSON existente (pode estar corrompido). Criando novo array.");
+                            globalData = [];
+                        }
+                    }
+
+                    // 3. Garante que é um Array (para fazer append)
+                    if (!Array.isArray(globalData)) {
+                        globalData = [globalData];
+                    }
+
+                    // 4. Adiciona (Append) o novo dado
+                    globalData.push(...(obj.data))
+
+                    // 5. Salva no disco
+                    fs.writeFileSync(filePath, JSON.stringify(globalData, null, 2));
+                    console.log(`[SERVER] Dados salvos com sucesso em ${filePath}. Total participantes: ${globalData.length}`);
+
+                    // 6. Confirma para o Cliente
+                    ws.send(JSON.stringify({ act: "results_saved_success" }));
+
+                } catch (error) {
+                    console.error("Erro crítico ao salvar no servidor:", error);
+                    ws.send(JSON.stringify({ act: "results_saved_error", error: error.message }));
+                }
+                break;
                 
             // ... (Outros comandos like 'log' etc) ...
             case "log":

@@ -371,72 +371,103 @@
     }
 
     // Main logic
-    const memoryFile = "resultados tsv/DATA_MEMORY_P-9391.tsv";
-    const similarityFile = "resultados tsv/DATA_SIMILARITY_P-5262.tsv";
-    const trendFile = "resultados tsv/DATA_TREND_P-5262.tsv";
-    const loopFile = "resultados tsv/DATA_LOOP_P-5262.tsv";
+    // --- LÓGICA PRINCIPAL (JSON) ---
 
-    const rowParser = d => {
-      return {
-        ...d,
-        Is_Correct: +d.Is_Correct,
-        Reaction_Time_ms: +d.Reaction_Time_ms
-      };
-    };
+    // Caminho definido no server.js (pasta analysis/results)
+    const jsonFilePath = "./results/global_results.json"; 
 
-    const trendRowParser = d => {
-      return {
-        ...d,
-        Is_Correct: +d.Is_Correct,
-        Reaction_Time_ms: +d.Reaction_Time_ms,
-        Difficulty: d.Scenario_Correct ? d.Scenario_Correct : "training"
-      };
-    };
+    d3.json(jsonFilePath).then(allLogs => {
+      console.log(`Carregado ${allLogs.length} registros de: ${jsonFilePath}`);
+      
+      // Validação básica: se o arquivo vier vazio ou nulo
+      if (!allLogs || !Array.isArray(allLogs)) {
+        console.error("Formato de arquivo inválido ou vazio.");
+        return;
+      }
 
-    const loopRowParser = d => {
-      return {
-        ...d,
-        Is_Correct: d.Outcome_Class === 'HIT' ? 1 : 0,
-        Lag_Time_ms: +d.Lag_Time_ms
-      };
-    };
+      // 1. FILTRAGEM E MAPEAMENTO
+      // Transformamos o formato do log bruto (d.diff, d.vis, d.rt) 
+      // para o formato esperado pelos gráficos (Difficulty, Visualization, Reaction_Time_ms)
 
-    Promise.all([
-      d3.tsv(memoryFile, rowParser),
-      d3.tsv(similarityFile, rowParser),
-      d3.tsv(trendFile, trendRowParser),
-      d3.tsv(loopFile, loopRowParser)
-    ]).then(([memoryData, similarityData, trendData, loopData]) => {
+      // --- MEMORY ---
+      const memoryData = allLogs
+        .filter(d => d.task === 'memory' && d.type !== 'questionnaire' && d.diff !== 'training')
+        .map(d => ({
+          Difficulty: d.diff,
+          Visualization: d.vis,
+          Is_Correct: d.correct ? 1 : 0,
+          Reaction_Time_ms: d.rt
+        }));
 
-      // Configs for Memory and Similarity charts
+      // --- SIMILARITY ---
+      const similarityData = allLogs
+        .filter(d => d.task === 'similarity' && d.type !== 'questionnaire' && d.diff !== 'training')
+        .map(d => ({
+          Difficulty: d.diff,
+          Visualization: d.vis,
+          Is_Correct: d.correct ? 1 : 0,
+          Reaction_Time_ms: d.rt
+        }));
+
+      // --- TREND ---
+      const trendData = allLogs
+        .filter(d => d.task === 'trend' && d.type !== 'questionnaire' && d.diff !== 'training')
+        .map(d => ({
+          // Na Trend, o 'Gabarito' (Cenário) define a dificuldade lógica
+          Difficulty: (d.details && d.details.correct) ? d.details.correct : "unknown",
+          Visualization: d.vis,
+          Is_Correct: d.correct ? 1 : 0,
+          Reaction_Time_ms: d.rt
+        }));
+
+      // --- LOOP ---
+      const loopData = allLogs
+        .filter(d => d.task === 'loop' && d.type !== 'questionnaire' && d.diff !== 'training')
+        .map(d => ({
+          Difficulty: d.diff,
+          Visualization: d.vis,
+          // Verifica se foi HIT (Acerto Real)
+          Is_Correct: (d.details && d.details.outcome === 'HIT') ? 1 : 0,
+          // LagTime (atraso da percepção)
+          Lag_Time_ms: (d.details && d.details.lagTime) ? d.details.lagTime : 0 
+        }))
+        // Filtra apenas acertos para o gráfico de tempo (Lag), pois erro não tem lag válido
+        .filter(d => d.Is_Correct === 1); 
+
+
+      // 2. CONFIGURAÇÕES VISUAIS DE PLOTAGEM
       const plotWidth = 350;
       const timeControleWidth = 190;
-
       const accControleWidthDefault = 340;
       const accWidthDefault = accControleWidthDefault + plotWidth + 40;
       const totalWidthDefault = accWidthDefault + timeControleWidth + plotWidth;
 
-      // --- MEMORY CHART ---
+      // --- RENDERIZAÇÃO GRÁFICO MEMORY ---
       const svgMem = d3.select("#chart-memory");
       const accMemData = processData(memoryData, 'Is_Correct');
       const timeMemData = processData(memoryData, 'Reaction_Time_ms');
-      const rowHeightMem = 30;
-      const heightMem = rowHeightMem * accMemData.length + 80;
+      const heightMem = 30 * Math.max(accMemData.length, 1) + 80;
+      
       svgMem.attr("width", totalWidthDefault).attr("height", heightMem);
-      renderAccuracyChart(svgMem, accMemData, 0, totalWidthDefault, { col1Header: "Difficulty" });
-      renderTimeChart(svgMem, timeMemData, accWidthDefault);
+      if (accMemData.length > 0) {
+        renderAccuracyChart(svgMem, accMemData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+        renderTimeChart(svgMem, timeMemData, accWidthDefault);
+      }
 
-      // --- SIMILARITY CHART ---
+      // --- RENDERIZAÇÃO GRÁFICO SIMILARITY ---
       const svgSim = d3.select("#chart-similarity");
       const accSimData = processData(similarityData, 'Is_Correct');
       const timeSimData = processData(similarityData, 'Reaction_Time_ms');
-      const rowHeightSim = 30;
-      const heightSim = rowHeightSim * accSimData.length + 80;
-      svgSim.attr("width", totalWidthDefault).attr("height", heightSim);
-      renderAccuracyChart(svgSim, accSimData, 0, totalWidthDefault, { col1Header: "Difficulty" });
-      renderTimeChart(svgSim, timeSimData, accWidthDefault);
+      const heightSim = 30 * Math.max(accSimData.length, 1) + 80;
 
-      // Configs for Trend chart (with more space)
+      svgSim.attr("width", totalWidthDefault).attr("height", heightSim);
+      if (accSimData.length > 0) {
+        renderAccuracyChart(svgSim, accSimData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+        renderTimeChart(svgSim, timeSimData, accWidthDefault);
+      }
+
+      // --- RENDERIZAÇÃO GRÁFICO TREND ---
+      // Trend precisa de mais espaço para os rótulos (Convergence, Divergence...)
       const accControleWidthTrend = 380;
       const accWidthTrend = accControleWidthTrend + plotWidth + 40;
       const totalWidthTrend = accWidthTrend + timeControleWidth + plotWidth;
@@ -447,30 +478,137 @@
         posEstimateFactor: 0.39
       };
 
-      // --- TREND CHART ---
       const svgTrend = d3.select("#chart-trend");
       const accTrendData = processData(trendData, 'Is_Correct');
       const timeTrendData = processData(trendData, 'Reaction_Time_ms');
-      const rowHeightTrend = 30;
-      const heightTrend = rowHeightTrend * accTrendData.length + 80;
-      svgTrend.attr("width", totalWidthTrend).attr("height", heightTrend);
-      renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, trendOptions);
-      renderTimeChart(svgTrend, timeTrendData, accWidthTrend);
+      const heightTrend = 30 * Math.max(accTrendData.length, 1) + 80;
 
-      // --- LOOP CHART ---
+      svgTrend.attr("width", totalWidthTrend).attr("height", heightTrend);
+      if (accTrendData.length > 0) {
+        renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, trendOptions);
+        renderTimeChart(svgTrend, timeTrendData, accWidthTrend);
+      }
+
+      // --- RENDERIZAÇÃO GRÁFICO LOOP ---
       const svgLoop = d3.select("#chart-loop");
       const accLoopData = processData(loopData, 'Is_Correct');
-      const timeLoopData = processData(loopData, 'Lag_Time_ms');
-      const rowHeightLoop = 30;
-      const heightLoop = rowHeightLoop * accLoopData.length + 80;
+      // No Loop, usamos Lag_Time_ms em vez de Reaction Time total
+      const timeLoopData = processData(loopData, 'Lag_Time_ms'); 
+      const heightLoop = 30 * Math.max(accLoopData.length, 1) + 80;
+
       svgLoop.attr("width", totalWidthDefault).attr("height", heightLoop);
-      renderAccuracyChart(svgLoop, accLoopData, 0, totalWidthDefault, { col1Header: "Difficulty" });
-      renderTimeChart(svgLoop, timeLoopData, accWidthDefault);
+      if (accLoopData.length > 0) {
+        renderAccuracyChart(svgLoop, accLoopData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+        renderTimeChart(svgLoop, timeLoopData, accWidthDefault);
+      }
 
     }).catch(error => {
-      console.error("Erro ao carregar os arquivos TSV:", error);
-      d3.select("body").append("p").text("Erro ao carregar dados. Verifique o console.");
+      console.error("Erro ao carregar o JSON:", error);
+      d3.select("body").insert("p", ":first-child")
+        .style("color", "red")
+        .style("font-weight", "bold")
+        .text(`Erro ao carregar: ${jsonFilePath}. Verifique se a pasta 'analysis/results' existe e contém dados.`);
     });
+    // const memoryFile = "resultados tsv/DATA_MEMORY_P-9391.tsv";
+    // const similarityFile = "resultados tsv/DATA_SIMILARITY_P-5262.tsv";
+    // const trendFile = "resultados tsv/DATA_TREND_P-5262.tsv";
+    // const loopFile = "resultados tsv/DATA_LOOP_P-5262.tsv";
+
+    // const rowParser = d => {
+    //   return {
+    //     ...d,
+    //     Is_Correct: +d.Is_Correct,
+    //     Reaction_Time_ms: +d.Reaction_Time_ms
+    //   };
+    // };
+
+    // const trendRowParser = d => {
+    //   return {
+    //     ...d,
+    //     Is_Correct: +d.Is_Correct,
+    //     Reaction_Time_ms: +d.Reaction_Time_ms,
+    //     Difficulty: d.Scenario_Correct ? d.Scenario_Correct : "training"
+    //   };
+    // };
+
+    // const loopRowParser = d => {
+    //   return {
+    //     ...d,
+    //     Is_Correct: d.Outcome_Class === 'HIT' ? 1 : 0,
+    //     Lag_Time_ms: +d.Lag_Time_ms
+    //   };
+    // };
+
+    // Promise.all([
+    //   d3.tsv(memoryFile, rowParser),
+    //   d3.tsv(similarityFile, rowParser),
+    //   d3.tsv(trendFile, trendRowParser),
+    //   d3.tsv(loopFile, loopRowParser)
+    // ]).then(([memoryData, similarityData, trendData, loopData]) => {
+
+    //   // Configs for Memory and Similarity charts
+    //   const plotWidth = 350;
+    //   const timeControleWidth = 190;
+
+    //   const accControleWidthDefault = 340;
+    //   const accWidthDefault = accControleWidthDefault + plotWidth + 40;
+    //   const totalWidthDefault = accWidthDefault + timeControleWidth + plotWidth;
+
+    //   // --- MEMORY CHART ---
+    //   const svgMem = d3.select("#chart-memory");
+    //   const accMemData = processData(memoryData, 'Is_Correct');
+    //   const timeMemData = processData(memoryData, 'Reaction_Time_ms');
+    //   const rowHeightMem = 30;
+    //   const heightMem = rowHeightMem * accMemData.length + 80;
+    //   svgMem.attr("width", totalWidthDefault).attr("height", heightMem);
+    //   renderAccuracyChart(svgMem, accMemData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+    //   renderTimeChart(svgMem, timeMemData, accWidthDefault);
+
+    //   // --- SIMILARITY CHART ---
+    //   const svgSim = d3.select("#chart-similarity");
+    //   const accSimData = processData(similarityData, 'Is_Correct');
+    //   const timeSimData = processData(similarityData, 'Reaction_Time_ms');
+    //   const rowHeightSim = 30;
+    //   const heightSim = rowHeightSim * accSimData.length + 80;
+    //   svgSim.attr("width", totalWidthDefault).attr("height", heightSim);
+    //   renderAccuracyChart(svgSim, accSimData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+    //   renderTimeChart(svgSim, timeSimData, accWidthDefault);
+
+    //   // Configs for Trend chart (with more space)
+    //   const accControleWidthTrend = 380;
+    //   const accWidthTrend = accControleWidthTrend + plotWidth + 40;
+    //   const totalWidthTrend = accWidthTrend + timeControleWidth + plotWidth;
+    //   const trendOptions = {
+    //     controlewidth: accControleWidthTrend,
+    //     col1Header: "Scenario",
+    //     posStrategyFactor: 0.70,
+    //     posEstimateFactor: 0.39
+    //   };
+
+    //   // --- TREND CHART ---
+    //   const svgTrend = d3.select("#chart-trend");
+    //   const accTrendData = processData(trendData, 'Is_Correct');
+    //   const timeTrendData = processData(trendData, 'Reaction_Time_ms');
+    //   const rowHeightTrend = 30;
+    //   const heightTrend = rowHeightTrend * accTrendData.length + 80;
+    //   svgTrend.attr("width", totalWidthTrend).attr("height", heightTrend);
+    //   renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, trendOptions);
+    //   renderTimeChart(svgTrend, timeTrendData, accWidthTrend);
+
+    //   // --- LOOP CHART ---
+    //   const svgLoop = d3.select("#chart-loop");
+    //   const accLoopData = processData(loopData, 'Is_Correct');
+    //   const timeLoopData = processData(loopData, 'Lag_Time_ms');
+    //   const rowHeightLoop = 30;
+    //   const heightLoop = rowHeightLoop * accLoopData.length + 80;
+    //   svgLoop.attr("width", totalWidthDefault).attr("height", heightLoop);
+    //   renderAccuracyChart(svgLoop, accLoopData, 0, totalWidthDefault, { col1Header: "Difficulty" });
+    //   renderTimeChart(svgLoop, timeLoopData, accWidthDefault);
+
+    // }).catch(error => {
+    //   console.error("Erro ao carregar os arquivos TSV:", error);
+    //   d3.select("body").append("p").text("Erro ao carregar dados. Verifique o console.");
+    // });
   </script>
 </body>
 
