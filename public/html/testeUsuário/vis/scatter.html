@@ -166,7 +166,11 @@
 
             const indices = findKIndices(distances, k);
 
-            if (distances[indices[0]] === 1) return [projectedPoints[indices[0]][0], projectedPoints[indices[0]][1]];
+            if (distances[indices[0]] === 1){
+                console.log("[ERRO] nenhum vizinho encontrado!");
+                console.log("Usando padrão => ", [projectedPoints[indices[0]][0], projectedPoints[indices[0]][1]])
+                return [projectedPoints[indices[0]][0], projectedPoints[indices[0]][1]];
+            } 
             // Calcula as coordenadas do novo ponto no espaço 2D
             const newProjectedPoint = [0, 0];
             let distSum = 0;
@@ -175,6 +179,14 @@
                 distSum += ajustedDistance;
                 newProjectedPoint[0] += projectedPoints[i][0] * ajustedDistance;
                 newProjectedPoint[1] += projectedPoints[i][1] * ajustedDistance;
+            }
+
+            
+           // --- CORREÇÃO: PROTEÇÃO CONTRA DIVISÃO POR ZERO ---
+            if (distSum === 0) {
+                // Se não houver similaridade com ninguém (ortogonal), joga para o centro
+                console.log("[ERRO] Previnindo a divisão por zero!");
+                return [0, 0];
             }
 
             // Normaliza as coordenadas
@@ -225,7 +237,7 @@
             let colors; // (Se você usar cores baseadas em fitness futuramente)
 
             // --- GERAÇÃO 0 (Inicialização) ---
-            if (data.generation === 0) {
+            if (data.generation === 0 && !projectedPoints) {
                 
                 // LÓGICA DO MESTRE (TARGET)
                 if (MY_CONTEXT === 'target') {
