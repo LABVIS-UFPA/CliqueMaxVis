@@ -1492,7 +1492,1948 @@
       "sketch": "4",
       "particles": "3"
     }
-  }
+  },
+  {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 1904,
+      "details": {
+        "type": "memory_selection",
+        "choice": 1,
+        "correct": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 5469,
+      "details": {
+        "type": "memory_selection",
+        "choice": 9,
+        "correct": 7
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 1,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 2575,
+      "details": {
+        "type": "memory_selection",
+        "choice": 9,
+        "correct": 3
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 2,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": false,
+      "rt": 876,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correct": 3
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 3,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": false,
+      "rt": 2355,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correct": 5
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 4,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 4935,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correct": 6
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 5,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 133,
+      "details": {
+        "type": "memory_selection",
+        "choice": 9,
+        "correct": 4
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 6,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 3310,
+      "details": {
+        "type": "memory_selection",
+        "choice": 3,
+        "correct": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 7,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 2585,
+      "details": {
+        "type": "memory_selection",
+        "choice": 3,
+        "correct": 3
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 8,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": false,
+      "rt": 2089,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correct": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 9,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 3260,
+      "details": {
+        "type": "memory_selection",
+        "choice": 8,
+        "correct": 8
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Memória Visual",
+      "ratings": {
+        "heatmap": "5",
+        "scatter": "4",
+        "cnn": "4",
+        "sketch": "5",
+        "particles": "3"
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 2460,
+      "details": {
+        "type": "selection",
+        "choice": 9,
+        "correct": 9
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": true,
+      "rt": 6674,
+      "details": {
+        "type": "selection",
+        "choice": 1,
+        "correct": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 1,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": false,
+      "rt": 26800,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correct": 4
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 2,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": false,
+      "rt": 2170,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correct": 8
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 3,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 7203,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correct": 6
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 4,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": false,
+      "rt": 1327,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correct": 2
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 5,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": true,
+      "rt": 594,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correct": 6
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 6,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": false,
+      "rt": 8184,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correct": 2
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 7,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "high",
+      "correct": false,
+      "rt": 10494,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correct": 5
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 8,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 807,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correct": 8
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 9,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 4742,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correct": 6
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 10,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 4916,
+      "details": {
+        "type": "selection",
+        "choice": 2,
+        "correct": 5
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 11,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 8891,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correct": 7
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 12,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 34180,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correct": 8
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 13,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 6213,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correct": 3
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 14,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": false,
+      "rt": 1327,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correct": 1
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Similaridade Visual",
+      "ratings": {
+        "heatmap": "4",
+        "scatter": "4",
+        "cnn": "5",
+        "sketch": "4",
+        "particles": "5"
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 9331,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 10,
+        "framesSeen": 11,
+        "outcome": "HIT",
+        "lagTime_ms": 1331,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": false,
+      "rt": 11707,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 16,
+        "framesSeen": 14,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -1093,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 1,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 15368,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 18,
+        "framesSeen": 19,
+        "outcome": "HIT",
+        "lagTime_ms": 968,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 2,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 4566,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 19,
+        "framesSeen": 5,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -10634,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 3,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 3108,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 18,
+        "framesSeen": 3,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -11292,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 4,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 4353,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 16,
+        "framesSeen": 5,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -8447,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 5,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": false,
+      "rt": 12513,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 15,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -1087,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 6,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": false,
+      "rt": 2704,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 18,
+        "framesSeen": 3,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -11696,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 7,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": false,
+      "rt": 1672,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 2,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -11928,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 8,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 1067,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 18,
+        "framesSeen": 1,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -13333,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-8918",
+      "trialIdx": 9,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 891,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 1,
+        "outcome": "ANTICIPATION",
+        "lagTime_ms": -12709,
+        "cycle": null
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Detecção de Loop",
+      "ratings": {
+        "heatmap": "3",
+        "scatter": "3",
+        "cnn": "4",
+        "sketch": "4",
+        "particles": "4"
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 16043,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11822,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 1,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": true,
+      "rt": 37805,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 2,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 11861,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 3,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": false,
+      "rt": 40000,
+      "details": {
+        "outcome": "TIMEOUT",
+        "choice": "NONE"
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 4,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 35026,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 5,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 36913,
+      "details": {
+        "type": "selection",
+        "choice": 9,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 6,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": false,
+      "rt": 36672,
+      "details": {
+        "type": "selection",
+        "choice": 1,
+        "correctTarget": 9
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 7,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": true,
+      "rt": 18207,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 8,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "high",
+      "correct": true,
+      "rt": 31347,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 9,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 31058,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 10,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 26719,
+      "details": {
+        "type": "selection",
+        "choice": 9,
+        "correctTarget": 9
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 11,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": true,
+      "rt": 15179,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 12,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 12925,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 13,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": false,
+      "rt": 11745,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 14,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 28228,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Similaridade Visual",
+      "ratings": {
+        "heatmap": "3",
+        "scatter": "4",
+        "cnn": "4",
+        "sketch": "2",
+        "particles": "2"
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 2852,
+      "details": {
+        "type": "memory_selection",
+        "choice": 9,
+        "correctTarget": 9
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 5432,
+      "details": {
+        "type": "memory_selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 1,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 11382,
+      "details": {
+        "type": "memory_selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 2,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 6574,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 3,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 9285,
+      "details": {
+        "type": "memory_selection",
+        "choice": 1,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 4,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 4056,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 5,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 8077,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 6,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 17317,
+      "details": {
+        "type": "memory_selection",
+        "choice": 8,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 7,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 9486,
+      "details": {
+        "type": "memory_selection",
+        "choice": 2,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 8,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 7719,
+      "details": {
+        "type": "memory_selection",
+        "choice": 8,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 9,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": false,
+      "rt": 21921,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correctTarget": 3
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Memória Visual",
+      "ratings": {
+        "heatmap": "2",
+        "scatter": "4",
+        "cnn": "2",
+        "sketch": "1",
+        "particles": "1"
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 8962,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 10,
+        "framesSeen": 11,
+        "outcome": "HIT",
+        "lagTime": 962,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 17230,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 21,
+        "outcome": "HIT",
+        "lagTime": 3630,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 1,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": true,
+      "rt": 15176,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 18,
+        "outcome": "HIT",
+        "lagTime": 1576,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 2,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 13519,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 15,
+        "framesSeen": 16,
+        "outcome": "HIT",
+        "lagTime": 1519,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 3,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": true,
+      "rt": 15973,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 19,
+        "framesSeen": 19,
+        "outcome": "HIT",
+        "lagTime": 773,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 4,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 32828,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 19,
+        "framesSeen": 41,
+        "outcome": "HIT",
+        "lagTime": 17628,
+        "cycle": 2
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 5,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 16258,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 16,
+        "framesSeen": 20,
+        "outcome": "HIT",
+        "lagTime": 3458,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 6,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 7298,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 16,
+        "framesSeen": 9,
+        "outcome": "ANTICIPATION",
+        "lagTime": -5502,
+        "cycle": null
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 7,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 24320,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 30,
+        "outcome": "HIT",
+        "lagTime": 10720,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 8,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 16660,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 16,
+        "framesSeen": 20,
+        "outcome": "HIT",
+        "lagTime": 3860,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-9391",
+      "trialIdx": 9,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 32791,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 17,
+        "framesSeen": 40,
+        "outcome": "HIT",
+        "lagTime": 19191,
+        "cycle": 2
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Detecção de Loop",
+      "ratings": {
+        "heatmap": "1",
+        "scatter": "4",
+        "cnn": "2",
+        "sketch": "1",
+        "particles": "1"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 7765,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": true,
+      "rt": 24652,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 1,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": true,
+      "rt": 7157,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 2,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": false,
+      "rt": 40000,
+      "details": {
+        "outcome": "TIMEOUT",
+        "choice": "NONE"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 3,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "high",
+      "correct": true,
+      "rt": 20596,
+      "details": {
+        "type": "selection",
+        "choice": 8,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 4,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 20384,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correctTarget": 9
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 5,
+      "task": "similarity",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": true,
+      "rt": 25076,
+      "details": {
+        "type": "selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 6,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 36425,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 7,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": false,
+      "rt": 23036,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 8,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 23319,
+      "details": {
+        "type": "selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 9,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": true,
+      "rt": 22954,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 10,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 18065,
+      "details": {
+        "type": "selection",
+        "choice": 1,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 11,
+      "task": "similarity",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": false,
+      "rt": 11585,
+      "details": {
+        "type": "selection",
+        "choice": 4,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 12,
+      "task": "similarity",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 5618,
+      "details": {
+        "type": "selection",
+        "choice": 6,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 13,
+      "task": "similarity",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 5733,
+      "details": {
+        "type": "selection",
+        "choice": 7,
+        "correctTarget": 7
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 14,
+      "task": "similarity",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 12509,
+      "details": {
+        "type": "selection",
+        "choice": 1,
+        "correctTarget": 1
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Similaridade Visual",
+      "ratings": {
+        "heatmap": "1",
+        "scatter": "4",
+        "cnn": "4",
+        "sketch": "4",
+        "particles": "1"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "trend",
+      "vis": "static",
+      "diff": "training",
+      "correct": false,
+      "rt": 14468,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11732,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 1,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11927,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 2,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 9220,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 3,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11266,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 4,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 10978,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 5,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 10208,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 6,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11670,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 7,
+      "task": "trend",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11442,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 8,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11320,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 9,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": true,
+      "rt": 11504,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 10,
+      "task": "trend",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 10167,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "convergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 11,
+      "task": "trend",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": false,
+      "rt": 11076,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "convergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 12,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 13644,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "random"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 13,
+      "task": "trend",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": true,
+      "rt": 12504,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "divergence",
+        "correct": "divergence"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 14,
+      "task": "trend",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": false,
+      "rt": 6650,
+      "details": {
+        "type": "trend_analysis",
+        "choice": "random",
+        "correct": "divergence"
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Análise de Tendência",
+      "ratings": {
+        "heatmap": "4",
+        "scatter": "3",
+        "cnn": "4",
+        "sketch": "1",
+        "particles": "1"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 2725,
+      "details": {
+        "type": "memory_selection",
+        "choice": 2,
+        "correctTarget": 2
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "medium",
+      "correct": true,
+      "rt": 3937,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 5
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 1,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "dense",
+      "correct": true,
+      "rt": 4944,
+      "details": {
+        "type": "memory_selection",
+        "choice": 3,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 2,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "dense",
+      "correct": false,
+      "rt": 9193,
+      "details": {
+        "type": "memory_selection",
+        "choice": 6,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 3,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "medium",
+      "correct": false,
+      "rt": 6168,
+      "details": {
+        "type": "memory_selection",
+        "choice": 7,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 4,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "dense",
+      "correct": false,
+      "rt": 3875,
+      "details": {
+        "type": "memory_selection",
+        "choice": 5,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 5,
+      "task": "memory",
+      "vis": "cnn",
+      "diff": "dense",
+      "correct": true,
+      "rt": 5811,
+      "details": {
+        "type": "memory_selection",
+        "choice": 8,
+        "correctTarget": 8
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 6,
+      "task": "memory",
+      "vis": "sketch",
+      "diff": "dense",
+      "correct": true,
+      "rt": 4735,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 7,
+      "task": "memory",
+      "vis": "scatter",
+      "diff": "medium",
+      "correct": false,
+      "rt": 8335,
+      "details": {
+        "type": "memory_selection",
+        "choice": 1,
+        "correctTarget": 6
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 8,
+      "task": "memory",
+      "vis": "heatmap",
+      "diff": "medium",
+      "correct": false,
+      "rt": 7091,
+      "details": {
+        "type": "memory_selection",
+        "choice": 2,
+        "correctTarget": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 9,
+      "task": "memory",
+      "vis": "particles",
+      "diff": "medium",
+      "correct": true,
+      "rt": 18393,
+      "details": {
+        "type": "memory_selection",
+        "choice": 4,
+        "correctTarget": 4
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Memória Visual",
+      "ratings": {
+        "heatmap": "1",
+        "scatter": "4",
+        "cnn": "4",
+        "sketch": "3",
+        "particles": "1"
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "static",
+      "diff": "training",
+      "correct": true,
+      "rt": 8694,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 10,
+        "framesSeen": 10,
+        "outcome": "HIT",
+        "lagTime": 694,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 0,
+      "task": "loop",
+      "vis": "particles",
+      "diff": "high",
+      "correct": true,
+      "rt": 9689,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 9,
+        "framesSeen": 12,
+        "outcome": "HIT",
+        "lagTime": 2489,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 1,
+      "task": "loop",
+      "vis": "heatmap",
+      "diff": "high",
+      "correct": true,
+      "rt": 6493,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 5,
+        "framesSeen": 8,
+        "outcome": "HIT",
+        "lagTime": 2493,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 2,
+      "task": "loop",
+      "vis": "sketch",
+      "diff": "high",
+      "correct": true,
+      "rt": 9929,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 12,
+        "framesSeen": 12,
+        "outcome": "HIT",
+        "lagTime": 329,
+        "cycle": 1
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 3,
+      "task": "loop",
+      "vis": "scatter",
+      "diff": "high",
+      "correct": true,
+      "rt": 29386,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 11,
+        "framesSeen": 36,
+        "outcome": "HIT",
+        "lagTime": 20586,
+        "cycle": 3
+      }
+    },
+    {
+      "participantID": "P-1674",
+      "trialIdx": 4,
+      "task": "loop",
+      "vis": "cnn",
+      "diff": "high",
+      "correct": true,
+      "rt": 6958,
+      "details": {
+        "type": "loop_detection",
+        "loopSize": 7,
+        "framesSeen": 8,
+        "outcome": "HIT",
+        "lagTime": 1358,
+        "cycle": 1
+      }
+    },
+    {
+      "type": "questionnaire",
+      "task": "Detecção de Loop",
+      "ratings": {
+        "heatmap": "1",
+        "scatter": "3",
+        "cnn": "3",
+        "sketch": "1",
+        "particles": "1"
+      }
+    }
 ]
 
 
