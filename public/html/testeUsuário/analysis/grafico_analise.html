@@ -414,25 +414,41 @@
         .filter(d => d.task === 'trend' && d.type !== 'questionnaire' && d.diff !== 'training')
         .map(d => ({
           // Na Trend, o 'Gabarito' (Cenário) define a dificuldade lógica
-          Difficulty: (d.details && d.details.correct) ? d.details.correct : "unknown",
+          // Difficulty: (d.details && d.details.correct) ? d.details.correct : "unknown",
+          Difficulty: d.diff,
           Visualization: d.vis,
           Is_Correct: d.correct ? 1 : 0,
           Reaction_Time_ms: d.rt
         }));
 
       // --- LOOP ---
-      const loopData = allLogs
+      // const loopData = allLogs
+      //   .filter(d => d.task === 'loop' && d.type !== 'questionnaire' && d.diff !== 'training')
+      //   .map(d => ({
+      //     Difficulty: d.diff,
+      //     Visualization: d.vis,
+      //     // Verifica se foi HIT (Acerto Real)
+      //     Is_Correct: (d.details && d.details.outcome === 'HIT') ? 1 : 0,
+      //     // LagTime (atraso da percepção)
+      //     Lag_Time_ms: (d.details && d.details.lagTime) ? d.details.lagTime : 0 
+      //   }))
+      //   // Filtra apenas acertos para o gráfico de tempo (Lag), pois erro não tem lag válido
+      //   .filter(d => d.Is_Correct === 1); 
+      // 1. Dataset Completo (Para calcular Acurácia: considera erros e acertos)
+      const loopDataAll = allLogs
         .filter(d => d.task === 'loop' && d.type !== 'questionnaire' && d.diff !== 'training')
         .map(d => ({
           Difficulty: d.diff,
           Visualization: d.vis,
           // Verifica se foi HIT (Acerto Real)
           Is_Correct: (d.details && d.details.outcome === 'HIT') ? 1 : 0,
-          // LagTime (atraso da percepção)
-          Lag_Time_ms: (d.details && d.details.lagTime) ? d.details.lagTime : 0 
-        }))
-        // Filtra apenas acertos para o gráfico de tempo (Lag), pois erro não tem lag válido
-        .filter(d => d.Is_Correct === 1); 
+          // LagTime (atraso da percepção) - mantemos null se errou
+          Lag_Time_ms: (d.details && d.details.lagTime) ? d.details.lagTime : null 
+        }));
+
+      // 2. Dataset Filtrado (Para calcular Tempo: considera APENAS acertos)
+      // Se incluíssemos os erros (tempo 0 ou null), a média de tempo ficaria errada.
+      const loopDataHits = loopDataAll.filter(d => d.Is_Correct === 1);
 
 
       // 2. CONFIGURAÇÕES VISUAIS DE PLOTAGEM
@@ -491,9 +507,10 @@
 
       // --- RENDERIZAÇÃO GRÁFICO LOOP ---
       const svgLoop = d3.select("#chart-loop");
-      const accLoopData = processData(loopData, 'Is_Correct');
+      // Usa 'loopDataAll' para Acurácia (conta erros e acertos)
+      const accLoopData = processData(loopDataAll, 'Is_Correct');
       // No Loop, usamos Lag_Time_ms em vez de Reaction Time total
-      const timeLoopData = processData(loopData, 'Lag_Time_ms'); 
+      const timeLoopData = processData(loopDataHits, 'Lag_Time_ms'); 
       const heightLoop = 30 * Math.max(accLoopData.length, 1) + 80;
 
       svgLoop.attr("width", totalWidthDefault).attr("height", heightLoop);

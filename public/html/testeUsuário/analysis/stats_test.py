@@ -55,6 +55,8 @@ def load_and_flatten_data(filepath):
             details = entry.get('details', {})
             is_correct = 1 if entry.get('correct') else 0
             rt = entry.get('rt')
+            if is_correct == 0:
+                rt = np.nan
             lag_time = details.get('lagTime') if task == 'loop' else np.nan
             
             # Filtra erros no Loop para análise de tempo
