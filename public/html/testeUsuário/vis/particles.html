@@ -97,12 +97,12 @@
             image-rendering: auto; /* Nitidez */
         }
         
-        canvas.individual-cell:hover {
+       /*  canvas.individual-cell:hover {
             transform: scale(1.5);
             border-color: #fff;
             z-index: 100;
             box-shadow: 0 0 15px rgba(255,255,255,0.2);
-        }
+        } */
 
         .fitness-label {
             font-size: 10px;
@@ -331,7 +331,7 @@
             population.forEach((ind, i) => {
                 const cvs = document.getElementById(`ind-cvs-${i}`);
                 if (cvs) {
-                    cvs.title = `Fitness: ${ind.fitness}`;
+                    // cvs.title = `Fitness: ${ind.fitness}`;
                     desenharIndividuo(cvs, ind.nodeMask);
                 }
             });

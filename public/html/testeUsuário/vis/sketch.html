@@ -74,12 +74,12 @@
             transition: transform 0.1s;
         }
         
-        .individual-cell:hover {
+        /* .individual-cell:hover {
             transform: scale(2.5);
             border-color: var(--accent-color);
             z-index: 100;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
+        } */
     </style>
 </head>
 <body>
@@ -233,7 +233,7 @@
                 const cvs = document.getElementById(`ind-cvs-${i}`);
                 if (!cvs) return;
                 
-                cvs.title = `Fitness: ${ind.fitness}`;
+                // cvs.title = `Fitness: ${ind.fitness}`;
                 const ctx = cvs.getContext('2d');
                 
                 // Limpa

@@ -107,11 +107,11 @@
             transition: transform 0.1s;
         }
         
-        .individual-cell:hover {
+        /* .individual-cell:hover {
             transform: scale(1.5);
             border-color: var(--accent-color);
             z-index: 10;
-        }
+        } */
 
         .hidden { display: none !important; }
 
@@ -848,7 +848,7 @@
                     cvs.className = 'individual-cell';
                     // Mantemos o ID original, pois o TensorFlow usa ele para desenhar depois
                     cvs.id = `ind-cvs-${i}`;
-                    cvs.title = `Fitness: ${ind.fitness}`; 
+                    // cvs.title = `Fitness: ${ind.fitness}`; 
                     
                     // Coloca o canvas no wrapper
                     wrapper.appendChild(cvs);
