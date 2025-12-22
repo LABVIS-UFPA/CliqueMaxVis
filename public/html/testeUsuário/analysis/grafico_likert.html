@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Likert Chart Export</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+    <button id="btn-download" onclick="downloadSVG()">Baixar SVG</button>
+
+    <div id="charts-container"></div>
+    
+    <div id="tooltip" class="tooltip"></div>
+
+<script>
+    // =========================================================================
+    // 1. DEFINIÇÃO DOS ESTILOS (CSS dentro do JS)
+    // =========================================================================
+
+    const pageStyles = `
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background: #fff; 
+            display: inline-block;
+            width: auto;
+        }
+
+        #charts-container {
+            display: block;
+        }
+
+        #btn-download {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        #btn-download:hover {
+            background-color: #34495e;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+    `;
+
+    // Estilos internos do SVG
+    const chartStyles = `
+        .svg-text {
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .svg-title {
+            font-size: 13px;
+            font-weight: 700;
+            fill: #333;
+            text-transform: uppercase;
+        }
+        .legend-text {
+            font-size: 12px;
+            fill: #555;
+            alignment-baseline: middle;
+        }
+        .axis text { 
+            font-size: 12px; 
+            fill: #555; 
+        }
+        .bar-label { 
+            font-size: 10px; 
+            pointer-events: none; 
+            font-weight: 700;
+            fill: #000; /* LABEL EM PRETO */
+        }
+        .axis path, .axis line {
+            display: none;
+        }
+    `;
+
+    // Injetar estilos na página
+    const styleElement = document.createElement("style");
+    styleElement.textContent = pageStyles;
+    document.head.appendChild(styleElement);
+
+
+    // =========================================================================
+    // 2. CONFIGURAÇÕES D3.JS
+    // =========================================================================
+
+    const innerHeight = 125; 
+    const innerWidth = 640; 
+    const legendHeight = 40; 
+
+    const margin = {
+        top: 25,    
+        right: 0,   
+        bottom: 5,  
+        left: 110   
+    }; 
+
+    const blockHeight = innerHeight + margin.top + margin.bottom;
+    const totalWidth = innerWidth + margin.left + margin.right;
+
+    const scores = ["1", "2", "3", "4", "5"];
+
+    // Paleta Spectral Diverging
+    const colorScale = d3.scaleOrdinal()
+        .domain(scores)
+        .range([
+            "#d7191c", 
+            "#fdae61", 
+            "#a0a0a0", 
+            "#a6d96a", 
+            "#1a9641"  
+        ]); 
+
+    const tooltip = d3.select("#tooltip");
+    const container = d3.select("#charts-container");
+
+    const jsonFilePath = "./results/global_results.json"; 
+
+    d3.json(jsonFilePath).then(data => {
+        
+        const questData = data.filter(d => d.type === 'questionnaire');
+        
+        if (questData.length === 0) {
+            container.html("<p>Sem dados.</p>");
+            return;
+        }
+
+        const tasksMap = d3.group(questData, d => d.task);
+        const tasksArray = Array.from(tasksMap);
+
+        const totalSVGHeight = (tasksArray.length * blockHeight) + legendHeight;
+
+        // Criar SVG Único
+        const svg = container.append("svg")
+            .attr("id", "main-chart")
+            .attr("width", totalWidth)
+            .attr("height", totalSVGHeight)
+            .attr("viewBox", `0 0 ${totalWidth} ${totalSVGHeight}`)
+            .attr("xmlns", "http://www.w3.org/2000/svg");
+
+        // Injetar CSS no SVG
+        svg.append("style").text(chartStyles);
+
+        // Loop de Tarefas
+        tasksArray.forEach(([taskName, responses], index) => {
+            const yOffset = index * blockHeight;
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left}, ${yOffset + margin.top})`);
+            
+            drawTaskBlock(g, taskName, responses);
+        });
+
+        // Loop da Legenda
+        const legendY = (tasksArray.length * blockHeight) + 10;
+        const legendGroup = svg.append("g")
+            .attr("transform", `translate(${margin.left + (innerWidth/2) - 100}, ${legendY})`);
+
+        scores.forEach((s, i) => {
+            const itemWidth = 40;
+            const lg = legendGroup.append("g").attr("transform", `translate(${i * itemWidth}, 0)`);
+            
+            // Caixa de cor com OPACIDADE
+            lg.append("rect")
+                .attr("width", 12).attr("height", 12)
+                .attr("fill", colorScale(s))
+                .attr("fill-opacity", 0.8) // Opacidade na legenda
+                .attr("rx", 2);
+
+            // Número
+            lg.append("text")
+                .attr("class", "legend-text svg-text")
+                .attr("x", 16).attr("y", 7)
+                .text(s);
+        });
+
+    }).catch(err => {
+        console.error(err);
+        container.html(`<p style="color:red">Erro: ${err.message}</p>`);
+    });
+
+    function drawTaskBlock(selection, taskName, rawData) {
+        const counts = {}; 
+        rawData.forEach(r => {
+            if(r.ratings) {
+                for(const [vis, score] of Object.entries(r.ratings)) {
+                    const s = String(score);
+                    if(!counts[vis]) counts[vis] = {vis, "1":0,"2":0,"3":0,"4":0,"5":0, total:0};
+                    if(scores.includes(s)) {
+                        counts[vis][s]++;
+                        counts[vis].total++;
+                    }
+                }
+            }
+        });
+
+        const plotData = Object.values(counts).map(d => {
+            const row = { vis: d.vis };
+            scores.forEach(s => {
+                row[s] = d.total ? (d[s]/d.total)*100 : 0;
+                row[`count_${s}`] = d[s];
+            });
+            return row;
+        });
+
+        // Título
+        selection.append("text")
+            .attr("class", "svg-title svg-text")
+            .attr("x", 0).attr("y", -10)
+            .text(taskName);
+
+        const y = d3.scaleBand()
+            .domain(plotData.map(d => d.vis))
+            .range([0, innerHeight])
+            .padding(0.15);
+
+        const x = d3.scaleLinear()
+            .domain([0, 100])
+            .range([0, innerWidth]);
+
+        // Eixo Y
+        selection.append("g")
+            .attr("class", "axis svg-text")
+            .call(d3.axisLeft(y).tickSize(0));
+
+        // Barras
+        const stack = d3.stack().keys(scores)(plotData);
+
+        selection.selectAll(".layer")
+            .data(stack)
+            .enter().append("g")
+            .attr("fill", d => colorScale(d.key))
+            .attr("fill-opacity", 0.8) // OPACIDADE NAS BARRAS
+            .selectAll("rect")
+            .data(d => d)
+            .enter().append("rect")
+            .attr("y", d => y(d.data.vis))
+            .attr("x", d => x(d[0]))
+            .attr("width", d => x(d[1]) - x(d[0]))
+            .attr("height", y.bandwidth())
+            .on("mouseover", function(event, d) {
+                const key = d3.select(this.parentNode).datum().key;
+                const val = d.data[`count_${key}`];
+                const pct = (d[1]-d[0]).toFixed(1);
+                
+                // Ao passar o mouse, aumenta opacidade para 1 (destaque)
+                d3.select(this.parentNode).attr("fill-opacity", 1);
+                
+                tooltip.style("opacity", 1)
+                    .html(`<strong>${d.data.vis}</strong><br>Nota ${key}: ${val} (${pct}%)`)
+                    .style("left", (event.pageX+10)+"px")
+                    .style("top", (event.pageY-15)+"px");
+            })
+            .on("mouseout", function() {
+                // Volta para opacidade 0.8
+                d3.select(this.parentNode).attr("fill-opacity", 0.8);
+                tooltip.style("opacity", 0);
+            });
+
+        // Rótulos (%)
+        selection.selectAll(".layer")
+            .data(stack)
+            .enter().append("g")
+            .selectAll("text")
+            .data(d => d)
+            .enter().append("text")
+            .attr("class", "bar-label svg-text")
+            .attr("x", d => x(d[0]) + (x(d[1]) - x(d[0])) / 2)
+            .attr("y", d => y(d.data.vis) + y.bandwidth() / 2 + 3)
+            .attr("text-anchor", "middle")
+            .text(d => (d[1]-d[0]) > 6 ? Math.round(d[1]-d[0])+"%" : "");
+    }
+
+    function downloadSVG() {
+        const svgElement = document.getElementById("main-chart");
+        const serializer = new XMLSerializer();
+        let source = serializer.serializeToString(svgElement);
+
+        if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)){
+            source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+        
+        source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+
+        const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download = "resultados_likert.svg";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+</script>
+
+</body>
+</html>
