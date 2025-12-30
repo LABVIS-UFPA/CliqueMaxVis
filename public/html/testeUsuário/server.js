@@ -16,6 +16,10 @@ let activeGAs = {}; // Armazena as instâncias dos GAs: { "nome_do_dataset": ins
 let activeModels = {}; // Armazena os pesos da CNN: { "nome_dataset": { topology, weightsBase64, specs } }
 let activeLoops = {}; // Armazena os IDs dos intervalos: { "vis-diff-context": intervalID }
 
+let currentTrendSequence = [];
+let trendInterval = null;
+let lastTrendConfig = {};
+
 
 const TREND_POP_SIZE = 15;
 
@@ -24,7 +28,8 @@ const DIFFICULTY_MAP = {
     'low':    "gen200_p0.9_55.clq",
     'medium': "hamming10-4.clq",
     'high':   "C4000.5.clq",
-    'dense':  "MANN_a45.clq"
+    'dense':  "MANN_a45.clq",
+    'medium2': "p_hat700-3.clq"
 };
 
 // --- LISTA DE DATASETS (Mantida conforme original) ---
@@ -47,6 +52,12 @@ const datasets = {
         n_nodes: 4000,
         n_links: 4000268
     },
+    "p_hat700-3.clq": {
+        name: "p_hat700-3.clq",
+        url: "../../../exemplosGrafos/clique62.txt",
+        n_nodes: 700,
+        n_links: 183010
+    },
     "MANN_a45.clq": {
         name: "MANN_a45.clq",
         url: "../../../exemplosGrafos/MANN_a45.clq.txt",
@@ -60,6 +71,7 @@ const datasets = {
 const subscribers = {
     'low': {},
     'medium': {},
+    'medium2': {},
     'high': {},
     'dense': {}
 };
@@ -362,6 +374,18 @@ server.on('connection', ws => {
                     console.error("Erro crítico ao salvar no servidor:", error);
                     ws.send(JSON.stringify({ act: "results_saved_error", error: error.message }));
                 }
+                break;
+
+            case "start_trend_trial":
+                // obj: { act, vis, trend, base }
+                // Ex: trend="stagnation", base="medium2"
+                lastTrendConfig = { diffKey: obj.base, vis: obj.vis }; 
+                startTrendSequence(obj.trend, obj.base);
+                break;
+
+            case "req_replay":
+                console.log("[SERVER] Replay solicitado.");
+                playTrendSequence();
                 break;
                 
             // ... (Outros comandos like 'log' etc) ...
@@ -826,4 +850,119 @@ function generateVariant(baseInd, minJaccard, maxJaccard) {
         fitness: baseInd.fitness * actualJaccard, // Fitness simulado
         isGenerated: true
     };
+}
+
+// ==========================================
+// LÓGICA DE GERAÇÃO DE TENDÊNCIA (USANDO JACCARD/GENERATE VARIANT)
+// ==========================================
+
+function startTrendSequence(trendType, diffKey) {
+    const datasetKey = DIFFICULTY_MAP[diffKey];
+    const ga = getOrLoadGA(datasetKey);
+    
+    // Validação de segurança
+    if (!ga || !ga.population || ga.population.length === 0) {
+        console.error(`[ERROR] GA não pronto para ${datasetKey}`);
+        return;
+    }
+
+    // Seleciona indivíduo base aleatório
+    const baseInd = ga.population[Math.floor(Math.random() * ga.population.length)]; 
+    currentTrendSequence = [];
+
+    const TOTAL_FRAMES = 30;
+    // Usa a constante global se definida, senão 15
+    const POP_SIZE = (typeof TREND_POP_SIZE !== 'undefined') ? TREND_POP_SIZE : 15;
+
+    console.log(`[TREND] Gerando sequência (Jaccard Controlado): ${trendType} para ${diffKey}`);
+
+    for (let f = 0; f < TOTAL_FRAMES; f++) {
+        let framePop = [];
+        // Progresso da animação de 0.0 a 1.0
+        const progress = f / (TOTAL_FRAMES - 1);
+
+        // Define a meta de Similaridade (Jaccard) para este quadro específico
+        let targetJaccard = 0;
+
+        if (trendType === 'stagnation') {
+            // ESTAGNAÇÃO: Mantém uma similaridade alta e fixa (pouca variação).
+            // Fixamos em ~0.92 (92% igual). Isso gera aquela "vibração" local sem sair do lugar.
+            targetJaccard = 0.92;
+        } 
+        else if (trendType === 'convergence') {
+            // CONVERGÊNCIA: Começa longe (ex: 0.3) e termina no alvo (1.0)
+            const startJ = 0.3;
+            const endJ = 0.9;
+            // Interpolação Linear
+            targetJaccard = startJ + (endJ - startJ) * progress;
+        }
+        else if (trendType === 'divergence') {
+            // DIVERGÊNCIA: Começa no alvo (1.0) e termina longe (ex: 0.3)
+            const startJ = 0.9;
+            const endJ = 0.3;
+            targetJaccard = startJ + (endJ - startJ) * progress;
+        }
+        else if (trendType === 'random') {
+            // ALEATÓRIO: Ignora Jaccard (tratado abaixo)
+            targetJaccard = 0.2;
+        }
+
+        // Gera a população do quadro usando generateVariant
+        for (let i = 0; i < POP_SIZE; i++) {
+            // Usa a função existente do sistema para criar variantes com Jaccard preciso
+            // Passamos min e max iguais para travar a distância exata naquele frame
+            
+            // Nota: Math.min(..., 1.0) garante que não passamos de 100%
+            let safeJaccard = Math.min(targetJaccard, 1.0);
+            
+            // generateVariant(indBase, minJaccard, maxJaccard)
+            const variant = generateVariant(baseInd, safeJaccard-0.05, safeJaccard+0.05);
+            framePop.push(variant);
+        }
+
+        currentTrendSequence.push({
+            act: "data",
+            data:{
+                generation: f,
+                population: framePop
+            }
+        });
+    }
+    ga.nextGeneration(); // Avança o GA para a próxima geração.
+    // Inicia a reprodução
+    playTrendSequence();
+}
+
+function playTrendSequence() {
+    if (trendInterval) clearInterval(trendInterval);
+    
+    let frameIdx = 0;
+    const { diffKey, vis } = lastTrendConfig;
+
+    // Intervalo de 250ms (lento para facilitar percepção)
+    trendInterval = setInterval(() => {
+        if (frameIdx >= currentTrendSequence.length) {
+            clearInterval(trendInterval);
+            // Avisa o controlador que acabou (para liberar botões)
+            if (controllerSocket && controllerSocket.readyState === WebSocket.OPEN) {
+                controllerSocket.send(JSON.stringify({ act: "animation_ended" }));
+            }
+            return;
+        }
+
+        const frame = currentTrendSequence[frameIdx];
+        
+        // Envia para todos os clientes daquela dificuldade (ex: 'medium2')
+        const subscribersList = subscribers[diffKey];
+        if (subscribersList) {
+            const client = subscribersList[`${vis}-${diffKey}-target`];
+            // Object.values(subscribersList).forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(frame));
+            }
+            // });
+        }
+
+        frameIdx++;
+    }, 100);
 }

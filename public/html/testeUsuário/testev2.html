@@ -365,6 +365,10 @@
             100% { transform: scale(1); }
         }
 
+        .trend-opt, .trend-replay{
+            width: auto;
+        }
+
     </style>
 </head>
 <body>
@@ -391,7 +395,7 @@
         <h2 id="instr-title">Instruções</h2>
         <div id="instr-content" style="text-align: left; max-width: 800px; margin-bottom: 20px;"></div>
         
-        <button onclick="ExpManager.startTraining()">Iniciar Treino</button>
+        <button onclick="ExpManager.startTraining()">Iniciar</button>
     </div>
 
     <div id="screen-test" class="screen">
@@ -502,6 +506,12 @@
                 sequenceDuration: 10, // Tempo vendo a animação
                 responseWindow: 5,    // Tempo após sumir
                 get timeout() { return this.sequenceDuration + this.responseWindow; }
+            },
+            trend2: {
+                name: "Análise de Tendência (Replay)",
+                difficulties: ['medium2'], // Nome da base fixa
+                scenarios: ['divergence', 'convergence', 'random', 'stagnation'], 
+                timeout: 120 // Tempo generoso para replay
             }
         },
         // Mapeamento de contextos necessários para criar os iframes
@@ -526,6 +536,8 @@
             currentAnswerKey: null, // Guarda o objeto { correctIndex: X } ou { loopSize: Y }
             trialStartTime: 0,
 
+            replayCount: 0,
+
             iframeCache: {}, 
             activeFrames: [] // Lista de iframes visíveis no momento (para resize)
         },
@@ -539,8 +551,13 @@
             };
             
             // Sorteia ordem das tarefas
-            this.state.taskOrder = this.shuffle(['trend','similarity', 'memory', 'loop']);
+            // this.state.taskOrder = this.shuffle(['trend','similarity', 'memory', 'loop']);
+            // console.log("Ordem das Tarefas:", this.state.taskOrder);
+
+            // TESTE SUPLEMENTAR: Apenas trend2
+            this.state.taskOrder = ['trend2'];
             console.log("Ordem das Tarefas:", this.state.taskOrder);
+
 
             // Inicia o pré-carregamento
             this.preloadVisualizations().then(() => {
@@ -563,24 +580,66 @@
                 const progressText = document.getElementById('loading-text');
                 const progressBar = document.getElementById('loader-progress');
                 
-                // 1. Prepara a Fila de Criação (Mantive sua lógica exata de cache/roles)
-                const allDiffs = ['low', 'medium', 'high', 'dense']; 
-                let loadQueue = [];
+               
+                // 1. CONFIGURAÇÃO: O que cada tipo de tarefa precisa?
+                const TASK_REQUIREMENTS = {
+                    'memory':     [{ role: 'carousel_page', numbered: true }, { role: 'candidates_grid', numbered: true }],
+                    'similarity': [{ role: 'target', numbered: false }, { role: 'candidates_grid', numbered: true }],
+                    'loop':       [{ role: 'loop_sequence', numbered: false }], 
+                    'trend':      [{ role: 'target', numbered: false }],
+                    'trend2':     [{ role: 'target', numbered: false }] // Só precisa de 1 visualização limpa
+                };
 
+                // 1.2. FILTRAGEM: Monta lista baseada SÓ no taskOrder
+                let loadQueue = [];
+                let uniqueKeys = new Set(); // Evita duplicatas
+
+                // Garante estrutura do cache
                 PROTOCOL.visualizations.forEach(vis => {
-                    this.state.iframeCache[vis.id] = {};
-                    allDiffs.forEach(diff => {
-                        this.state.iframeCache[vis.id][diff] = {};
-                        // Adiciona as instâncias necessárias
-                        loadQueue.push({ vis, diff, role: 'target', numbered: false});
-                        loadQueue.push({ vis, diff, role: 'candidates_grid', numbered: true });
-                        loadQueue.push({ vis, diff, role: 'carousel_page', numbered: true });
-                        loadQueue.push({ vis, diff, role: 'loop_sequence', numbered: false });
+                    if (!this.state.iframeCache[vis.id]) this.state.iframeCache[vis.id] = {};
+                });
+
+                // Itera apenas sobre as tarefas ativas (no seu caso, só 'trend2')
+                this.state.taskOrder.forEach(taskKey => {
+                    const taskConfig = PROTOCOL.tasks[taskKey];
+                    const reqs = TASK_REQUIREMENTS[taskKey];
+
+                    if (!taskConfig || !reqs) return;
+
+                    // Itera visualizações x dificuldades da tarefa x papéis
+                    PROTOCOL.visualizations.forEach(vis => {
+                        taskConfig.difficulties.forEach(diff => {
+                            // Garante cache para essa dificuldade
+                            if (!this.state.iframeCache[vis.id][diff]) {
+                                this.state.iframeCache[vis.id][diff] = {};
+                            }
+
+                            reqs.forEach(req => {
+                                const uniqueKey = `${vis.id}|${diff}|${req.role}`;
+                                
+                                if (!uniqueKeys.has(uniqueKey)) {
+                                    uniqueKeys.add(uniqueKey);
+                                    
+                                    loadQueue.push({
+                                        vis: vis,
+                                        diff: diff,
+                                        role: req.role,
+                                        numbered: req.numbered
+                                    });
+                                }
+                            });
+                        });
                     });
                 });
 
                 const totalExpected = loadQueue.length;
-                if (totalExpected === 0) { resolve(); return; }
+                console.log(`[Otimização] Carregando ${totalExpected} iframes necessários.`);
+                
+                if (totalExpected === 0) {
+                    console.warn("Nenhum iframe necessário.");
+                    resolve();
+                    return;
+                }
 
                 // 2. Conecta ao Servidor para Monitorar o Progresso Global
                 self.controlSocket = new WebSocket("ws://localhost:3214");
@@ -653,6 +712,9 @@
                             statusEl.innerText = "❌ Erro ao salvar no servidor. Verifique o console.";
                             statusEl.style.color = "#dc3545"; // Vermelho
                         }
+                    }else if (msg.act === "animation_ended") {
+                        console.log("Animação terminou. Liberando botões.");
+                        self.setPhase('decision'); // Função que vamos criar abaixo
                     }
 
                 };
@@ -743,10 +805,10 @@
                                 </ul>
                            </li>
                            <li>Após a animação, o gráfico sumirá e você terá <strong>${taskConfig.responseWindow} segundos</strong> para clicar na resposta.</li>`;
-            } else {
-                details = `<li>Encontre o elemento mais similar à referência.</li>
-                            <li>O elemento correto não é exatamente igual à referência.</li>
-                            <li>Escolha a mais semelhante.</li>`;
+            } else if (taskKey === 'trend2') {
+                details = `<li>Observe a animação da evolução dos dados.</li>
+                           <li>Decida qual é o padrão: <b>Convergência</b>, <b>Divergência</b>, <b>Aleatório</b> ou <b>Estagnação</b>.</li>
+                           <li>Use o botão <b>REPLAY</b> se precisar rever a animação.</li>`;
             }
 
             document.getElementById('instr-content').innerHTML = `
@@ -769,6 +831,17 @@
             // this.runTrial();
             this.state.isTraining = true;
             const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+
+
+            // Se for trend2, PULA o treino e vai direto para o teste real
+            if (taskKey === 'trend2') {
+                this.state.isTraining = false;
+                this.state.trialList = this.generateBlockTrials(taskKey); // Gera os 20 trials
+                this.state.currentTrialIdx = 0;
+                this.runTrial(); // Começa valendo
+                return;
+            }
+
             
             // Cria um trial especial do tipo 'static'
             this.state.trialList = [{ 
@@ -807,7 +880,8 @@
                             vis: vis, 
                             diff: config.difficulties[0], 
                             task: taskKey,
-                            scenario: scenario // <--- Guarda 'convergence', 'random', etc.
+                            scenario: scenario, // <--- Guarda 'convergence', 'random', etc.
+                            trend: scenario
                         });
                     });
                 });
@@ -836,7 +910,7 @@
             const trial = this.state.trialList[this.state.currentTrialIdx];
             
             // --- ENVIO AO SERVIDOR ---
-            if (trial.vis.id !== 'static' && trial.task !== 'trend') {
+            if (trial.vis.id !== 'static' && trial.task !== 'trend' && trial.task !== 'trend2') {
                 if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
 
                     // Lógica de Contexto Atualizada para incluir 'trend'
@@ -908,7 +982,9 @@
                 } else {
                     this.runTrendSequence(trial);
                 }
-            } else {
+            } else if (trial.task === 'trend2') {
+                this.runTrend2Sequence(trial);
+            }else {
                 // Similaridade e Loop carregam direto
                 if (trial.vis.id === 'static') this.renderStaticLayout(trial); // <--- NOVA FUNÇÃO
                 else {
@@ -1009,24 +1085,7 @@
                 if(f2) f2.contentWindow.postMessage({ act: 'data', mode: 'grid', seed: Math.random() }, '*');
 
             } else if (trial.task === 'memory') {
-                // this.state.carouselPage = 0;
-                // area.innerHTML = visLabel + `
-                //     <div class="layout-center">
-                //         <h3>Encontre (Tela <span id="car-page">1</span>/4)</h3>
-                //         <div style="display:flex; align-items:center; gap:20px; width:90%; height:60%;">
-                //             <button id="btn-prev" onclick="ExpManager.navCarousel(-1)" style="height:60px;">&#8592;</button>
-                            
-                //             <div style="flex:1; display: flex; justify-content: center;">
-                //                 <div id="ph-mem-carousel" style="height:400px; width: 800px; max-width: 800px; border:1px solid #ccc;"></div>
-                //             </div>
-                //             <button id="btn-next" onclick="ExpManager.navCarousel(1)" style="height:60px;">&#8594;</button>
-                //         </div>
-                //         <div class="response-container" style="max-width:600px; margin-top:20px;">
-                //             ${Array(6).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
-                //         </div>
-                //     </div>`;
                 
-                // this.updateMemoryGrid(null); // Ativa o iframe do carrossel
 
                 // Removemos a lógica de paginação. Agora é tela única.
                 area.innerHTML = visLabel + `
@@ -1433,6 +1492,12 @@
             let isCorrect = false;
             let logDetails = {};
 
+            if (trial.task === 'trend2') {
+                logDetails.replays = this.state.replayCount;
+                logDetails.targetTrend = trial.trend;
+                isCorrect = (answerValue === trial.trend);
+            }
+
             // --- TRATAMENTO ESPECIAL PARA TIMEOUT ---
             if (answerValue === "TIMEOUT") {
                 isCorrect = false;
@@ -1552,7 +1617,7 @@
                     }
                 }else 
                 // --- LÓGICA 4: TENDÊNCIA (TREND) ---
-                if (trial.task === 'trend') {
+                if (trial.task === 'trend' || trial.task === 'trend2') {
                     // key.correctTrend virá do server ("convergence", "divergence", "random")
                     // Como "ainda sem dados do server", vamos assumir acerto ou deixar null por enquanto
                     const correct = trial.scenario;
@@ -1724,16 +1789,7 @@
 
         /* --- UTILITÁRIOS --- */
     
-        // // Gera o HTML do iframe. 
-        // // 'context' servirá no futuro para dizer ao iframe se ele é 'target', 'grid' ou 'loop' via URL
-        // createVisFrame: function(visObject, context) {
-        //     // Ex: visualizations/heatmap.html?context=target
-        //     const src = `${visObject.file}?context=${context}`; 
-        //     return `<iframe src="${src}" 
-        //                     style="width:100%; height:100%; border:none; overflow:hidden;" 
-        //                     scrolling="no">
-        //             </iframe>`;
-        // },
+        
         skipLoading: function() {
             console.warn("⚠️ MODO DEV: Carregamento pulado pelo usuário.");
             document.getElementById('loading-overlay').style.display = 'none';
@@ -1889,117 +1945,7 @@
             document.body.removeChild(link);
         },
 
-        // Gera e baixa o arquivo TSV (Tab-Separated Values) otimizado para Excel/R/Python
-        // downloadTSV: function() {
-        //     const fileName = `EXP_${this.state.participantID}_DATA.tsv`;
-        //     const log = this.state.dataLog;
-
-        //     if (!log || log.length === 0) {
-        //         alert("Nenhum dado registrado para baixar.");
-        //         return;
-        //     }
-
-        //     // 1. Definir Cabeçalhos
-        //     // Incluímos ID e Timestamp para facilitar a análise posterior
-        //     const headers = [
-        //         "ParticipantID", 
-        //         "Task", 
-        //         "Visualization", 
-        //         "Difficulty", 
-        //         "Trial_Index", 
-        //         "Correct", 
-        //         "ReactionTime_ms", 
-        //         "Details_JSON" // Detalhes específicos da tarefa vão aqui
-        //     ];
-
-        //     // 2. Construir Linhas
-        //     const rows = log.filter(entry => entry.trialIdx !== undefined).map(entry => {
-        //         return [
-        //             this.state.participantID,
-        //             entry.task,
-        //             entry.vis,
-        //             entry.diff,
-        //             entry.trialIdx,
-        //             entry.correct ? 1 : 0, // Converte booleano para 1/0
-        //             entry.rt,
-        //             JSON.stringify(entry.details) // Serializa o objeto de detalhes
-        //         ].join('\t');
-        //     });
-
-        //     // 3. Juntar tudo
-        //     const tsvContent = headers.join('\t') + '\n' + rows.join('\n');
-            
-        //     this.triggerDownload(tsvContent, fileName, 'text/tab-separated-values');
-        // },
-
-        // // Baixa apenas os dados do questionário em JSON
-        // downloadQuestJSON: function() {
-        //     const fileName = `EXP_${this.state.participantID}_QUEST.json`;
-        //     // Filtra apenas os logs do tipo 'questionnaire'
-        //     const questLogs = this.state.dataLog.filter(entry => entry.type === 'questionnaire');
-            
-        //     if (questLogs.length === 0) {
-        //         alert("Nenhum dado de questionário encontrado.");
-        //         return;
-        //     }
-
-        //     this.triggerDownload(JSON.stringify(questLogs, null, 2), fileName, 'application/json');
-        // },
-
-        // // Baixa os dados do questionário em TSV (Formato Tidy/Long para análise)
-        // downloadQuestTSV: function() {
-        //     const fileName = `EXP_${this.state.participantID}_QUEST.tsv`;
-        //     const questLogs = this.state.dataLog.filter(entry => entry.type === 'questionnaire');
-
-        //     if (questLogs.length === 0) {
-        //         alert("Nenhum dado de questionário encontrado.");
-        //         return;
-        //     }
-
-        //     // 1. Cabeçalhos
-        //     const headers = ["ParticipantID", "Task", "Visualization", "Rating"];
-        //     let rows = [];
-
-        //     // 2. Processa os dados
-        //     questLogs.forEach(entry => {
-        //         // entry.ratings é algo como { heatmap: "5", scatter: "2" ... }
-        //         // Vamos transformar cada chave em uma linha
-        //         Object.entries(entry.ratings).forEach(([visId, ratingValue]) => {
-        //             rows.push([
-        //                 this.state.participantID,
-        //                 entry.task,
-        //                 visId,
-        //                 ratingValue
-        //             ].join('\t'));
-        //         });
-        //     });
-
-        //     // 3. Monta o arquivo
-        //     const tsvContent = headers.join('\t') + '\n' + rows.join('\n');
-        //     this.triggerDownload(tsvContent, fileName, 'text/tab-separated-values');
-        // },
-
-        // // Função auxiliar genérica para criar o blob e clicar no link
-        // triggerDownload: function(content, fileName, mimeType) {
-        //     try {
-        //         const blob = new Blob([content], { type: mimeType });
-        //         const url = URL.createObjectURL(blob);
-                
-        //         const link = document.createElement('a');
-        //         link.href = url;
-        //         link.download = fileName;
-                
-        //         document.body.appendChild(link);
-        //         link.click();
-                
-        //         document.body.removeChild(link);
-        //         URL.revokeObjectURL(url);
-        //         console.log(`Download iniciado: ${fileName}`);
-        //     } catch (e) {
-        //         console.error("Erro ao tentar baixar arquivo:", e);
-        //         alert("Erro ao baixar dados automaticamente. Tente os botões manuais ou copie os dados do console.");
-        //     }
-        // },
+        
 
         // Remove a invisibilidade de todos os frames ativos
         revealActiveFrames: function() {
@@ -2057,8 +2003,91 @@
                 this.state.timeoutInterval = null;
             }
             document.getElementById('timeout-pie').style.display = 'none';
-        }
+        },
 
+
+        // --- NOVA LÓGICA PARA TREND 2 (COM REPLAY) ---
+        
+        runTrend2Sequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // 1. Zera Estado
+            this.state.replayCount = 0;
+            
+            // 2. Renderiza Layout Específico
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
+            
+
+
+            // Área de Visualização: Adicionamos a classe 'vis-placeholder' para o reposicionador encontrar
+            area.innerHTML = visLabel + `
+                <div id="ph-target" class="vis-placeholder" style="width:800px; height:400px;"></div>
+                <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:230px;padding: 5px;">
+                    <h3 id="phase-label" style="text-align:center; color:#ff9800;">👁️ OBSERVANDO...</h3>
+                    
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('convergence')" disabled>CONVERGÊNCIA</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('divergence')" disabled>DIVERGÊNCIA</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('random')" disabled>ALEATÓRIO</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('stagnation')" disabled>ESTAGNAÇÃO</button>
+                    
+                    <hr style="width:100%; border:0; border-top:1px solid #ccc; margin:10px 0;">
+                    
+                    <button id="btn-replay" class="resp-btn trend-replay" onclick="ExpManager.handleReplay()" disabled style="background:#6c757d; color:white;">
+                        🔄 REPLAY (<span id="replay-cnt">0</span>)
+                    </button>
+                </div>`;
+            
+            this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-target');
+            setTimeout(()=>this.revealActiveFrames(), 100);
+            
+
+            // 3. Envia Comando de Início para o Servidor
+            if (this.controlSocket) {
+                this.controlSocket.send(JSON.stringify({
+                    act: "start_trend_trial",
+                    vis: trial.vis.id,
+                    trend: trial.trend, // ex: 'stagnation'
+                    base: trial.diff      // ex: 'medium2'
+                }));
+            }
+        },
+
+        setPhase: function(phase) {
+            const lbl = document.getElementById('phase-label');
+            const opts = document.querySelectorAll('.trend-opt');
+            const replay = document.getElementById('btn-replay');
+            
+            if (!lbl) return; // Proteção caso mude de tela
+
+            if (phase === 'decision') {
+                lbl.innerText = "⚡ SUA VEZ";
+                lbl.style.color = "#4caf50";
+                opts.forEach(b => b.disabled = false);
+                replay.disabled = false;
+                
+                // Reinicia contagem de tempo de reação aqui se quiser medir apenas a decisão
+                this.state.trialStartTime = Date.now(); 
+            } else {
+                lbl.innerText = "👁️ OBSERVANDO...";
+                lbl.style.color = "#ff9800";
+                opts.forEach(b => b.disabled = true);
+                replay.disabled = true;
+            }
+        },
+
+        handleReplay: function() {
+            this.state.replayCount++;
+            document.getElementById('replay-cnt').innerText = this.state.replayCount;
+            
+            // Bloqueia tudo novamente
+            this.setPhase('observing');
+            
+            // Pede replay
+            this.controlSocket.send(JSON.stringify({ act: "req_replay" }));
+        }
 
     };
 
