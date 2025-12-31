@@ -29,7 +29,7 @@ const DIFFICULTY_MAP = {
     'medium': "hamming10-4.clq",
     'high':   "C4000.5.clq",
     'dense':  "MANN_a45.clq",
-    'medium2': "p_hat700-3.clq"
+    'medium2': "p_hat1500-3.clq"//"p_hat700-3.clq"
 };
 
 // --- LISTA DE DATASETS (Mantida conforme original) ---
@@ -57,6 +57,12 @@ const datasets = {
         url: "../../../exemplosGrafos/clique62.txt",
         n_nodes: 700,
         n_links: 183010
+    },
+    "p_hat1500-3.clq": {
+        name: "p_hat1500-3.clq",
+        url: "../../../exemplosGrafos/clique94.txt",
+        n_nodes: 1500,
+        n_links: 847244
     },
     "MANN_a45.clq": {
         name: "MANN_a45.clq",
@@ -335,7 +341,7 @@ server.on('connection', ws => {
                 console.log(`[SERVER] Recebendo dados do participante ${obj.data.participantID} para salvar.`);
                 
                 const resultsDir = "./analysis/results";
-                const filePath = `${resultsDir}/global_results.json`;
+                const filePath = `${resultsDir}/pilot_results.json`;//`${resultsDir}/global_results.json`;
 
                 try {
                     // 1. Garante que a pasta existe
@@ -886,24 +892,24 @@ function startTrendSequence(trendType, diffKey) {
 
         if (trendType === 'stagnation') {
             // ESTAGNAÇÃO: Mantém uma similaridade alta e fixa (pouca variação).
-            // Fixamos em ~0.92 (92% igual). Isso gera aquela "vibração" local sem sair do lugar.
-            targetJaccard = 0.92;
+            // Fixamos em ~0.8 (80% igual). Isso gera aquela "vibração" local sem sair do lugar.
+            targetJaccard = 0.8;
         } 
         else if (trendType === 'convergence') {
-            // CONVERGÊNCIA: Começa longe (ex: 0.3) e termina no alvo (1.0)
-            const startJ = 0.3;
-            const endJ = 0.9;
+            // CONVERGÊNCIA: Começa longe (ex: 0.2) e termina no alvo (0.8)
+            const startJ = 0.2;
+            const endJ = 0.8;
             // Interpolação Linear
             targetJaccard = startJ + (endJ - startJ) * progress;
         }
         else if (trendType === 'divergence') {
-            // DIVERGÊNCIA: Começa no alvo (1.0) e termina longe (ex: 0.3)
-            const startJ = 0.9;
-            const endJ = 0.3;
+            // DIVERGÊNCIA: Começa no alvo (0.8) e termina longe (ex: 0.2)
+            const startJ = 0.8;
+            const endJ = 0.2;
             targetJaccard = startJ + (endJ - startJ) * progress;
         }
         else if (trendType === 'random') {
-            // ALEATÓRIO: Ignora Jaccard (tratado abaixo)
+            // ALEATÓRIO: Todos os quadros têm similaridade baixa e fixa (ex: 0.2)
             targetJaccard = 0.2;
         }
 

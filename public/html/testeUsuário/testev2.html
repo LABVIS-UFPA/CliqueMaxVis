@@ -1632,7 +1632,7 @@
                 }
             }
             // --- LOG E FEEDBACK ---
-            console.log(`Resposta: ${isCorrect ? "CORRETO" : "ERRO"} | RT: ${reactionTime}ms`, logDetails);
+            console.log(`Resposta: ${isCorrect ? "CORRETO" : "ERRO"} | RT: ${reactionTime}ms | Vis: ${trial.vis.id}`, logDetails);
             
             // Salva no histórico de dados
             this.state.dataLog.push({
