@@ -20883,5 +20883,316 @@
       "sketch": "3",
       "particles": "1"
     }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 0,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 3645,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 0
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 1,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 3630,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "stagnation",
+      "correct": "convergence",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 2,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 3916,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "convergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 3,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 5447,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "stagnation",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 4,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 2820,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "divergence",
+      "replays": 0
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 5,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 3120,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 0
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 6,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 6408,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "divergence",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 7,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 4243,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "stagnation",
+      "correct": "stagnation",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 8,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 3322,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 9,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 2661,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "divergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 10,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 2216,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "stagnation",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 11,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 2048,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "stagnation",
+      "correct": "stagnation",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 12,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 3527,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "divergence",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 13,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 3358,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "convergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 14,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 2426,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "convergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 15,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1883,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 16,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 3072,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "divergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 17,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1819,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "stagnation",
+      "correct": "stagnation",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 18,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 4776,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "convergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-2178",
+    "trialIdx": 19,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 3105,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 2
+    }
+  },
+  {
+    "type": "questionnaire",
+    "task": "Análise de Tendência (Replay)",
+    "ratings": {
+      "heatmap": "4",
+      "scatter": "4",
+      "cnn": "4",
+      "sketch": "1",
+      "particles": "1"
+    }
   }
 ]

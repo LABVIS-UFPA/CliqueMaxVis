@@ -60,6 +60,11 @@
   <br>
   <button onclick="downloadSVG('chart-loop')">Download Loop SVG</button>
 
+  <h2>TREND 2 (REPLAY)</h2>
+  <svg id="chart-trend2"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-trend2')">Download Trend 2 SVG</button>
+
   <script>
     // Mapeamento de cores para as visualizações
     const visualizationColors = {
@@ -72,7 +77,7 @@
     };
 
     // Ordem desejada para a dificuldade
-    const difficultyOrder = ["training", "medium", "dense", "high", "convergence", "divergence", "random"];
+    const difficultyOrder = ["training", "medium", "dense", "high", "convergence", "divergence", "random", "medium2"];
 
     // Função de Bootstrap para IC de 95%
     function calculateBootstrapStats(values, iterations = 2000) {
@@ -103,6 +108,7 @@
       // Agrupar por Difficulty e depois Visualization
       const grouped = d3.group(data, d => d.Difficulty, d => d.Visualization);
       
+      console.log(grouped);
       const processed = [];
 
       // Iterar na ordem definida de dificuldade
@@ -264,7 +270,7 @@
       });
     }
 
-    function renderTimeChart(svg, rawData, offsetX) {
+    function renderTimeChart(svg, rawData, offsetX, customHeader = "Time (s)") {
       const controlewidth = 170;
       const margin = { top: 30, right: 40, bottom: 40, left: controlewidth };
       const width = 350;
@@ -300,7 +306,7 @@
       g.append("text")
         .attr("x", width / 2)
         .attr("y", rowHeight * rawData.length + 45)
-        .text("Time (s)")
+        .text(customHeader)
         .attr("font-weight", "bold")
         .attr("text-anchor", "middle");
 
@@ -374,7 +380,7 @@
     // --- LÓGICA PRINCIPAL (JSON) ---
 
     // Caminho definido no server.js (pasta analysis/results)
-    const jsonFilePath = "./results/global_results.json"; 
+    const jsonFilePath = "./results/global_results.json";//"./results/pilot_results.json";//"./results/global_results.json"; 
 
     d3.json(jsonFilePath).then(allLogs => {
       console.log(`Carregado ${allLogs.length} registros de: ${jsonFilePath}`);
@@ -451,6 +457,19 @@
       const loopDataHits = loopDataAll.filter(d => d.Is_Correct === 1);
 
 
+      // --- PROCESSAMENTO DADOS: TREND 2 ---
+      const trend2Data = allLogs
+        .filter(d => d.task === 'trend2' && d.type !== 'questionnaire' && d.diff !== 'training')
+        .map(d => ({
+          // No Trend 2, o que define a dificuldade é o cenário (salvo em details.targetTrend)
+          Difficulty: d.diff,
+          Visualization: d.vis,
+          Is_Correct: d.correct ? 1 : 0,
+          Replays: (d.details && d.details.replays) ? d.details.replays : 0,
+          Reaction_Time_ms: d.rt
+        }));
+
+
       // 2. CONFIGURAÇÕES VISUAIS DE PLOTAGEM
       const plotWidth = 350;
       const timeControleWidth = 190;
@@ -501,7 +520,7 @@
 
       svgTrend.attr("width", totalWidthTrend).attr("height", heightTrend);
       if (accTrendData.length > 0) {
-        renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, trendOptions);
+        renderAccuracyChart(svgTrend, accTrendData, 0, totalWidthTrend, { col1Header: "Difficulty" });
         renderTimeChart(svgTrend, timeTrendData, accWidthTrend);
       }
 
@@ -518,6 +537,51 @@
         renderAccuracyChart(svgLoop, accLoopData, 0, totalWidthDefault, { col1Header: "Difficulty" });
         renderTimeChart(svgLoop, timeLoopData, accWidthDefault);
       }
+
+      // // --- RENDERIZAÇÃO GRÁFICO TREND 2 ---
+      // const svgTrend2 = d3.select("#chart-trend2");
+      // const accTrend2Data = processData(trend2Data, 'Is_Correct');
+      // const timeTrend2Data = processData(trend2Data, 'Reaction_Time_ms');
+      // const heightTrend2 = 30 * Math.max(accTrend2Data.length, 1) + 80;
+
+      // // Reaproveitamos 'totalWidthTrend' e 'trendOptions' pois os rótulos são iguais (Scenario)
+      // svgTrend2.attr("width", totalWidthTrend).attr("height", heightTrend2);
+      
+      // if (accTrend2Data.length > 0) {
+      //   renderAccuracyChart(svgTrend2, accTrend2Data, 0, totalWidthTrend, trendOptions);
+      //   renderTimeChart(svgTrend2, timeTrend2Data, accWidthTrend);
+      // }
+
+      // --- RENDERIZAÇÃO GRÁFICO TREND 2 ---
+      const svgTrend2 = d3.select("#chart-trend2");
+      
+      // Verifica se existem dados antes de processar
+      console.log("Dados Trend 2 encontrados:", trend2Data.length);
+
+      if (trend2Data.length === 0) {
+          // Se não tiver dados, mostra mensagem de aviso no gráfico
+          svgTrend2.attr("width", 400).attr("height", 50);
+          svgTrend2.append("text")
+            .attr("x", 10).attr("y", 30)
+            .text("⚠️ Sem dados de 'trend2' neste arquivo JSON.")
+            .style("fill", "red").style("font-family", "sans-serif");
+      } else {
+          // Se tiver dados, processa e desenha
+          const accTrend2Data = processData(trend2Data, 'Is_Correct');
+          const timeTrend2Data = processData(trend2Data, 'Replays');
+          const heightTrend2 = 30 * Math.max(accTrend2Data.length, 1) + 80;
+
+          console.log(accTrend2Data);
+
+          svgTrend2.attr("width", totalWidthTrend).attr("height", heightTrend2);
+          
+          if (accTrend2Data.length > 0) {
+            renderAccuracyChart(svgTrend2, accTrend2Data, 0, totalWidthTrend, { col1Header: "Difficulty" });
+            renderTimeChart(svgTrend2, timeTrend2Data, accWidthTrend, "Replays");
+          }
+      }
+
+
 
     }).catch(error => {
       console.error("Erro ao carregar o JSON:", error);

@@ -341,7 +341,7 @@ server.on('connection', ws => {
                 console.log(`[SERVER] Recebendo dados do participante ${obj.data.participantID} para salvar.`);
                 
                 const resultsDir = "./analysis/results";
-                const filePath = `${resultsDir}/pilot_results.json`;//`${resultsDir}/global_results.json`;
+                const filePath = `${resultsDir}/global_results.json`;//`${resultsDir}/pilot_results.json`;//`${resultsDir}/global_results.json`;
 
                 try {
                     // 1. Garante que a pasta existe

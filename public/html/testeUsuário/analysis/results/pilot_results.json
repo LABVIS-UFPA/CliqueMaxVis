@@ -3724,5 +3724,303 @@
       "sketch": "5",
       "particles": "5"
     }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 0,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 2254,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "convergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 1,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1951,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "divergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 2,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1323,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "random"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 3,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 2681,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "convergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 4,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 361,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "divergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 5,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1764,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 6,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1895,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "stagnation",
+      "replays": 3
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 7,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1939,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 8,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 728,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "divergence",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 9,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1211,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "divergence",
+      "replays": 3
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 10,
+    "task": "trend2",
+    "vis": "scatter",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1125,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "convergence",
+      "replays": 2
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 11,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 536,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 12,
+    "task": "trend2",
+    "vis": "sketch",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1363,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "stagnation",
+      "replays": 1
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 13,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 1135,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "stagnation"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 14,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 2529,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "convergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 15,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 802,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "random",
+      "correct": "random"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 16,
+    "task": "trend2",
+    "vis": "cnn",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1079,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "divergence",
+      "correct": "divergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 17,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 1021,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "convergence"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 18,
+    "task": "trend2",
+    "vis": "heatmap",
+    "diff": "medium2",
+    "correct": true,
+    "rt": 751,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "stagnation",
+      "correct": "stagnation"
+    }
+  },
+  {
+    "participantID": "P-7977",
+    "trialIdx": 19,
+    "task": "trend2",
+    "vis": "particles",
+    "diff": "medium2",
+    "correct": false,
+    "rt": 437,
+    "details": {
+      "type": "trend_analysis",
+      "choice": "convergence",
+      "correct": "stagnation"
+    }
+  },
+  {
+    "type": "questionnaire",
+    "task": "Análise de Tendência (Replay)",
+    "ratings": {
+      "heatmap": "4",
+      "scatter": "4",
+      "cnn": "3",
+      "sketch": "1",
+      "particles": "1"
+    }
   }
 ]

@@ -1492,11 +1492,7 @@
             let isCorrect = false;
             let logDetails = {};
 
-            if (trial.task === 'trend2') {
-                logDetails.replays = this.state.replayCount;
-                logDetails.targetTrend = trial.trend;
-                isCorrect = (answerValue === trial.trend);
-            }
+            
 
             // --- TRATAMENTO ESPECIAL PARA TIMEOUT ---
             if (answerValue === "TIMEOUT") {
@@ -1629,6 +1625,10 @@
                         choice: answerValue, 
                         correct: correct
                     };
+
+                    if (trial.task === 'trend2') {
+                        logDetails.replays = this.state.replayCount;
+                    }
                 }
             }
             // --- LOG E FEEDBACK ---
