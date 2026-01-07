@@ -77,7 +77,7 @@
     };
 
     // Ordem desejada para a dificuldade
-    const difficultyOrder = ["training", "medium", "dense", "high", "convergence", "divergence", "random", "medium2"];
+    const difficultyOrder = ["training", "medium", "dense", "high", "convergence", "divergence", "random", "stagnation", "medium2"];
 
     // Função de Bootstrap para IC de 95%
     function calculateBootstrapStats(values, iterations = 2000) {
@@ -462,7 +462,11 @@
         .filter(d => d.task === 'trend2' && d.type !== 'questionnaire' && d.diff !== 'training')
         .map(d => ({
           // No Trend 2, o que define a dificuldade é o cenário (salvo em details.targetTrend)
-          Difficulty: d.diff,
+          // Difficulty: d.diff,
+          Difficulty: (d.details && (d.details.targetTrend || d.details.correct)) 
+                        ? (d.details.targetTrend || d.details.correct) 
+                        : d.diff,
+
           Visualization: d.vis,
           Is_Correct: d.correct ? 1 : 0,
           Replays: (d.details && d.details.replays) ? d.details.replays : 0,
