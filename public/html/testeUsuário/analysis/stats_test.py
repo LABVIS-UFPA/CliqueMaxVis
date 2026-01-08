@@ -63,6 +63,13 @@ def load_and_flatten_data(filepath):
             vis = entry.get('vis')
             details = entry.get('details', {})
             diff = entry.get('diff') 
+
+            # --- Usar Cenário como Dificuldade para Trend 2 ---
+            # if task == 'trend2':
+            #     # Tenta pegar 'targetTrend' (novo) ou 'correct' (velho) dos detalhes
+            #     scenario = details.get('targetTrend') or details.get('correct')
+            #     if scenario:
+            #         diff = scenario # Sobrescreve "medium2" por "convergence", etc.
             
             # 1. Acurácia
             is_correct = 1 if entry.get('correct') else 0
@@ -91,6 +98,47 @@ def load_and_flatten_data(filepath):
             })
 
     return pd.DataFrame(perf_rows), pd.DataFrame(quest_rows)
+
+def filter_low_accuracy_participants(df, threshold=0.25):
+    """
+    Remove participantes que tiveram acurácia média <= threshold 
+    em uma tarefa específica (indicando que não entenderam a tarefa).
+    """
+    print(f"\n{'='*20} FILTRO DE QUALIDADE DE DADOS {'='*20}")
+    
+    # 1. Calcula a acurácia média de cada participante POR TAREFA
+    # Agrupamos por Task e Participant para ver o desempenho global naquela tarefa
+    acc_summary = df.groupby(['Task', 'Participant'])['Correct'].mean().reset_index()
+    
+    # 2. Identifica quem falhou no critério (Acurácia <= 0.25)
+    bad_performers = acc_summary[acc_summary['Correct'] <= threshold]
+    
+    if bad_performers.empty:
+        print(">> Nenhum participante removido (Todos acima do limiar).")
+        return df
+
+    # 3. Cria uma lista de pares (Task, Participant) para remover
+    # Usamos um set de strings "Task_Participant" para filtragem rápida
+    keys_to_remove = set(bad_performers['Task'] + "_" + bad_performers['Participant'])
+    
+    # Cria coluna temporária no DF original para comparar
+    df['temp_key'] = df['Task'] + "_" + df['Participant']
+    
+    # 4. Filtra o DataFrame mantendo apenas quem NÃO está na lista de remoção
+    df_clean = df[~df['temp_key'].isin(keys_to_remove)].copy()
+    
+    # Remove a coluna temporária
+    df_clean.drop(columns=['temp_key'], inplace=True)
+    
+    # Relatório de quem saiu
+    print(f">> Critério: Remover participantes com Acurácia <= {threshold:.0%} na tarefa.")
+    for _, row in bad_performers.iterrows():
+        print(f"   [REMOVIDO] {row['Participant']} da tarefa '{row['Task']}' (Acc média: {row['Correct']:.1%})")
+        
+    print(f">> Registros restantes: {len(df_clean)} (de {len(df)})")
+    print("="*65 + "\n")
+    
+    return df_clean
 
 def run_friedman_test(df, metric_col, group_col='Visualization', block_col='Participant'):
     """ Executa Friedman, retorna dados e médias descritivas. """
@@ -192,6 +240,10 @@ def print_separator(title):
 # ==========================================
 
 df_perf, df_quest = load_and_flatten_data(RESULTS_PATH)
+
+# --- NOVO: APLICA O FILTRO DE ACURÁCIA ---
+if df_perf is not None and not df_perf.empty:
+    df_perf = filter_low_accuracy_participants(df_perf, threshold=0.25)
 
 if df_perf is not None and not df_perf.empty:
     
