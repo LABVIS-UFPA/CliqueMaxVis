@@ -666,6 +666,7 @@
       const heightMem = 30 * Math.max(accMemData.length, 1) + 80;
 
       const accMemSig = [{ difficulty: 'dense', better: 'sketch', worse: 'particles', pValue: 0.0002 },
+                         { difficulty: 'dense', better: 'sketch', worse: 'scatter', pValue: 0.0002  },
 
                           { difficulty: 'medium', better: 'cnn', worse: 'heatmap', pValue: 0.0185 },
                           { difficulty: 'medium', better: 'cnn', worse: 'scatter', pValue: 0.0185 },
