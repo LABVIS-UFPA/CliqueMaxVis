@@ -65,11 +65,11 @@ def load_and_flatten_data(filepath):
             diff = entry.get('diff') 
 
             # --- Usar Cenário como Dificuldade para Trend 2 ---
-            # if task == 'trend2':
-            #     # Tenta pegar 'targetTrend' (novo) ou 'correct' (velho) dos detalhes
-            #     scenario = details.get('targetTrend') or details.get('correct')
-            #     if scenario:
-            #         diff = scenario # Sobrescreve "medium2" por "convergence", etc.
+            if task == 'trend2':
+                # Tenta pegar 'targetTrend' (novo) ou 'correct' (velho) dos detalhes
+                scenario = details.get('targetTrend') or details.get('correct')
+                if scenario:
+                    diff = scenario # Sobrescreve "medium2" por "convergence", etc.
             
             # 1. Acurácia
             is_correct = 1 if entry.get('correct') else 0
@@ -77,6 +77,8 @@ def load_and_flatten_data(filepath):
             # 2. Tempo de Reação (RT)
             # Aceita RT mesmo com erro para medir tempo total gasto
             rt = entry.get('rt') 
+            if rt is not None:
+                rt /= 1000.0
 
             # --- Extrair Replays ---
             replays = np.nan
@@ -85,6 +87,8 @@ def load_and_flatten_data(filepath):
             
             # 3. Lag Time (Loop)
             lag_time = details.get('lagTime') if task == 'loop' else np.nan
+            if lag_time is not None:
+                lag_time /= 1000.0
             
             perf_rows.append({
                 'Participant': current_pid,
@@ -148,12 +152,14 @@ def run_friedman_test(df, metric_col, group_col='Visualization', block_col='Part
     desc_count = df.groupby(group_col)[metric_col].count()
     is_time_metric = metric_col in ['RT', 'LagTime']
     sorted_stats = desc_stats.sort_values(ascending=is_time_metric)
-    unit = "ms" if is_time_metric else ("%" if metric_col == 'Correct' else "")
-    multiplier = 100 if metric_col == 'Correct' else 1
     
     print("   Médias (Descritiva):")
-    print("   " + ", ".join([f"{k}={v*multiplier:.1f}{unit} (n={desc_count[k]})" for k, v in sorted_stats.items()]))
-
+    if is_time_metric:
+        print("   " + ", ".join([f"{k}={v:.2f}s (n={desc_count[k]})" for k, v in sorted_stats.items()]))
+    else:
+        unit = "%" if metric_col == 'Correct' else ""
+        multiplier = 100 if metric_col == 'Correct' else 1
+        print("   " + ", ".join([f"{k}={v*multiplier:.1f}{unit} (n={desc_count[k]})" for k, v in sorted_stats.items()]))
     # 2. Pivot e Limpeza
     pivot = df.pivot_table(index=block_col, columns=group_col, values=metric_col, aggfunc='mean')
     pivot_clean = pivot.dropna() 
@@ -305,10 +311,10 @@ if df_perf is not None and not df_perf.empty:
                 fmt = ".1f"
                 unit = ""
             else:
-                fmt = ".0f"
-                unit = "ms"
+                fmt = ".2f"
+                unit = "s"
             
-            print(f"Friedman N={res['N']} | p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
+            print(f"Friedman N={res['N']} | Chi²={res['Statistic']:.2f} | p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
             
             # Ordena médias (Menor é melhor)
             sorted_means = sorted(res['Means'].items(), key=lambda x: x[1])
