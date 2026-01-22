@@ -65,6 +65,11 @@
   <br>
   <button onclick="downloadSVG('chart-trend2')">Download Trend 2 SVG</button>
 
+  <h2>QUESTIONNAIRES (LIKERT 1-5)</h2>
+  <svg id="chart-questionnaire"></svg>
+  <br>
+  <button onclick="downloadSVG('chart-questionnaire')">Download Questionnaire SVG</button>
+
   <script>
     // Mapeamento de cores para as visualizações
     const visualizationColors = {
@@ -104,7 +109,47 @@
       return { mean, lower, upper };
     }
 
-    function processData(data, columnName) {
+
+    // Adicionado parâmetro orderArray com valor padrão para manter compatibilidade
+    function processData(data, columnName, orderArray = difficultyOrder) {
+      // Agrupar por Difficulty e depois Visualization
+      const grouped = d3.group(data, d => d.Difficulty, d => d.Visualization);
+      
+      console.log(grouped);
+      const processed = [];
+
+      // Iterar na ordem definida (agora dinâmica)
+      orderArray.forEach(diff => {
+        if (grouped.has(diff)) {
+          const visGroup = grouped.get(diff);
+          // Ordenar visualizações alfabeticamente
+          const visualizations = Array.from(visGroup.keys()).sort();
+          
+          visualizations.forEach(vis => {
+            const records = visGroup.get(vis);
+            let values = records.map(d => d[columnName]);
+
+            if (columnName === 'Reaction_Time_ms' || columnName === 'Lag_Time_ms') {
+              values = values.map(v => v / 1000); // Converter para segundos
+            }
+
+            const stats = calculateBootstrapStats(values);
+            
+            processed.push({
+              Pergunta: diff, 
+              estrategia: vis,
+              media: stats.mean,
+              IC95_inferior: stats.lower,
+              IC95_superior: stats.upper
+            });
+          });
+        }
+      });
+
+      return processed;
+    }
+
+    function processDataOld(data, columnName) {
       // Agrupar por Difficulty e depois Visualization
       const grouped = d3.group(data, d => d.Difficulty, d => d.Visualization);
       
@@ -168,9 +213,9 @@
         .attr("stroke", "black")
         .attr("stroke-width", 2);
 
-      g.append("text").attr("x", -controlewidth).attr("y", -15).text(col1Header).attr("font-weight", "bold");
-      g.append("text").attr("x", posstrategy).attr("y", -15).text("Visualization").attr("font-weight", "bold");
-      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold");
+      g.append("text").attr("x", -controlewidth).attr("y", -15).text(col1Header).attr("font-weight", "bold").style("font-size", "15pt");
+      g.append("text").attr("x", posstrategy).attr("y", -15).text("Visualization").attr("font-weight", "bold").style("font-size", "15pt");
+      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold").style("font-size", "15pt");
 
       // Escala X (Acurácia de 0 a 1)
       const x = d3.scaleLinear()
@@ -182,7 +227,8 @@
         .attr("y", rowHeight * rawData.length + 45)
         .text("Accuracy")
         .attr("font-weight", "bold")
-        .attr("text-anchor", "middle");
+        .attr("text-anchor", "middle")
+        .attr("font-size", "15pt");
 
       const y = d3.scaleBand()
         .domain(rawData.map((_, i) => i))
@@ -193,7 +239,7 @@
       g.append("g")
         .attr("transform", `translate(0,${rowHeight * rawData.length})`)
         .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")))
-        .selectAll("text").style("font-size", "11pt");
+        .selectAll("text").style("font-size", "15pt");
 
       // Linhas de IC
       g.selectAll(".line")
@@ -226,7 +272,7 @@
         .attr("x", posstrategy)
         .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
         .style("fill", d => visualizationColors[d.estrategia] || "black")
-        .style("font-size", "16px")
+        .style("font-size", "15pt")
         .text(d => d.estrategia);
 
       g.selectAll(".valor-label")
@@ -236,7 +282,7 @@
         .attr("x", posestimate)
         .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
         .style("fill", d => visualizationColors[d.estrategia] || "black")
-        .style("font-size", "16px")
+        .style("font-size", "15pt")
         .text(d => `${d.media.toFixed(2)} (${d.IC95_inferior.toFixed(2)} - ${d.IC95_superior.toFixed(2)})`);
 
       // Agrupamento visual por Dificuldade (Retângulos de fundo e Labels)
@@ -266,6 +312,7 @@
           .attr("y", yMean + 4)
           .attr("text-anchor", "start")
           .style("font-weight", "bold")
+          .style("font-size", "15pt")
           .text(pergunta);
       });
     }
@@ -289,7 +336,7 @@
         .attr("stroke", "black")
         .attr("stroke-width", 2);
 
-      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold");
+      g.append("text").attr("x", posestimate).attr("y", -15).text("Estimate (95% CI)").attr("font-weight", "bold").style("font-size", "15pt");
 
       const maxValue = d3.max(rawData, d => d.IC95_superior);
 
@@ -308,6 +355,7 @@
         .attr("y", rowHeight * rawData.length + 45)
         .text(customHeader)
         .attr("font-weight", "bold")
+        .attr("font-size", "15pt")
         .attr("text-anchor", "middle");
 
       const y = d3.scaleBand()
@@ -319,7 +367,7 @@
       g.append("g")
         .attr("transform", `translate(0,${rowHeight * rawData.length})`)
         .call(d3.axisBottom(x).tickValues(tickValues).tickFormat(d => d.toFixed(1)))
-        .selectAll("text").style("font-size", "11pt");
+        .selectAll("text").style("font-size", "15pt");
 
       // Linhas de IC
       g.selectAll(".line")
@@ -352,8 +400,129 @@
         .attr("x", posestimate)
         .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
         .style("fill", d => visualizationColors[d.estrategia] || "black")
-        .style("font-size", "16px")
+        .style("font-size", "15pt")
         .text(d => `${d.media.toFixed(1)} (${d.IC95_inferior.toFixed(1)} - ${d.IC95_superior.toFixed(1)})`);
+    }
+
+    function renderLikertChart(svg, rawData, bgWidth, options) {
+      const {
+        controlewidth = 340,
+        col1Header = "Task",
+        posStrategyFactor = 0.75,
+        posEstimateFactor = 0.43
+      } = options || {};
+
+      const margin = { top: 30, right: 40, bottom: 40, left: controlewidth };
+      const width = 350;
+      const rowHeight = 30;
+
+      const posstrategy = -controlewidth * posStrategyFactor;
+      const posestimate = -controlewidth * posEstimateFactor;
+
+      const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+      // Cabeçalhos
+      g.append("line").attr("x1", -controlewidth).attr("x2", 0).attr("y1", -5).attr("y2", -5).attr("stroke", "black").attr("stroke-width", 2);
+      g.append("text").attr("x", -controlewidth).attr("y", -15).text(col1Header).attr("font-weight", "bold").style("font-size", "15pt");
+      g.append("text").attr("x", posstrategy).attr("y", -15).text("Visualization").attr("font-weight", "bold").style("font-size", "15pt");
+      g.append("text").attr("x", posestimate).attr("y", -15).text("Rating (95% CI)").attr("font-weight", "bold").style("font-size", "15pt");
+
+      // Escala X (Likert 1 a 5)
+      const x = d3.scaleLinear()
+        .domain([1, 5])
+        .range([0, width]);
+
+      g.append("text")
+        .attr("x", width / 2)
+        .attr("y", rowHeight * rawData.length + 45)
+        .text("Likert Scale (1-5)")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "middle")
+        .attr("font-size", "15pt");
+
+      const y = d3.scaleBand()
+        .domain(rawData.map((_, i) => i))
+        .range([0, rowHeight * rawData.length])
+        .padding(0.2);
+
+      // Eixo X
+      g.append("g")
+        .attr("transform", `translate(0,${rowHeight * rawData.length})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))) // Inteiros
+        .selectAll("text").style("font-size", "15pt");
+
+      // Linhas de IC
+      g.selectAll(".line")
+        .data(rawData)
+        .enter()
+        .append("line")
+        .attr("class", "line")
+        .attr("x1", d => x(d.IC95_inferior))
+        .attr("x2", d => x(d.IC95_superior))
+        .attr("y1", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("y2", (d, i) => y(i) + y.bandwidth() / 2)
+        .style("stroke", d => visualizationColors[d.estrategia] || "black");
+
+      // Pontos médios
+      g.selectAll(".dot")
+        .data(rawData)
+        .enter()
+        .append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => x(d.media))
+        .attr("cy", (d, i) => y(i) + y.bandwidth() / 2)
+        .attr("r", 5)
+        .style("fill", d => visualizationColors[d.estrategia] || "black");
+
+      // Labels de texto
+      g.selectAll(".estrategia-label")
+        .data(rawData)
+        .enter()
+        .append("text")
+        .attr("x", posstrategy)
+        .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
+        .style("fill", d => visualizationColors[d.estrategia] || "black")
+        .style("font-size", "15pt")
+        .text(d => d.estrategia);
+
+      g.selectAll(".valor-label")
+        .data(rawData)
+        .enter()
+        .append("text")
+        .attr("x", posestimate)
+        .attr("y", (d, i) => y(i) + y.bandwidth() / 2 + 4)
+        .style("fill", d => visualizationColors[d.estrategia] || "black")
+        .style("font-size", "15pt")
+        .text(d => `${d.media.toFixed(1)} (${d.IC95_inferior.toFixed(1)} - ${d.IC95_superior.toFixed(1)})`);
+
+      // Agrupamento visual por Tarefa (Retângulos de fundo e Labels)
+      const perguntasUnicas = [...new Set(rawData.map(d => d.Pergunta))];
+      perguntasUnicas.forEach((pergunta, idx) => {
+        const indices = rawData.map((d, i) => ({ i, pergunta: d.Pergunta }))
+          .filter(d => d.pergunta === pergunta)
+          .map(d => d.i);
+
+        const firstIndex = indices[0];
+        const lastIndex = indices[indices.length - 1];
+        
+        g.insert("rect", ":first-child")
+          .attr("x", -controlewidth)
+          .attr("y", y(firstIndex) - 5)
+          .attr("width", bgWidth)
+          .attr("height", (y(lastIndex) + y.bandwidth()) - y(firstIndex) + 10)
+          .attr("fill", idx % 2 === 0 ? "#f0f0f0" : "white")
+          .attr("opacity", 0.5);
+
+        const yMean = d3.mean(indices, i => y(i) + y.bandwidth() / 2);
+
+        g.append("text")
+          .attr("x", -controlewidth + 5)
+          .attr("y", yMean + 4)
+          .attr("text-anchor", "start")
+          .style("font-weight", "bold")
+          .style("font-size", "15pt")
+          .text(pergunta);
+      });
     }
 
 
@@ -475,8 +644,8 @@
         .filter(d => d.task === 'trend' && d.type !== 'questionnaire' && d.diff !== 'training')
         .map(d => ({
           // Na Trend, o 'Gabarito' (Cenário) define a dificuldade lógica
-          Difficulty: (d.details && d.details.correct) ? d.details.correct : "unknown",
-          // Difficulty: d.diff,
+          // Difficulty: (d.details && d.details.correct) ? d.details.correct : "unknown",
+          Difficulty: d.diff,
           Visualization: d.vis,
           Is_Correct: d.correct ? 1 : 0,
           Reaction_Time_ms: d.rt
@@ -517,10 +686,10 @@
         .filter(d => d.task === 'trend2' && d.type !== 'questionnaire' && d.diff !== 'training')
         .map(d => ({
           // No Trend 2, o que define a dificuldade é o cenário (salvo em details.targetTrend)
-          // Difficulty: d.diff,
-          Difficulty: (d.details && (d.details.targetTrend || d.details.correct)) 
-                        ? (d.details.targetTrend || d.details.correct) 
-                        : d.diff,
+          Difficulty: d.diff,
+          // Difficulty: (d.details && (d.details.targetTrend || d.details.correct)) 
+          //               ? (d.details.targetTrend || d.details.correct) 
+          //               : d.diff,
 
           Visualization: d.vis,
           Is_Correct: d.correct ? 1 : 0,
@@ -623,7 +792,8 @@
           svgTrend2.append("text")
             .attr("x", 10).attr("y", 30)
             .text("⚠️ Sem dados de 'trend2' neste arquivo JSON.")
-            .style("fill", "red").style("font-family", "sans-serif");
+            .style("fill", "red").style("font-family", "sans-serif")
+            .style("font-family", "sans-serif");
       } else {
           // Se tiver dados, processa e desenha
           const accTrend2Data = processData(trend2Data, 'Is_Correct');
@@ -639,6 +809,68 @@
             renderTimeChart(svgTrend2, timeTrend2Data, accWidthTrend, "Replays");
           }
       }
+
+
+
+     // --- PROCESSAMENTO DADOS: QUESTIONNAIRE ---
+      const taskLabels = {
+          "Similaridade Visual": "Visual Similarity",
+          "Memória Visual": "Visual Memory",
+          "Detecção de Loop": "Loop Detection",
+          "Análise de Tendência": "Trend Analysis",
+          "Análise de Tendência (Replay)": "Trend Analysis (Replay)"
+      };
+      
+      const questionnaireOrder = [
+          "Visual Similarity", 
+          "Visual Memory", 
+          "Loop Detection", 
+          "Trend Analysis", 
+          "Trend Analysis (Replay)"
+      ];
+
+      const questData = allLogs
+        .filter(d => d.type === 'questionnaire')
+        .flatMap(d => {
+          // 1. Resolve o nome da Tarefa (Difficulty)
+          const difficulty = taskLabels[d.task] || d.task;
+
+          // 2. Se 'ratings' for um objeto, criamos um registro para cada chave (visualização)
+          if (d.ratings && typeof d.ratings === 'object') {
+            return Object.entries(d.ratings).map(([vis, rating]) => ({
+              Difficulty: difficulty,
+              Visualization: vis,
+              Response: +rating // O '+' converte a string "5" para o número 5
+            }));
+          }
+          return []; // Se não tiver ratings, retorna vazio
+        })
+        // 3. Filtra apenas as tarefas que estão na nossa lista de ordem
+        .filter(d => questionnaireOrder.includes(d.Difficulty));
+
+      console.log("Dados de Questionário Processados:", questData);
+
+    
+    // --- RENDERIZAÇÃO GRÁFICO QUESTIONNAIRE ---
+    const svgQuest = d3.select("#chart-questionnaire");
+
+    // Processar usando a nova ordem específica
+    const accQuestData = processData(questData, 'Response', questionnaireOrder);
+    
+    // Largura total apenas para a coluna principal (sem coluna de tempo)
+    const accControleWidthQuest = 380;
+    const totalWidthQuest = accControleWidthQuest + plotWidth + 40; 
+    const heightQuest = 30 * Math.max(accQuestData.length, 1) + 80;
+
+    svgQuest.attr("width", totalWidthQuest).attr("height", heightQuest);
+
+    if (accQuestData.length > 0) {
+      // Usamos a nova função renderLikertChart
+      renderLikertChart(svgQuest, accQuestData, totalWidthQuest, { 
+          controlewidth: accControleWidthQuest,
+          col1Header: "Question Topic"
+      });
+    }
 
 
 

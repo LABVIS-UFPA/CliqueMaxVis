@@ -484,19 +484,16 @@
             similarity: {
                 name: "Similaridade Visual",
                 difficulties: ['medium', 'high', 'dense'], 
-                baseCount: 4, 
                 timeout: 40
             },
             memory: {
                 name: "Memória Visual",
                 difficulties: ['medium', 'dense'], 
-                baseCount: 2, 
                 timeout: 60
             },
             loop: {
                 name: "Detecção de Loop",
                 difficulties: ['high'], 
-                baseCount: 1, 
                 timeout: 60 
             },
             trend: {
@@ -509,7 +506,7 @@
             },
             trend2: {
                 name: "Análise de Tendência (Replay)",
-                difficulties: ['medium2'], // Nome da base fixa
+                difficulties: ['medium2'],
                 scenarios: ['divergence', 'convergence', 'random', 'stagnation'], 
                 timeout: 120 // Tempo generoso para replay
             }
@@ -550,13 +547,13 @@
                 alert("ID Copiado!");
             };
             
-            // Sorteia ordem das tarefas
+            // // Sorteia ordem das tarefas
             // this.state.taskOrder = this.shuffle(['trend','similarity', 'memory', 'loop']);
             // console.log("Ordem das Tarefas:", this.state.taskOrder);
 
             // TESTE SUPLEMENTAR: Apenas trend2
             this.state.taskOrder = ['trend2'];
-            console.log("Ordem das Tarefas:", this.state.taskOrder);
+            // console.log("Ordem das Tarefas:", this.state.taskOrder);
 
 
             // Inicia o pré-carregamento

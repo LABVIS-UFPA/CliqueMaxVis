@@ -7,6 +7,7 @@ import scipy.stats as stats
 import os
 import itertools
 import scikit_posthocs as sp 
+from scipy.stats import friedmanchisquare, wilcoxon, shapiro
 
 # --- CONFIGURAÇÃO ---
 RESULTS_PATH = './results/global_results.json'
@@ -139,6 +140,42 @@ def filter_low_accuracy_participants(df, threshold=0.25):
     print("="*65 + "\n")
     
     return df_clean
+
+
+def run_normality_test(df, metric, group_col='Visualization'):
+    """ 
+    Executa o teste de Shapiro-Wilk para cada visualização.
+    "We initially assessed data distribution using the Shapiro-Wilk test"
+    """
+    print(f"\n> Verificação de Normalidade (Shapiro-Wilk) para '{metric}'")
+    print("   H0: Os dados seguem distribuição normal (p > 0.05)")
+    print("-" * 50)
+    
+    groups = df[group_col].unique()
+    all_normal = True
+    
+    for g in groups:
+        # Pega os dados apenas deste grupo e remove NaNs
+        scores = df[df[group_col] == g][metric].dropna()
+        
+        if len(scores) < 3:
+            print(f"   {g:15s}: N={len(scores)} (Amostra muito pequena)")
+            continue
+
+        stat, p_val = shapiro(scores)
+        is_normal = p_val > 0.05
+        
+        if not is_normal:
+            all_normal = False
+            
+        status = "Normal" if is_normal else "NÃO Normal"
+        print(f"   {g:15s}: W={stat:.4f}, p={p_val:.5f} ({status})")
+
+    print("-" * 50)
+    if not all_normal:
+        print("   CONCLUSÃO: Pelo menos um grupo não é normal -> Justifica uso do Friedman.")
+    else:
+        print("   CONCLUSÃO: Todos os grupos parecem normais.")
 
 def run_friedman_test(df, metric_col, group_col='Visualization', block_col='Participant'):
     """ Executa Friedman, retorna dados e médias descritivas. """
@@ -295,6 +332,10 @@ if df_perf is not None and not df_perf.empty:
             suffix = "(Time)"
         
         print(f"\n--- {label} ---")
+
+        # run_normality_test(subset, metric)
+
+
         # Note: Para Replays, 'menor é melhor', igual ao Tempo. A lógica de ranking funciona.
         res = run_friedman_test(subset, metric)
         
@@ -308,7 +349,7 @@ if df_perf is not None and not df_perf.empty:
                 fmt = ".0f"
                 unit = "ms"
             
-            print(f"Friedman N={res['N']} | p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
+            print(f"Friedman N={res['N']} | Chi²={res['Statistic']:.2f} | p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
             
             # Ordena médias (Menor é melhor)
             sorted_means = sorted(res['Means'].items(), key=lambda x: x[1])
@@ -352,7 +393,7 @@ if df_quest is not None and not df_quest.empty:
         res = run_friedman_test(subset_q, 'Rating')
         
         if isinstance(res, dict):
-            print(f"Friedman N={res['N']} | p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
+            print(f"Friedman N={res['N']} | Chi²={res['Statistic']:.2f} |  p={res['p-value']:.4f} | Kendall's W={res['KendallW']:.4f}")
             
             # Armazena para Power Analysis
             power_analysis_data.append({
