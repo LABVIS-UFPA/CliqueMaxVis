@@ -2,3 +2,4 @@
 /public/saves
 /public/logs
 /public/bests
+*venv*
