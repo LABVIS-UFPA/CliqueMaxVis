@@ -9,7 +9,7 @@ from skimage.feature import local_binary_pattern
 
 
 # --- CONFIGURAÇÃO ---
-IMG1_PATH = "001_03.jpg"
+IMG1_PATH = "009_03.jpg"
 IMG2_PATH = "008_03.jpg"
 MODEL_PATH = "face_landmarker.task"
 SHOW_POINTS = True
@@ -133,6 +133,109 @@ def morph_triangle(img1, img2, img, t1, t2, t, alpha):
     cv2.fillConvexPoly(mask, np.int32(t_rect), (1.0, 1.0, 1.0), 16, 0)
     img[r[1]:r[1]+r[3], r[0]:r[0]+r[2]] = img[r[1]:r[1]+r[3], r[0]:r[0]+r[2]] * (1 - mask) + img_rect * mask
 
+def calculate_perceptual_distance(img1, img2):
+    """
+    Calcula a distância perceptual entre dois rostos alinhados.
+    Retorna um valor float onde:
+    0.0 = Idênticos
+    Valores altos = Muito diferentes
+    """
+    
+    # 1. Pré-processamento: Conversão para Escala de Cinza
+    # A percepção humana de estrutura é baseada em luminância, não em cor.
+    g1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    g2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+
+    # ---------------------------------------------------------
+    # MÉTRICA 1: DSSIM (Distance based on Structural Similarity)
+    # ---------------------------------------------------------
+    # O SSIM retorna um valor entre -1 e 1 (1 = idêntico).
+    # Convertemos para distância: (1 - SSIM) / 2
+    # win_size: tamanho da janela de comparação (ímpar). 
+    # Para rostos 64x64 ou maiores, 7 ou 11 funciona bem.
+    score_ssim, _ = ssim(g1, g2, full=True, win_size=11, data_range=255)
+    dist_ssim = (1 - score_ssim) # Intervalo [0, 1] (0 = igual)
+
+    # ---------------------------------------------------------
+    # MÉTRICA 2: Histograma de LBP (Textura/Identidade)
+    # ---------------------------------------------------------
+    # LBP é excelente para capturar "quem é a pessoa" ignorando iluminação global.
+    radius = 3
+    n_points = 8 * radius
+    
+    # Calcula o padrão binário local
+    lbp1 = local_binary_pattern(g1, n_points, radius, method='uniform')
+    lbp2 = local_binary_pattern(g2, n_points, radius, method='uniform')
+    
+    # Gera histogramas (distribuição das texturas)
+    # n_points + 2 é o número de bins para método 'uniform'
+    n_bins = int(lbp1.max() + 1)
+    hist1, _ = np.histogram(lbp1.ravel(), bins=n_bins, range=(0, n_bins), density=True)
+    hist2, _ = np.histogram(lbp2.ravel(), bins=n_bins, range=(0, n_bins), density=True)
+    
+    # Distância Chi-Quadrado entre histogramas (Padrão ouro para LBP)
+    # Valores comuns variam de 0 a 0.5 para rostos parecidos
+    eps = 1e-10
+    dist_lbp = 0.5 * np.sum(((hist1 - hist2) ** 2) / (hist1 + hist2 + eps))
+
+    # ---------------------------------------------------------
+    # COMBINAÇÃO PONDERADA
+    # ---------------------------------------------------------
+    # SSIM cuida da estrutura visual macro.
+    # LBP cuida dos detalhes finos e identidade.
+    # Pesos empíricos sugeridos: 60% SSIM, 40% LBP
+    final_distance = (dist_ssim * 0.6) + (dist_lbp * 0.4)
+    
+    return final_distance, dist_ssim, dist_lbp
+
+def calculate_procrustes_metric(img1, img2, points1, points2):
+    """
+    Calcula uma métrica híbrida de percepção humana:
+    1. Geometria (Procrustes): Mede a diferença na estrutura óssea/formato.
+    2. Estrutura Visual (SSIM): Mede a semelhança de aparência global (pele, iluminação).
+    """
+    
+    # --- 1. Distância Geométrica (Procrustes Analysis) ---
+    # Normaliza os pontos para remover escala e posição
+    # (Centraliza na média e divide pelo desvio padrão)
+    p1 = np.array(points1[:-8], dtype=np.float32)
+    p2 = np.array(points2[:-8], dtype=np.float32)
+    
+    # Centralizar (remover translação)
+    p1 -= np.mean(p1, axis=0)
+    p2 -= np.mean(p2, axis=0)
+    
+    # Normalizar escala (Fator de escala de Frobenius)
+    p1 /= np.linalg.norm(p1)
+    p2 /= np.linalg.norm(p2)
+    
+    # Encontrar a rotação ótima de p2 para alinhar com p1 (Kabsch algorithm)
+    # SVD da matriz de covariância
+    covariance = np.dot(p1.T, p2)
+    U, S, Vt = np.linalg.svd(covariance)
+    R = np.dot(U, Vt)
+    
+    # Aplica a rotação
+    p2_aligned = np.dot(p2, R.T)
+    
+    # Calcula a diferença quadrática (Procrustes Distance)
+    procrustes_dist = np.sum(np.square(p1 - p2_aligned)) * 100 
+
+    # --- 2. Distância Visual (SSIM) ---
+    g1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    g2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    
+    # Win_size deve ser ímpar. 11 é padrão para percepção humana.
+    score_ssim, _ = ssim(g1, g2, full=True, win_size=11, data_range=255)
+    ssim_dist = (1 - score_ssim) # Escala 0 a 100
+    
+    # --- 3. Métrica Híbrida Final ---
+    # Pesos sugeridos: 60% Geometria (Forma), 40% Visual (Aparência)
+    # Para morphing, a forma é mais crítica que a cor.
+    final_score = (procrustes_dist * 0.6) + (ssim_dist * 0.4)
+    
+    return final_score, procrustes_dist, ssim_dist
+
 def main():
     try:
         points1, img1 = get_landmarks_new_api(IMG1_PATH)
@@ -152,7 +255,16 @@ def main():
     img2_f = np.float32(img2)
 
     # Calcula a distância entre as imagens.
-    
+    # --- Exemplo de Uso ---
+    dist_total, d_ssim, d_lbp = calculate_perceptual_distance(img1, img2)
+
+    print(f"Distância Perceptual Total: {dist_total:.4f}")
+    print(f"Detalhes -> SSIM: {d_ssim:.4f} | LBP: {d_lbp:.4f}")
+
+    score_total, d_geom, d_visual = calculate_procrustes_metric(img1, img2, points1, points2)
+    print(f"Diferença Total: {score_total:.2f}")
+    print(f" > Geometria (Forma): {d_geom:.2f}")
+    print(f" > Visual (SSIM):     {d_visual:.2f}")
     
     # Delaunay Base
     points_avg_fixed = []
