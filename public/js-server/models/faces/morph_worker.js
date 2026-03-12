@@ -55,16 +55,16 @@ function alignImages() {
 
     // --- CÁLCULO DE MÉTRICAS (SIMPLIFICADO) ---
     // 1. Shape Dist (Geometria/Procrustes)
-    const shapeDist = calculateShapeDistance(img1Points, img2Points)
+    // const shapeDist = calculateShapeDistance(img1Points, img2Points)
 
     // Envia a imagem alinhada de volta para mostrar na tela
     const imgData = matToImageData(img2Aligned);
     postMessage({ 
         type: 'aligned', 
-        imageData: imgData,
-        metrics: {
-            shape: shapeDist
-        }
+        imageData: imgData
+        // metrics: {
+        //     shape: shapeDist
+        // }
     });
 }
 
