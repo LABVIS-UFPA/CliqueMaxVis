@@ -1,0 +1,12 @@
+ParticipantID	Visualization	Difficulty	Trial_Index	User_Choice	Correct_Target	Is_Correct	Reaction_Time_ms
+P-5262	static	training	0	8	8	1	2734
+P-5262	particles	medium	0	1	3	0	13447
+P-5262	cnn	medium	1	7	1	0	3892
+P-5262	scatter	medium	2	4	7	0	3462
+P-5262	sketch	medium	3	4	2	0	7128
+P-5262	cnn	dense	4	5	1	0	2872
+P-5262	heatmap	medium	5	6	1	0	4826
+P-5262	particles	dense	6	5	6	0	3502
+P-5262	heatmap	dense	7	5	5	1	5165
+P-5262	scatter	dense	8	9	1	0	3329
+P-5262	sketch	dense	9	1	1	1	5662

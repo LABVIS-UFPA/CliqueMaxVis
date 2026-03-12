@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<!-- <script src="https://d3js.org/d3.v7.min.js"></script> -->
+
+<style>
+    body, html {
+        margin: 0;
+        padding: 5px;
+        width: 100%;
+        height: 100%;
+        overflow: hidden; /* Remove barras de rolagem */
+        background-color: white;
+    }
+    #container { width: 100% }
+</style>
+<div id="topBar" style="display: none;">
+    <h3>Individual Visualization</h3>
+    <p id="status">Aguardando dados...</p>
+</div>
+
+<div id="container">
+    <canvas id="canvasMatrix"></canvas>
+</div>
+<script type="module">
+
+    // 1. Ler a dificuldade da URL (passada pelo ExpManager)
+    const urlParams = new URLSearchParams(window.location.search);
+    const MY_DIFFICULTY = urlParams.get('difficulty');
+    const MY_CONTEXT = urlParams.get('context');
+    const IS_NUMBERED = urlParams.get('numbered') === 'true';
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById("canvasMatrix");
+        const ctx = canvas.getContext("2d");
+        ctx.font = "14px monospace";
+        ctx.fillStyle = "black";
+
+        // --- NOVO CÓDIGO ---
+        let lastPopulationData = null; // Guarda dados para redesenhar no resize
+        const RIGHT_PADDING = 30;      // Espaço para os números na direita
+        let isDrawingScheduled = false;
+
+        function resizeCanvas() {
+            const y = document.getElementById('container').getBoundingClientRect().top
+            canvas.width = window.innerWidth-5;
+            canvas.height = window.innerHeight-y-5;
+            // Redesenha se já tiver dados
+            if (lastPopulationData) drawMatrix(lastPopulationData);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Ajusta tamanho inicial
+        // ------------------
+
+
+        const socket = new WebSocket("ws://localhost:3214");
+
+
+        socket.onmessage = function (event) {
+            // console.log(event);
+            // 1. TRAVA DE SEGURANÇA: Ignorar Binários (GZIP do modelo CNN)
+            if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                // Se for binário, esta visualização não precisa dele. Ignora.
+                return;
+            }
+            const message = JSON.parse(event.data);
+
+            switch (message.act) {
+                case "log":
+                    console.log(message.data);
+                    break;
+                case "data":
+
+                    // 1. Apenas atualiza o dado global (sobrescrevendo o anterior)
+                    // Se chegar o 21, 22, 23, esta variável vai ficar com o 23.
+                    lastPopulationData = message.data.population;
+                    
+                    // Atualiza texto de status se necessário
+                    const statusElem = document.getElementById("status");
+                    if(statusElem) statusElem.innerHTML = `Geração: ${message.data.generation}`;
+
+                    // 2. Agenda o desenho SOMENTE se não houver um pendente
+                    if (!isDrawingScheduled) {
+                        isDrawingScheduled = true;
+                        // O requestAnimationFrame garante que desenhe quando o navegador estiver livre
+                        requestAnimationFrame(() => {
+                            drawMatrix(lastPopulationData); // Desenha o que estiver na variável AGORA
+                            isDrawingScheduled = false;     // Libera para agendar o próximo
+                        });
+                    }
+                    break;
+                case "train":
+                    socket.send(JSON.stringify({ id:`heatmap-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                    break;
+            }
+
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            if (MY_DIFFICULTY) {
+                socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`heatmap-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
+            }else{
+                console.log("ATENÇÃO!!!! Não enviou mensagem ao socket!")
+            }
+        };
+
+
+        
+        function drawMatrix(population) {
+            const matrix = population.map(i => i.nodeMask);
+            if (!canvas) {
+                console.error("Canvas not found");
+                return;
+            }
+            
+            
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+
+            // --- CÁLCULO ATUALIZADO ---
+            const availableWidth = canvas.width - RIGHT_PADDING;
+            const cellWidth = availableWidth / cols;
+            const cellHeight = Math.min(canvas.height / rows, 70);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let fit_dif = 0;
+
+            for (let i = 0; i < rows; i++) {
+                // ctx.fillStyle = colorScale(population[i].fitness);
+                for (let j = 0; j < cols; j++) {
+                    // ctx.fillStyle = "black";
+                    if (matrix[i][j] === 1) {
+                        ctx.fillRect(j * cellWidth, i * cellHeight, cellWidth, cellHeight);
+                    }
+                    // ctx.fillStyle = colorScale(population[i].fitness);
+                    // ctx.fillRect(cols * cellWidth+5, i * cellHeight, 10, cellHeight);
+
+                }
+                if(IS_NUMBERED){
+                    ctx.fillText(i+1, availableWidth + 5, i * cellHeight + cellHeight-5);
+                }
+                // if (fit_dif !== population[i].fitness) {
+                //     fit_dif = population[i].fitness;
+                //     ctx.fillText(population[i].fitness, availableWidth + 5, i * cellHeight + cellHeight-2);
+                //     ctx.beginPath();
+
+                //     // Set a start-point
+                //     ctx.moveTo(0, i * cellHeight);
+                //     ctx.lineTo(availableWidth + 5, i * cellHeight);
+                //     ctx.lineWidth = 0.5;
+                //     ctx.stroke();
+                // }
+
+            }
+        }
+    });
+
+
+
+
+</script>

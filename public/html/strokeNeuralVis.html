@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização Neural - Curvas Bezier</title>
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --secondary-color: #03dac6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: #252525;
+            padding: 10px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+            flex-shrink: 0;
+        }
+
+        #status-display { font-weight: bold; color: var(--secondary-color); }
+        #gen-display { color: #888; }
+
+        #training-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        progress {
+            width: 300px;
+            height: 20px;
+            margin-top: 15px;
+            accent-color: var(--secondary-color);
+        }
+
+        #grid-container {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .individual-cell {
+            width: 64px; /*  Modifiquei aqui. */
+            height: 64px;
+            background-color: #000;
+            border: 1px solid #333;
+            /* Canvas vetorial não precisa de pixelated */
+            transition: transform 0.1s;
+        }
+        
+        .individual-cell:hover {
+            transform: scale(1.5);
+            border-color: var(--accent-color);
+            z-index: 10;
+            background-color: #111;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div id="status-display">Conectando ao WebSocket...</div>
+        <div id="gen-display">Geração: -</div>
+    </header>
+
+    <div id="training-overlay">
+        <h2 id="overlay-title">Aguardando Dados...</h2>
+        <p id="training-log" style="color: #888; font-size: 0.9em;">Conectando...</p>
+        <progress id="train-progress" value="0" max="100"></progress>
+    </div>
+
+    <div id="grid-container"></div>
+
+    <script>
+        // --- CONFIGURAÇÃO GLOBAL ---
+        let BITMAP_SIZE = 0;
+        let DENSITY = 1.0; 
+        
+        // Coleta e Augmentation
+        const MIN_TRAINING_SAMPLES = 500; 
+        let trainingBuffer = []; 
+        let augmentedBuffer = []; 
+
+        // Configuração da Curva (Python Port)
+        const NUM_CONTROL_POINTS = 8; // Modifiquei aqui.
+        
+        // Treinamento
+        const EPOCHS = 300; // Curvas precisam de mais épocas para convergir
+        const BATCH_SIZE = 32;
+        const LEARNING_RATE = 0.001; // Modifiquei aqui.
+
+        const STATE = {
+            CONNECTING: 0,
+            COLLECTING: 1, 
+            TRAINING: 2,
+            VISUALIZING: 3
+        };
+        let appState = STATE.CONNECTING;
+
+        let synthesizer; 
+        let socket;
+        let lastPopulationBatch = null;
+
+        const elStatus = document.getElementById('status-display');
+        const elGen = document.getElementById('gen-display');
+        const elOverlay = document.getElementById('training-overlay');
+        const elTitle = document.getElementById('overlay-title');
+        const elProgress = document.getElementById('train-progress');
+        const elLog = document.getElementById('training-log');
+        const elGrid = document.getElementById('grid-container');
+
+        // --- 1. WEBSOCKET SETUP ---
+        function initWebSocket() {
+            socket = new WebSocket("ws://localhost:3214");
+
+            socket.onopen = function () {
+                console.log("WebSocket Conectado");
+                elStatus.textContent = "Coletando Amostras...";
+                elTitle.textContent = "Coletando Dados Reais";
+                appState = STATE.COLLECTING;
+                socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            };
+
+            socket.onclose = function() {
+                elStatus.textContent = "Desconectado (Tentando reconectar...)";
+                setTimeout(initWebSocket, 2000);
+            };
+
+            socket.onmessage = function (event) {
+                const message = JSON.parse(event.data);
+
+                if (message.act === "data" && message.data.population) {
+                    handlePopulationData(message.data);
+                } else if (message.act === "log") {
+                    console.log("[SERVER]", message.data);
+                }
+            };
+        }
+
+        // --- 2. GERENCIADOR DE DADOS ---
+        function handlePopulationData(data) {
+            const population = data.population;
+            const generation = data.generation;
+
+            elGen.textContent = `Geração: ${generation} (Pop: ${population.length})`;
+
+            if (appState === STATE.COLLECTING) {
+                if (population.length > 0) {
+
+                    if (BITMAP_SIZE === 0 && population[0].nodeMask) {
+                        BITMAP_SIZE = population[0].nodeMask.length;
+                    }
+                    if(BITMAP_SIZE !== 0 && data.bestFitness){
+                        DENSITY = Math.max(BITMAP_SIZE/data.bestFitness, DENSITY);
+                    }
+
+                    trainingBuffer.push(...population);
+
+                    const count = trainingBuffer.length;
+                    elProgress.value = (count / MIN_TRAINING_SAMPLES) * 100;
+                    elLog.textContent = `Amostras: ${count} / ${MIN_TRAINING_SAMPLES}`;
+
+                    if (count >= MIN_TRAINING_SAMPLES) {
+                        elTitle.textContent = "Augmenting & Training";
+                        elLog.textContent = "Gerando dados sintéticos (Bit Swap)...";
+                        appState = STATE.TRAINING;
+                        
+                        lastPopulationBatch = population;
+                        
+                        augmentDataset();
+                        runTraining();
+                    }
+                }
+            } 
+            else if (appState === STATE.TRAINING) {
+                lastPopulationBatch = population;
+                console.log("Dados recebidos (armazenados)...");
+            } 
+            else if (appState === STATE.VISUALIZING) {
+                renderGrid(population);
+                // logAllPairwiseDistances(population); // Descomente para debug
+            }
+        }
+
+        // --- 2.5 DATA AUGMENTATION (Bit Swap 0/1) ---
+        function augmentDataset() {
+            augmentedBuffer = [];
+            
+            // Originais
+            trainingBuffer.forEach(ind => augmentedBuffer.push(ind.nodeMask));
+
+            // Modifiquei aqui.
+            // // Mutações (Swap para manter densidade)
+            // trainingBuffer.forEach(ind => {
+            //     const mutatedMask = [...ind.nodeMask]; 
+                
+            //     const onesIndices = [];
+            //     const zerosIndices = [];
+            //     for(let i = 0; i < BITMAP_SIZE; i++) {
+            //         if (mutatedMask[i] === 1) onesIndices.push(i);
+            //         else zerosIndices.push(i);
+            //     }
+
+            //     let swapCount = Math.floor(BITMAP_SIZE * 0.05); // 5% de bits trocados
+            //     swapCount = Math.min(swapCount, onesIndices.length, zerosIndices.length);
+                
+            //     for(let i = 0; i < swapCount; i++) {
+            //         const idxOne = onesIndices.splice(Math.floor(Math.random() * onesIndices.length), 1)[0];
+            //         const idxZero = zerosIndices.splice(Math.floor(Math.random() * zerosIndices.length), 1)[0];
+
+            //         mutatedMask[idxOne] = 0;
+            //         mutatedMask[idxZero] = 1;
+            //     }
+                
+            //     augmentedBuffer.push(mutatedMask);
+            // });
+            console.log(`Dataset expandido: ${trainingBuffer.length} -> ${augmentedBuffer.length}`);
+        }
+
+        // --- 3. REDE NEURAL (GERADOR DE CURVAS) ---
+        // Portado do Python: Dense -> LeakyReLU -> Dense...
+        function buildSynthesizer() {
+            const model = tf.sequential();
+            
+            // Entrada: 0/1 Bitmask
+            model.add(tf.layers.dense({
+                inputShape: [BITMAP_SIZE],
+                units: 256,
+                kernelInitializer: 'heNormal'
+            }));
+            // model.add(tf.layers.leakyReLU({alpha: 0.2}));
+
+            // model.add(tf.layers.dense({units: 512}));
+            // model.add(tf.layers.leakyReLU({alpha: 0.2}));
+
+            // model.add(tf.layers.dense({units: 512}));
+            // model.add(tf.layers.leakyReLU({alpha: 0.2}));
+
+            // model.add(tf.layers.ReLU());
+
+            model.add(tf.layers.dense({units: 512, activation: 'relu'}));
+            // model.add(tf.layers.ReLU());
+
+            model.add(tf.layers.dense({units: 512, activation: 'relu'}));
+            // model.add(tf.layers.ReLU());
+
+            model.add(tf.layers.dense({units: 512, activation: 'relu'}));
+            // model.add(tf.layers.ReLU());
+            
+            //Modifiquei aqui.
+            // Camada extra para profundidade (como no Python original)
+            // model.add(tf.layers.dense({units: 512}));
+            // model.add(tf.layers.leakyReLU({alpha: 0.2}));
+
+            // Saída: Coordenadas dos Pontos de Controle (0.0 a 1.0)
+            // Flattened: [x1, y1, x2, y2, ...]
+            model.add(tf.layers.dense({
+                units: NUM_CONTROL_POINTS * 2,
+                activation: 'sigmoid'
+            }));
+
+            // Reshape para [Batch, Pontos, 2]
+            model.add(tf.layers.reshape({
+                targetShape: [NUM_CONTROL_POINTS, 2]
+            }));
+
+            return model;
+        }
+
+        // --- 4. FUNÇÕES DE DISTÂNCIA DE BITS (Modular) ---
+
+        // Métrica 1: Hamming Normalizada (Comentada por padrão)
+        function calculateHammingDistance(bitmapA, bitmapB) {
+            // Entradas são 0 ou 1. Diferença absoluta é 0 ou 1.
+            const diff = tf.abs(tf.sub(bitmapA, bitmapB));
+            const rawDist = tf.mean(diff, -1);
+            return rawDist.mul(DENSITY * 3.0); // Ajuste de escala
+        }
+
+        // Métrica 2: Jaccard (Padrão)
+        function calculateJaccardDistance(bitmapA, bitmapB) {
+            // Inputs 0/1. 
+            // Interseção: A * B (só é 1 se ambos forem 1)
+            const intersection = tf.sum(tf.mul(bitmapA, bitmapB), -1);
+            // União: max(A, B) (é 1 se algum for 1)
+            const union = tf.sum(tf.maximum(bitmapA, bitmapB), -1);
+            
+            // Distância = 1 - (Intersection / Union)
+            return tf.sub(1.0, intersection.div(union.add(1e-7)));
+        }
+
+        // --- 5. FUNÇÃO DE PERDA VETORIAL ---
+        // Compara Distância de Bits vs Distância dos Pontos de Controle
+        function vectorLoss(bitmapA, bitmapB, cpA, cpB) {
+            return tf.tidy(() => {
+                // 1. Target: Escolha a métrica de bits
+                // const targetDist = calculateHammingDistance(bitmapA, bitmapB);
+                const targetDist = calculateJaccardDistance(bitmapA, bitmapB);
+
+                // 2. Predicted: Distância Euclidiana Média entre Pontos de Controle
+                // cpA e cpB são [Batch, NumPoints, 2]
+                const diffCp = tf.sub(cpA, cpB);
+                
+                // Mean Squared Error entre as coordenadas
+                const msePoints = tf.mean(tf.square(diffCp), [1, 2]);
+                
+                // Ajuste de escala (empírico para alinhar com Jaccard 0-1)
+                // Pontos variam pouco, então multiplicamos para dar 'ganho'
+                //Modifiquei aqui.
+                const predDist = msePoints.mul(15.0); 
+
+                // // 3. Erro Final
+                // return tf.mean(tf.square(tf.sub(targetDist, predDist)));
+
+
+                // 3. Loss Principal (Erro da Distância)
+                const distLoss = tf.mean(tf.square(tf.sub(targetDist, predDist)));
+
+                // --- 4. REPULSION LOSS (NOVO) ---
+                // Penaliza pontos de controle muito próximos NA MESMA CURVA.
+                // Isso evita loops apertados e segmentos sobrepostos.
+
+                // Função auxiliar para calcular repulsão interna de um batch de curvas
+                const calculateRepulsion = (cp) => {
+                    // cp: [Batch, Points, 2]
+                    // Queremos calcular a distância de cada ponto para todos os outros pontos DA MESMA CURVA
+                    
+                    // Expand dims para broadcast: 
+                    // P1: [Batch, Points, 1, 2]
+                    // P2: [Batch, 1, Points, 2]
+                    const p1 = cp.expandDims(2);
+                    const p2 = cp.expandDims(1);
+                    // Distância quadrática entre todos os pares de pontos
+                    const distSq = tf.sum(tf.square(tf.sub(p1, p2)), -1); // [Batch, Points, Points]
+                    
+                    // Adiciona identidade para evitar divisão por zero na diagonal (distância 0 do ponto pra ele mesmo)
+                    const eye = tf.eye(NUM_CONTROL_POINTS).expandDims(0);
+                    const safeDistSq = distSq.add(eye); 
+                    
+                    // Penalidade = 1 / Distância (Repulsão Eletrostática)
+                    // Ignora a diagonal (que seria 1/1 = 1) subtraindo 1 depois ou mascarando
+                    // Mas como somamos eye, a diagonal tem valor 1. O inverso é 1.
+                    // Queremos minimizar a soma.
+
+                    const repulsion = tf.mean(tf.div(1.0, safeDistSq));
+                    return repulsion;
+                };
+
+                const repA = calculateRepulsion(cpA);
+                const repB = calculateRepulsion(cpB);
+                const repulsionLoss = repA.add(repB);
+                // Peso da repulsão: Comece baixo (0.01) para não explodir a curva
+                return distLoss.add(repulsionLoss.mul(0.000001));
+
+
+            });
+        }
+
+        // --- 6. GERAÇÃO DE BATCH ---
+        function getRealDataBatch(batchSize) {
+            return tf.tidy(() => {
+                const batchA = new Float32Array(batchSize * BITMAP_SIZE);
+                const batchB = new Float32Array(batchSize * BITMAP_SIZE);
+                const len = augmentedBuffer.length;
+
+                for(let i = 0; i < batchSize; i++) {
+                    const idxA = Math.floor(Math.random() * len);
+                    const idxB = Math.floor(Math.random() * len);
+                    const maskA = augmentedBuffer[idxA];
+                    const maskB = augmentedBuffer[idxB];
+
+                    for(let k = 0; k < BITMAP_SIZE; k++) {
+                        batchA[i*BITMAP_SIZE + k] = maskA[k]; // 0 ou 1
+                        batchB[i*BITMAP_SIZE + k] = maskB[k];
+                    }
+                }
+                return [tf.tensor2d(batchA, [batchSize, BITMAP_SIZE]), 
+                        tf.tensor2d(batchB, [batchSize, BITMAP_SIZE])];
+            });
+        }
+
+        function populationToTensor(popSlice) {
+            const batchSize = popSlice.length;
+            const buffer = new Float32Array(batchSize * BITMAP_SIZE);
+            for (let i = 0; i < batchSize; i++) {
+                const mask = popSlice[i].nodeMask;
+                for (let j = 0; j < BITMAP_SIZE; j++) {
+                    buffer[i * BITMAP_SIZE + j] = mask[j];
+                }
+            }
+            return tf.tensor2d(buffer, [batchSize, BITMAP_SIZE]);
+        }
+
+        // --- 7. LOOP DE TREINO ---
+        async function runTraining() {
+            synthesizer = buildSynthesizer();
+            const optimizer = tf.train.adam(LEARNING_RATE);
+            elProgress.max = EPOCHS;
+
+            for (let epoch = 1; epoch <= EPOCHS; epoch++) {
+                // Ajuste crítico: usar optimizer.minimize de forma correta
+                // para garantir que trainableWeights sejam passados.
+                const lossValue = tf.tidy(() => {
+                    const [tensorA, tensorB] = getRealDataBatch(BATCH_SIZE);
+                    
+                    const f = () => {
+                        const cpA = synthesizer.predict(tensorA);
+                        const cpB = synthesizer.predict(tensorB);
+                        return vectorLoss(tensorA, tensorB, cpA, cpB);
+                    };
+                    
+                    // Minimize espera uma função f que retorna um escalar.
+                    // O segundo argumento (returnCost) = true.
+                    const cost = optimizer.minimize(f, true);
+                    return cost.dataSync()[0];
+                });
+
+                elProgress.value = epoch;
+                if (epoch % 10 === 0 || epoch === 1) {
+                    elLog.textContent = `Epoch ${epoch}/${EPOCHS} - Loss: ${lossValue.toFixed(6)}`;
+                    await new Promise(r => setTimeout(r, 10)); 
+                }
+            }
+
+            elOverlay.classList.add('hidden');
+            elStatus.textContent = "Visualização em Tempo Real";
+            appState = STATE.VISUALIZING;
+            if (lastPopulationBatch) renderGrid(lastPopulationBatch);
+        }
+
+        // --- 8. RENDERIZAÇÃO VETORIAL (CANVAS API) ---
+        // Desenha curvas Bezier suaves usando os pontos preditos
+        async function renderGrid(population) {
+            // // Prepara DOM
+            // if (elGrid.children.length !== population.length) {
+            //     elGrid.innerHTML = '';
+            //     population.forEach((ind, i) => {
+            //         const cvs = document.createElement('canvas');
+            //         cvs.className = 'individual-cell';
+            //         // Modifiquei aqui.
+            //         // cvs.width = 256; 
+            //         // cvs.height = 256;
+            //         cvs.id = `ind-cvs-${i}`;
+            //         cvs.title = `Fitness: ${ind.fitness}`; 
+            //         elGrid.appendChild(cvs);
+            //     });
+            //     // Modifiquei aqui.
+            // }else{
+            //     population.forEach((ind, i) => {
+            //         const cvs = document.getElementById(`ind-cvs-${i}`)
+            //         cvs.title = `Fitness: ${ind.fitness}`;
+            //     });
+            // }
+
+            // // 1. Prediz Pontos de Controle
+            // const tensorPop = populationToTensor(population);
+            // const cpTensor = synthesizer.predict(tensorPop); // [Batch, Points, 2]
+            // const cpData = await cpTensor.data(); // Float32Array linear
+            
+            // cpTensor.dispose();
+            // tensorPop.dispose();
+
+            // // 2. Desenha cada indivíduo
+            // const batchSize = population.length;
+            // const pointsPerInd = NUM_CONTROL_POINTS * 2; // x,y pares
+
+            // for(let i=0; i<batchSize; i++) {
+            //     const canvas = document.getElementById(`ind-cvs-${i}`);
+            //     if(!canvas) continue;
+                
+            //     const ctx = canvas.getContext('2d');
+            //     const w = canvas.width;
+            //     const h = canvas.height;
+            //     const offset = i * pointsPerInd;
+
+            //     // Limpa e prepara estilo
+            //     ctx.clearRect(0, 0, w, h);
+                
+            //     // Cores dinâmicas baseadas na posição média (Opcional, para beleza)
+            //     const startX = cpData[offset];
+            //     const startY = cpData[offset+1];
+            //     const hue = Math.floor(startX * 360);
+                
+            //     ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`;
+            //     ctx.lineWidth = 6;
+            //     ctx.lineCap = 'round';
+            //     ctx.lineJoin = 'round';
+                
+            //     // Desenha Curva de Bezier de Alta Ordem
+            //     // Como Canvas só suporta Cúbica (4 pontos), aproximamos desenhando
+            //     // segmentos suaves entre os pontos de controle (Catmull-Rom ou Polilinha suave)
+            //     // Para simplificar e manter a "forma" que a rede aprendeu, desenhamos a polilinha suave
+                
+            //     ctx.beginPath();
+            //     ctx.moveTo(cpData[offset] * w, cpData[offset+1] * h);
+
+            //     // Desenha spline suave passando pelos pontos
+            //     for (let k = 1; k < NUM_CONTROL_POINTS - 1; k++) {
+            //         const x = cpData[offset + k*2] * w;
+            //         const y = cpData[offset + k*2 + 1] * h;
+            //         const nextX = cpData[offset + (k+1)*2] * w;
+            //         const nextY = cpData[offset + (k+1)*2 + 1] * h;
+                    
+            //         // Ponto médio para curva quadrática suave
+            //         const midX = (x + nextX) / 2;
+            //         const midY = (y + nextY) / 2;
+                    
+            //         ctx.quadraticCurveTo(x, y, midX, midY);
+            //     }
+                
+            //     // Último ponto
+            //     const lastIdx = (NUM_CONTROL_POINTS - 1) * 2;
+            //     ctx.lineTo(cpData[offset + lastIdx] * w, cpData[offset + lastIdx + 1] * h);
+                
+            //     ctx.stroke();
+            // }
+
+            // Atualiza ou Cria Células
+            if (elGrid.children.length !== population.length) {
+                elGrid.innerHTML = '';
+                population.forEach((ind, i) => {
+                    const cvs = document.createElement('canvas');
+                    cvs.className = 'individual-cell';
+                    cvs.width = 64; 
+                    cvs.height = 64;
+                    cvs.id = `ind-cvs-${i}`;
+                    cvs.title = `Fitness: ${ind.fitness}`; 
+                    elGrid.appendChild(cvs);
+                });
+            } else {
+                population.forEach((ind, i) => {
+                    const cvs = document.getElementById(`ind-cvs-${i}`)
+                    if(cvs) cvs.title = `Fitness: ${ind.fitness}`;
+                });
+            }
+
+            // Predição
+            const tensorPop = populationToTensor(population);
+            const cpTensor = synthesizer.predict(tensorPop); // [Batch, Points, 2]
+            const cpData = await cpTensor.data(); // Float32Array
+            
+            cpTensor.dispose();
+            tensorPop.dispose();
+
+            // Desenho
+            const batchSize = population.length;
+            const pointsPerInd = NUM_CONTROL_POINTS * 2; 
+            
+            // Padding para evitar toque nas bordas (20px em 256px = ~8%)
+            const PADDING = 3; 
+            const DRAW_W = 64 - 2 * PADDING;
+            const DRAW_H = 64 - 2 * PADDING;
+
+            for(let i=0; i<batchSize; i++) {
+                const canvas = document.getElementById(`ind-cvs-${i}`);
+                if(!canvas) continue;
+                
+                const ctx = canvas.getContext('2d');
+                const offset = i * pointsPerInd;
+
+                // 1. Fundo Branco
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Configuração do Traço (Preto)
+                ctx.strokeStyle = '#00000090';
+                ctx.lineWidth = 2.5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                // Helper para transformar coordenadas normalizadas (0-1) para tela com padding
+                const toX = (val) => val * DRAW_W + PADDING;
+                const toY = (val) => val * DRAW_H + PADDING;
+
+                // 2. Desenhar a Curva (Polilinha Suave)
+                ctx.beginPath();
+                ctx.moveTo(toX(cpData[offset]), toY(cpData[offset+1]));
+
+                for (let k = 1; k < NUM_CONTROL_POINTS - 1; k++) {
+                    const x = toX(cpData[offset + k*2]);
+                    const y = toY(cpData[offset + k*2 + 1]);
+                    const nextX = toX(cpData[offset + (k+1)*2]);
+                    const nextY = toY(cpData[offset + (k+1)*2 + 1]);
+                    
+                    const midX = (x + nextX) / 2;
+                    const midY = (y + nextY) / 2;
+                    
+                    ctx.quadraticCurveTo(x, y, midX, midY);
+                }
+                
+                // Último segmento
+                const lastIdx = (NUM_CONTROL_POINTS - 1) * 2;
+                const endX = toX(cpData[offset + lastIdx]);
+                const endY = toY(cpData[offset + lastIdx + 1]);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                // 3. Marcador de Início (Círculo)
+                const startX = toX(cpData[offset]);
+                const startY = toY(cpData[offset+1]);
+                
+                ctx.fillStyle = '#00000090';
+                ctx.beginPath();
+                ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 4. Marcador de Fim (Seta)
+                // Calcular ângulo do último segmento para orientar a seta
+                // Penúltimo ponto (ou ponto de controle anterior da curva quadrática final)
+                // Vamos usar o penúltimo ponto de controle real para ter um vetor direção estável
+                const prevX = toX(cpData[offset + lastIdx - 2]);
+                const prevY = toY(cpData[offset + lastIdx - 1]);
+                
+                const angle = Math.atan2(endY - prevY, endX - prevX);
+                const arrowLen = 8;
+
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(
+                    endX - arrowLen * Math.cos(angle - Math.PI / 6),
+                    endY - arrowLen * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.lineTo(
+                    endX - arrowLen * Math.cos(angle + Math.PI / 6),
+                    endY - arrowLen * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.lineTo(endX, endY);
+                ctx.fill();
+            }
+
+        }
+
+        // --- FUNÇÃO DE DIAGNÓSTICO (Opcional) ---
+        async function logAllPairwiseDistances(population) {
+            // (Pode implementar calculando distância entre arrays CP se necessário)
+        }
+
+        window.onload = initWebSocket;
+
+    </script>
+</body>
+</html>

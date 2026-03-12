@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização Determinística - Estilo Van Gogh</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --secondary-color: #03dac6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: #252525;
+            padding: 10px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+            flex-shrink: 0;
+        }
+
+        #status-display { font-weight: bold; color: var(--secondary-color); }
+        #gen-display { color: #888; }
+
+        #grid-container {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 4px;
+        }
+
+         /* --- INDIVIDUAL CELLS --- */
+        .individual-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .number-label {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #888;
+            font-weight: bold;
+            font-family: monospace; /* Fonte monoespaçada fica melhor para números */
+        }
+
+        .individual-cell {
+            display: block;
+            width: 64px;
+            height: 64px;
+            background-color: #fff; /* Fundo branco para contraste do traço */
+            border: 1px solid #333;
+            transition: transform 0.1s;
+        }
+        
+        /* .individual-cell:hover {
+            transform: scale(2.5);
+            border-color: var(--accent-color);
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        } */
+    </style>
+</head>
+<body>
+
+    <header style="display: none;">
+        <div id="status-display">Conectando ao WebSocket...</div>
+        <div id="gen-display">Geração: -</div>
+    </header>
+
+    <div id="grid-container"></div>
+
+    <script>
+        // 1. Ler a dificuldade da URL (passada pelo ExpManager)
+        const urlParams = new URLSearchParams(window.location.search);
+        const MY_DIFFICULTY = urlParams.get('difficulty');
+        const MY_CONTEXT = urlParams.get('context');
+        const IS_NUMBERED = urlParams.get('numbered') === 'true';
+
+
+        // --- CONFIGURAÇÃO ---
+        const NUM_CONTROL_POINTS = 8;
+        const MOVEMENT_STEP = 0.18; // Comprimento do movimento fixo
+        const BASE_SEED = 12345;    // Semente fixa para garantir determinismo
+        
+        // Estado
+        let socket;
+        const elStatus = document.getElementById('status-display');
+        const elGen = document.getElementById('gen-display');
+        const elGrid = document.getElementById('grid-container');
+
+        // --- 1. GERADOR PSEUDO-ALEATÓRIO (Mulberry32) ---
+        // Necessário pois Math.random() não aceita seed.
+        function mulberry32(a) {
+            return function() {
+              var t = a += 0x6D2B79F5;
+              t = Math.imul(t ^ t >>> 15, t | 1);
+              t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+              return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        // --- 2. LÓGICA DE DESENHO (CORE) ---
+        
+        // Gera os pontos iniciais (Forma Base)
+        function getBasePoints() {
+            const rng = mulberry32(BASE_SEED); // Seed fixa para forma base
+            const points = [];
+            for (let i = 0; i < NUM_CONTROL_POINTS; i++) {
+                points.push({
+                    x: rng(), // 0.0 a 1.0
+                    y: rng()
+                });
+            }
+            return points;
+        }
+
+        // Aplica o "DNA" (bits) para mover os pontos
+        function calculateDeformedPath(nodeMask) {
+            // 1. Começa sempre com a forma base
+            // Clonamos para não alterar a referência original
+            const points = getBasePoints().map(p => ({...p})); 
+
+            // 2. Reinicia a sequência aleatória para os movimentos
+            // Usamos uma seed derivada da BASE, mas diferente, para a fase de movimento
+            const rng = mulberry32(BASE_SEED + 9999); 
+
+            // 3. Itera sobre os bits
+            for (let i = 0; i < nodeMask.length; i++) {
+                // Consumimos números aleatórios para cada possível gene
+                // Isso garante que o gene nº 5 sempre signifique "Mover ponto X no angulo Y"
+                // independente se os genes anteriores estavam ativos ou não.
+                
+                const targetPointIdx = Math.floor(rng() * NUM_CONTROL_POINTS);
+                const angle = rng() * Math.PI * 2;
+
+                // Só aplicamos se o bit estiver ativo (1)
+                if (nodeMask[i] === 1) {
+                    const p = points[targetPointIdx];
+                    
+                    // Movimento
+                    let dx = Math.cos(angle) * MOVEMENT_STEP;
+                    let dy = Math.sin(angle) * MOVEMENT_STEP;
+
+                    p.x += dx;
+                    p.y += dy;
+
+                    // Reflexão (Billiard Physics)
+                    // Eixo X
+                    if (p.x < 0) { p.x = -p.x; }
+                    else if (p.x > 1) { p.x = 2 - p.x; }
+                    
+                    // Eixo Y
+                    if (p.y < 0) { p.y = -p.y; }
+                    else if (p.y > 1) { p.y = 2 - p.y; }
+                }
+            }
+
+            return points;
+        }
+
+        // --- 3. RENDERIZAÇÃO ---
+        function renderGrid(population) {
+            // // Atualiza DOM se o tamanho da população mudou
+            // if (elGrid.children.length !== population.length) {
+            //     elGrid.innerHTML = '';
+            //     population.forEach((ind, i) => {
+            //         const cvs = document.createElement('canvas');
+            //         cvs.className = 'individual-cell';
+            //         cvs.width = 64; 
+            //         cvs.height = 64;
+            //         cvs.id = `ind-cvs-${i}`;
+            //         elGrid.appendChild(cvs);
+            //     });
+            // }
+            // Atualiza DOM se o tamanho da população mudou (Recria a estrutura)
+            if (elGrid.children.length !== population.length) {
+                elGrid.innerHTML = '';
+                
+                population.forEach((ind, i) => {
+                    // 1. Cria o Wrapper
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'individual-wrapper';
+
+                    // 2. Cria o Canvas
+                    const cvs = document.createElement('canvas');
+                    cvs.className = 'individual-cell';
+                    cvs.width = 64; 
+                    cvs.height = 64;
+                    cvs.id = `ind-cvs-${i}`; // O ID fica no canvas para o desenho funcionar
+                    
+                    wrapper.appendChild(cvs);
+
+                    // 3. Adiciona o Número (Se ativado na URL)
+                    if (IS_NUMBERED) {
+                        const label = document.createElement('div');
+                        label.className = 'number-label';
+                        label.innerText = i + 1; // Exibe 1, 2, 3...
+                        wrapper.appendChild(label);
+                    }
+
+                    elGrid.appendChild(wrapper);
+                });
+            }
+
+            // Renderiza cada indivíduo
+            const PADDING = 4;
+            const DRAW_W = 64 - 2 * PADDING;
+            const DRAW_H = 64 - 2 * PADDING;
+
+            population.forEach((ind, i) => {
+                const cvs = document.getElementById(`ind-cvs-${i}`);
+                if (!cvs) return;
+                
+                // cvs.title = `Fitness: ${ind.fitness}`;
+                const ctx = cvs.getContext('2d');
+                
+                // Limpa
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+                // Calcula pontos baseados no bitmask
+                const points = calculateDeformedPath(ind.nodeMask);
+
+                // Configuração do Traço
+                ctx.strokeStyle = '#101010';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Helper de coordenadas
+                const toX = (val) => val * DRAW_W + PADDING;
+                const toY = (val) => val * DRAW_H + PADDING;
+
+                // Desenha
+                if (points.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(toX(points[0].x), toY(points[0].y));
+
+                    // Spline suave entre pontos
+                    for (let k = 0; k < points.length - 1; k++) {
+                        const curr = points[k];
+                        const next = points[k+1];
+                        
+                        const x = toX(curr.x);
+                        const y = toY(curr.y);
+                        const nextX = toX(next.x);
+                        const nextY = toY(next.y);
+
+                        const midX = (x + nextX) / 2;
+                        const midY = (y + nextY) / 2;
+
+                        ctx.quadraticCurveTo(x, y, midX, midY);
+                    }
+                    
+                    // Conecta último ponto
+                    const last = points[points.length - 1];
+                    const endX = toX(last.x);
+                    const endY = toY(last.y);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    // Marcador de Início (Vermelho suave)
+                    ctx.fillStyle = '#101010';
+                    ctx.beginPath();
+                    ctx.arc(toX(points[0].x), toY(points[0].y), 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+
+                    // 4. Marcador de Fim (Seta)
+                    // Calcular ângulo do último segmento para orientar a seta
+                    // Penúltimo ponto (ou ponto de controle anterior da curva quadrática final)
+                    // Vamos usar o penúltimo ponto de controle real para ter um vetor direção estável
+                    const prevX = toX(points[points.length - 2].x);
+                    const prevY = toY(points[points.length - 2].y);
+                    
+                    const angle = Math.atan2(endY - prevY, endX - prevX);
+                    const arrowLen = 8;
+
+                    ctx.beginPath();
+                    ctx.moveTo(endX, endY);
+                    ctx.lineTo(
+                        endX - arrowLen * Math.cos(angle - Math.PI / 6),
+                        endY - arrowLen * Math.sin(angle - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        endX - arrowLen * Math.cos(angle + Math.PI / 6),
+                        endY - arrowLen * Math.sin(angle + Math.PI / 6)
+                    );
+                    ctx.lineTo(endX, endY);
+                    ctx.fill();
+                }
+            });
+        }
+
+        // --- 4. WEBSOCKET ---
+        function initWebSocket() {
+            socket = new WebSocket("ws://localhost:3214");
+
+            socket.onopen = function () {
+                console.log("WebSocket Conectado");
+                elStatus.textContent = "Conectado | Aguardando População...";
+                // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+                if (MY_DIFFICULTY) {
+                    socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`sketch-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
+                }else{
+                    console.log("ATENÇÃO!!!! Não enviou mensagem ao socket!")
+                }
+            };
+
+            socket.onclose = function() {
+                elStatus.textContent = "Desconectado (Tentando reconectar...)";
+                setTimeout(initWebSocket, 2000);
+            };
+
+            socket.onmessage = function (event) {
+                // 1. TRAVA DE SEGURANÇA: Ignorar Binários (GZIP do modelo CNN)
+                if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                    // Se for binário, esta visualização não precisa dele. Ignora.
+                    return;
+                }
+                const message = JSON.parse(event.data);
+                if (message.act === "data" && message.data.population) {
+                    const pop = message.data.population;
+                    const gen = message.data.generation;
+                    elGen.textContent = `Geração: ${gen} (Pop: ${pop.length})`;
+                    
+                    // Renderiza diretamente (sem delay de treino)
+                    requestAnimationFrame(() => renderGrid(pop));
+                }else if(message.act === "train"){
+                    socket.send(JSON.stringify({ id:`sketch-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                }
+            };
+        }
+
+        window.onload = initWebSocket;
+    </script>
+</body>
+</html>

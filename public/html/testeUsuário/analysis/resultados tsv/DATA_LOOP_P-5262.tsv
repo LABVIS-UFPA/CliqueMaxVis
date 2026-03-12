@@ -1,0 +1,7 @@
+ParticipantID	Visualization	Difficulty	Trial_Index	Loop_Size_N	Frames_Seen	Outcome_Class	Lag_Time_ms	Detection_Cycle
+P-5262	static	training	0	10	9	ANTICIPATION	-94	NA
+P-5262	scatter	high	0			TIMEOUT		NA
+P-5262	particles	high	1	9	45	HIT	29126	5
+P-5262	heatmap	high	2	10	23	HIT	11083	2
+P-5262	cnn	high	3	10	29	HIT	15425	2
+P-5262	sketch	high	4	14	26	HIT	10121	1

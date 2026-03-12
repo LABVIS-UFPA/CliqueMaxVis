@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legenda de Escala de Cor</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <script>
+        const width = 100, height = 300;
+        const max = 100;
+
+        const svg = d3.select("body")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height);
+
+        const colorScale = d3.scaleSequential(d3.interpolateYlGnBu)
+          .domain([0, max]);
+
+        const legend = svg.append("g")
+          .attr("transform", "translate(30,10)");
+
+        const gradient = legend.append("defs")
+          .append("linearGradient")
+          .attr("id", "legend-gradient")
+          .attr("x1", "0%")
+          .attr("y1", "100%")
+          .attr("x2", "0%")
+          .attr("y2", "0%");
+
+        const stops = d3.range(0, 1.1, 0.1);
+        stops.forEach((d, i) => {
+          gradient.append("stop")
+            .attr("offset", `${d * 100}%`)
+            .attr("stop-color", colorScale(d * max));
+        });
+
+        legend.append("rect")
+          .attr("width", 20)
+          .attr("height", height - 20)
+          .style("fill", "url(#legend-gradient)");
+
+        const axisScale = d3.scaleLinear()
+          .domain([max, 0])
+          .range([0, height - 20]);
+
+        const axis = d3.axisRight(axisScale).ticks(5);
+
+        legend.append("g")
+          .attr("transform", "translate(20,0)")
+          .call(axis);
+    </script>
+</body>
+</html>

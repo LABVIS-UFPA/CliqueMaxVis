@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Tempo por Usuário</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* .dot {
+            fill: black;
+            stroke: white;
+            stroke-width: 1px;
+        }
+
+        .user_line {
+            stroke: rgba(1, 1, 1, 0.1)
+        }
+
+        .number {
+            font: 10px monospace;
+            stroke: #FFFFFF;
+            stroke-width: 0.05px;
+        }
+
+        .back {
+            fill: #FFFFFF;
+        }
+
+        .icone_GA_setting {
+            transform: scale(0.5);
+            fill: #0000009c;
+            fill-opacity: 1;
+            stroke: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_window_open {
+            transform: scale(0.5);
+            fill: #000000dd;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_play {
+            transform: scale(0.8) translate(0px, -3px);
+            fill: #000000c1;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_pause {
+            transform: scale(0.6);
+            fill: #0000009c;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        } */
+    </style>
+</head>
+
+<body>
+    <svg id="MeuSVG" width="600" height="80"></svg>
+    <button style="position: absolute; top: 0px;" onclick="downloadSVG('MeuSVG')">download</button>
+
+
+
+
+    <script>
+        function downloadSVG(svgId) {
+            const svgElement = document.getElementById(svgId);
+            if (!svgElement) {
+                console.error("SVG não encontrado");
+                return;
+            }
+
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const blob = new Blob([svgString], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "download.svg";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        function criarLegenda(scale, width = 210, height = 50) {
+            const categorias = scale.domain(); // Obtém os rótulos das categorias
+            const espacamento = 25; // Espaço entre os itens da legenda
+
+            // Criar o SVG dentro do body
+            const svg = d3.select("body")
+                .append("svg")
+                .attr("id", "svgLegenda")
+                .attr("width", width)
+                .attr("height", categorias.length * espacamento + 20);
+
+            // Criar grupos para cada item da legenda
+            const legend = svg.selectAll(".legend")
+                .data(categorias)
+                .enter()
+                .append("g")
+                .attr("class", "legend")
+                .attr("transform", (d, i) => `translate(10, ${i * espacamento + 10})`);
+
+            // Criar os retângulos coloridos
+            // legend.append("rect")
+            //     .attr("width", 20)
+            //     .attr("height", 20)
+            //     .attr("fill", d => scale(d));
+            legend.append("circle")
+                .attr("r", 5)
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("fill", d => scale(d));
+
+            // Criar os textos da legenda
+            legend.append("text")
+                .attr("x", 8)
+                .attr("y", 3)
+                .style("font-size", "14px")
+                .text(d => d);
+        }
+
+        (async () => {
+
+            function parseTSV(tsvString, user, dataset) {
+
+                // const lines = tsvString.trim().split("\n");
+                // const headers = lines[0].split("\t");
+                // let data = lines.slice(1).map(line => {
+                //     const values = line.split("\t");
+                //     return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+                // });
+                let data = tsvString;
+
+                // Filtrar globalBest consecutivos mantendo apenas o último
+                data = data.filter((log, index, arr) => {
+                    if (log.Type !== "globalBest") return true;
+                    return index === arr.length - 1 || arr[index + 1].Type !== "globalBest";
+                });
+
+                let startTime = new Date(data[0].Timestamp).getTime();
+                let lastGlobalBestIndex = -1;
+                let globalBestResults = [];
+                let interactions = []
+                let totalElapsedTime = (new Date(data[data.length - 1].Timestamp).getTime() - new Date(data[0].Timestamp).getTime()) / 1000;
+                totalElapsedTime /= 60; // em minutos
+
+                data.forEach((log, index) => {
+                    const currentTime = new Date(log.Timestamp).getTime();
+                    let duration = (currentTime - startTime) / 1000; // em segundos
+                    duration /= 60; // em minutos
+                    if (log.Type === "globalBest") {
+                        const logsSinceLast = index - lastGlobalBestIndex - 1;
+                        globalBestResults.push({
+                            tempo: duration,
+                            logs: logsSinceLast,
+                            globalBest: log.Action,
+                            user,
+                            dataset
+                        });
+                        lastGlobalBestIndex = index;
+                    } else if (important_types.indexOf(log.Type) > -1) {
+                        interactions.push({
+                            tempo: duration,
+                            interaction_type: log.Type,
+                            interaction: log.Action,
+                            user,
+                            dataset
+                        });
+                    };
+                    // } else if (log.Type === "GA_setting" || log.Type === "window_open") {
+                    //     interactions.push({
+                    //         tempo: duration,
+                    //         interaction: log.Type,
+                    //         user,
+                    //         dataset
+                    //     });
+                    // } else if (log.Type === "GA_running") {
+                    //     interactions.push({
+                    //         tempo: duration,
+                    //         interaction: log.Action,
+                    //         user,
+                    //         dataset
+                    //     });
+                    // }
+                });
+
+                return { globalBestResults, interactions, totalElapsedTime };
+            }
+
+            //             const tsvData = `Timestamp\tType\tAction
+            // 2025-03-24T23:31:22.501Z\tprojectCRUD\tnew_project
+            // 2025-03-24T23:31:31.718Z\tGA_running\tplay
+            // 2025-03-24T23:31:31.719Z\tglobalBest\t8
+            // 2025-03-24T23:31:31.784Z\tglobalBest\t9
+            // 2025-03-24T23:31:31.901Z\tglobalBest\t10
+            // 2025-03-24T23:31:36.705Z\twindow_open\tparameter_setter.html
+            // 2025-03-24T23:31:40.649Z\twindow_open\tline_chart.html
+            // 2025-03-24T23:31:43.901Z\tglobalBest\t12
+            // 2025-03-24T23:31:44.752Z\twindow_open\tindividuals_vis_canvas.html
+            // 2025-03-24T23:35:45.221Z\tGA_setting\tmutationRate
+            // 2025-03-24T23:35:46.221Z\tprojectCRUD\tsave_project`;
+
+            const datasets = [
+                // "C125.9",
+                // "C250.9",
+                "C500.9",
+                "C1000.9",
+                "C2000.9",
+                "DSJC1000_5",
+                "DSJC500_5",
+                // "C2000.5",
+                "C4000.5",
+                // "MANN_a27",
+                // "MANN_a45",
+                // "MANN_a81",
+                // "brock200_2",
+                // "brock200_4",
+                "brock400_2",
+                // "brock400_4",
+                // "brock800_2",
+                "brock800_4",
+                // "gen200_p0.9_44",
+                // "gen200_p0.9_55",
+                "gen400_p0.9_55",
+                // "gen400_p0.9_65",
+                // "gen400_p0.9_75",
+                // "hamming10-4",
+                // "hamming8-4",
+                // "keller4",
+                // "keller5",
+                "keller6",
+                // "p_hat300-1",
+                // "p_hat300-2",
+                // "p_hat300-3",
+                // "p_hat700-1",
+                // "p_hat700-2",
+                // "p_hat700-3",
+                "p_hat1500-1",
+                "p_hat1500-2",
+                "p_hat1500-3"
+            ];
+            const sumarized_data = {};
+
+            // console.log(parseTSV(tsvData));
+
+            const margin = { top: 0, right: 7, bottom: 0, left: 50 },
+                width = 600 - margin.left - margin.right,
+                height = 50 - margin.top - margin.bottom;
+            const spacing = 10;
+
+            const x = d3.scaleLinear()
+                .domain([0, 25])
+                .range([0, width]);
+
+            const color = d3.scaleOrdinal()
+                .range(d3.schemePaired).domain([
+                    "populationSize",
+                    "survivalRate",
+                    "mutationSelectionRate",
+                    "mutationRate",
+                    "partialReset",
+                    "nodeIncludeProb",
+                    "maxAge",
+                    "hasMaxAge",
+                    "hasExtractionImprovement",
+                    "preventEqualIndividuals",
+                    "calcUpperBound"
+                ]);
+
+            const important_types = ["GA_setting"/*, "GAStates"*/];
+
+
+
+
+            const svg = d3.select("svg");
+            svg.attr("height", (height + spacing) * datasets.length + 15);
+
+
+            for (let k = 0; k < datasets.length; k++) {
+                const dataset = datasets[k];
+
+                const users = ["Gustavo", "Kevin", "Brynner"];
+                const users_durations = [];
+                let data = [];
+                let interaction_data = [];
+                let totalTime = 0;
+                const durantion_by_user = [];
+
+
+
+
+                for (let u of users) {
+                    try {
+                        const tsv = await d3.tsv(`../logs/${dataset}[${u}].log.tsv`);
+                        const { globalBestResults, interactions, totalElapsedTime } = parseTSV(tsv, u, dataset);
+                        data = data.concat(globalBestResults);
+                        users_durations.push(totalElapsedTime);
+                        interaction_data = interaction_data.concat(interactions);
+                        if (totalTime < totalElapsedTime) totalTime = totalElapsedTime;
+                        sumarized_data[`${dataset}_${u}`] = { tempo: Math.round(totalElapsedTime /*/ 60*/), interactions: interaction_data.length, best: +globalBestResults[globalBestResults.length - 1].globalBest };
+                    } catch (e) {
+                        console.error(e);
+                    }
+
+                }
+
+                console.log(data)
+                console.log("interaction_data", interaction_data)
+
+
+
+                // const data = [
+                //     { tempo: 30, globalBest: 5, user: "Gustavo" },
+                //     { tempo: 50, globalBest: 3, user: "Gustavo" },
+                //     { tempo: 35, globalBest: 3, user: "Brynner" },
+                //     { tempo: 45, globalBest: 3, user: "Brynner" },
+                //     { tempo: 40, globalBest: 3, user: "Ana" },
+                //     { tempo: 55, globalBest: 3, user: "Ana" }
+                // ];
+
+
+                const g_chart = svg
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top + (spacing + 50) * k})`)
+                    .attr("data-dataset", dataset);
+                g_chart.append("text")
+                    .attr("y", 10)
+                    .attr("transform", "translate(-34,47) rotate(-90)")
+                    .style("font", "6pt sans-serif")
+                    .text(dataset);
+
+                // const users = [...new Set(data.map(d => d.user))];
+
+                // const x = d3.scaleLinear()
+                //     .domain([0, totalTime])
+                //     .range([0, width]);
+
+                const y = d3.scaleBand()
+                    .domain(users)
+                    .range([5, height + 5])
+                    .padding(0.5);
+
+
+                if (datasets.length - 1 === k)
+                    g_chart.append("g")
+                        .attr("transform", `translate(0,${height})`)
+                        .call(d3.axisBottom(x));
+
+                // svg.append("g")
+                //    .call(d3.axisLeft(y));
+
+
+                g_chart.selectAll(".user_line")
+                    .data(users)
+                    .enter().append("line")
+                    .attr("class", "user_line")
+                    .attr("x1", x.range()[0])
+                    .attr("x2", (d, i) => x(users_durations[i]))
+                    .attr("y1", d => y(d) + y.bandwidth() / 2)
+                    .attr("y2", d => y(d) + y.bandwidth() / 2)
+                    .attr("stroke", "black");
+                g_chart.selectAll(".user_text")
+                    .data(users)
+                    .enter().append("text")
+                    .attr("class", "user_text")
+                    .attr("x", -20)
+                    .attr("y", d => y(d) + 5)
+                    .style("font", "5pt sans-serif")
+                    .text((d, i) => `Ev. ${i + 1}`);
+
+
+
+
+
+                g_chart.selectAll(".iconeInteraction")
+                    .data(interaction_data)
+                    .enter().append("g")
+                    .attr("class", "iconeInteraction")
+                    .attr("transform", d => `translate(${x(d.tempo)},${y(d.user) + y.bandwidth() / 2})`)
+
+                    // .append("path")
+                    // .attr("transform", "scale(0.5)")
+                    // .attr("class", d => `icone_${d.interaction}`)
+                    // .attr("d", d => dIcons[d.interaction])
+                    // .attr("d", "M15 12.3301L9 16.6603L9 8L15 12.3301Z")
+
+                    .append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", d => Math.random() * 5 - 2.5)
+                    .attr("opacity", 0.5)
+                    .attr("r", 2)
+                    .attr("fill", d => color(d.interaction));
+
+
+
+                let gNumber = g_chart.selectAll(".number")
+                    .data(data)
+                    .enter()
+                    .append("g")
+                    .attr("transform", d => `translate(${x(d.tempo) + 2}, ${y(d.user) + y.bandwidth() / 2 - 2})`)
+
+                gNumber.append("rect")
+                    .attr("class", "back")
+                    .attr("rx", 3);
+
+                gNumber.append("text")
+                    .attr("class", "number")
+                    .style("font", "10px monospace")
+                    // .attr("x", d => x(d.tempo) + 2)
+                    // .attr("y", d => y(d.user) + y.bandwidth() / 2 - 2)
+                    .text(d => `${d.globalBest}`);
+                // .text(d => `${d.globalBest}(${d.logs})`);
+
+                gNumber.selectAll(".back")
+                    .attr("width", function () {
+                        return this.parentNode.childNodes[1].getBoundingClientRect().width + 2;
+                    })
+                    .attr("height", function () {
+                        return this.parentNode.childNodes[1].getBoundingClientRect().height / 1.4;
+                    }).attr("x", -1).attr("y", function () {
+                        let text = this.parentNode.childNodes[1];
+                        return -parseFloat(text.getBoundingClientRect().height) / 1.4 + 1;
+                    });
+
+
+
+                g_chart.selectAll(".dot")
+                    .data(data)
+                    .enter().append("circle")
+                    .attr("class", "dot")
+                    .attr("cx", d => x(d.tempo))
+                    .attr("cy", d => y(d.user) + y.bandwidth() / 2)
+                    .attr("r", 3);
+
+                //    console.log(x.domain())
+            }
+
+            console.log(sumarized_data);
+            criarLegenda(color);
+
+
+
+            const styles = [
+                { selector: ".dot", styles: { fill: "black", stroke: "white", strokeWidth: "1px" } },
+                { selector: ".user_line", styles: { stroke: "rgb(1, 1, 1)", "stroke-opacity": "0.1" } },
+                { selector: ".number", styles: { font: "10px monospace" } },
+                { selector: ".back", styles: { fill: "#FFFFFF" } },
+                { selector: ".icone_GA_setting", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.5", stroke: "none", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_window_open", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.9", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_play", styles: { transform: "scale(0.8) translate(0px, -3px)", fill: "#000000", fillOpacity: "0.75", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_pause", styles: { transform: "scale(0.6)", fill: "#000000", fillOpacity: "0.61", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } }
+            ];
+
+            styles.forEach(({ selector, styles }) => {
+                document.querySelectorAll(selector).forEach(element => {
+                    Object.assign(element.style, styles);
+                });
+            });
+
+
+        })();
+    </script>
+
+
+
+</body>
+
+</html>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Face Morphing (Worker)</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; text-align: center; }
+        .container { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .canvas-box { position: relative; }
+        canvas { border: 1px solid #555; max-width: 100%; }
+        .controls { margin: 20px; background: #333; padding: 15px; border-radius: 8px; display: inline-block; }
+        input[type="range"] { width: 300px; }
+        .metrics { margin-top: 10px; font-size: 0.9em; text-align: left; background: #000; padding: 10px; border-radius: 4px; }
+        #status { color: #ffff00; margin-bottom: 10px; font-weight: bold; font-size: 1.2em; }
+        .file-input { margin-bottom: 10px; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script> 
+    <script src="https://unpkg.com/ssim.js@3.2.0/dist/ssim.web.js"></script>
+    
+</head>
+<body>
+
+    <h1>Web Face Morphing (Debug Mode)</h1>
+    <div id="status">⏳ Inicializando Worker...</div>
+
+    <div class="controls">
+        <div class="file-input">
+            <label>Imagem 1: <input type="file" id="file1" accept="image/*" disabled></label>
+        </div>
+        <div class="file-input">
+            <label>Imagem 2: <input type="file" id="file2" accept="image/*" disabled></label>
+        </div>
+        <br>
+        <label>Morphing Alpha: <span id="alphaVal">0.50</span></label><br>
+        <input type="range" id="alphaSlider" min="0" max="100" value="50" disabled>
+        
+        <div class="metrics" id="metricsOutput">Aguardando imagens...</div>
+    </div>
+
+    <div class="container">
+        <div class="canvas-box">
+            <h3>Original 1 (Pontos)</h3>
+            <canvas id="canvas1"></canvas>
+        </div>
+        <div class="canvas-box">
+            <h3>Morphing</h3>
+            <canvas id="canvasMorph"></canvas>
+        </div>
+        <div class="canvas-box">
+            <h3>Original 2 (Pontos/Alinhada)</h3>
+            <canvas id="canvas2"></canvas>
+        </div>
+    </div>
+
+<script type="module">
+    import { FilesetResolver, FaceLandmarker } from "./vision_bundle.js";
+
+    let faceLandmarker = null;
+    let img1Raw = null, img2Raw = null; 
+    let morphWorker = null;
+    let morphTimeout = null;
+
+    // --- 0. FUNÇÃO DE DESENHO (DEBUG) ---
+    function drawLandmarksOnCanvas(ctx, points) {
+        // O array points inclui os 8 pontos de borda no final
+        const totalPoints = points.length;
+        const facePointsCount = totalPoints - 8;
+
+        for (let i = 0; i < totalPoints; i++) {
+            const p = points[i];
+            
+            ctx.beginPath();
+            // Desenha bolinha
+            ctx.arc(p.x, p.y, 1, 0, 2 * Math.PI);
+            
+            if (i < facePointsCount) {
+                ctx.fillStyle = "#00FF00"; // Verde para o rosto
+            } else {
+                ctx.fillStyle = "#FF0000"; // Vermelho para a borda
+            }
+            ctx.fill();
+        }
+    }
+
+    // --- 1. INICIALIZAÇÃO DO WORKER ---
+    function initWorker() {
+        morphWorker = new Worker('morph_worker.js');
+        
+        morphWorker.onmessage = (e) => {
+            const { type, msg, imageData } = e.data;
+
+            if (type === 'status') {
+                console.log(msg);
+                document.getElementById('status').innerText = msg;
+                checkReady();
+            }
+
+            if (type === 'aligned') {
+                // Aqui o worker devolve a imagem 2 já rotacionada/escalada
+                // const c2 = document.getElementById('canvas2');
+                // c2.width = imageData.width; c2.height = imageData.height;
+                // c2.getContext('2d').putImageData(imageData, 0, 0);
+                
+                // NOTA: Os pontos desenhados anteriormente em canvas2 serão apagados
+                // pela imagem alinhada. Se quiser ver os pontos alinhados,
+                // precisaríamos receber os pontos transformados do worker e desenhar aqui.
+            }
+
+            if (type === 'result') {
+                const cm = document.getElementById('canvasMorph');
+                cm.width = imageData.width; cm.height = imageData.height;
+                cm.getContext('2d').putImageData(imageData, 0, 0);
+            }
+        };
+    }
+
+    // --- 2. INICIALIZAÇÃO DO MEDIAPIPE ---
+    async function initMediaPipe() {
+        try {
+            const vision = await FilesetResolver.forVisionTasks(".");
+            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: "face_landmarker.task",
+                    delegate: "GPU" // Tente manter GPU se o modelo for o correto
+                },
+                outputFaceBlendshapes: false,
+                runningMode: "IMAGE",
+                numFaces: 1
+            });
+            console.log("✅ MediaPipe Carregado.");
+            checkReady();
+        } catch (e) {
+            console.error(e);
+            document.getElementById('status').innerText = "Erro ao carregar MediaPipe";
+        }
+    }
+
+    function checkReady() {
+        if (faceLandmarker && morphWorker) {
+            if (document.getElementById('status').innerText.includes('OpenCV')) {
+                 document.getElementById('status').innerText = "✅ Sistema Pronto! (Debug Mode)";
+                 document.getElementById('status').style.color = "#0f0";
+                 document.getElementById('file1').disabled = false;
+                 document.getElementById('file2').disabled = false;
+            }
+        }
+    }
+
+    initWorker();
+    initMediaPipe();
+
+    // --- MANIPULAÇÃO DE IMAGEM ---
+    // async function processInputImage(file, canvasId) {
+    //     return new Promise((resolve) => {
+    //         const img = new Image();
+    //         img.onload = () => {
+    //             const canvas = document.getElementById(canvasId);
+    //             const maxDim = 480; 
+    //             let w = img.width, h = img.height;
+    //             if (w > maxDim || h > maxDim) {
+    //                 const scale = Math.min(maxDim/w, maxDim/h);
+    //                 w *= scale; h *= scale;
+    //             }
+    //             canvas.width = w; canvas.height = h;
+    //             const ctx = canvas.getContext('2d');
+                
+    //             // 1. Desenha a Imagem Limpa
+    //             ctx.drawImage(img, 0, 0, w, h);
+                
+    //             const result = faceLandmarker.detect(canvas);
+                
+    //             if (result.faceLandmarks.length > 0) {
+    //                 let landmarks = result.faceLandmarks[0].map(lm => ({
+    //                     x: lm.x * w, y: lm.y * h
+    //                 }));
+    //                 landmarks.push({x:0, y:0}, {x:w-1, y:0}, {x:w-1, y:h-1}, {x:0, y:h-1});
+    //                 landmarks.push({x:w/2, y:0}, {x:w-1, y:h/2}, {x:w/2, y:h-1}, {x:0, y:h/2});
+                    
+    //                 // 2. Captura os dados LIMPOS para enviar ao Worker
+    //                 const imgDataClean = ctx.getImageData(0, 0, w, h);
+                    
+    //                 // 3. Desenha os pontos DEPOIS de capturar (apenas para visualização do usuário)
+    //                 drawLandmarksOnCanvas(ctx, landmarks);
+
+    //                 resolve({ data: imgDataClean, points: landmarks });
+    //             } else {
+    //                 alert("Rosto não detectado!");
+    //                 resolve(null);
+    //             }
+    //         };
+    //         img.src = URL.createObjectURL(file);
+    //     });
+    // }
+    // --- MANIPULAÇÃO DE IMAGEM (CORRIGIDA) ---
+    // async function processInputImage(file, canvasId) {
+    //     return new Promise((resolve) => {
+    //         const img = new Image();
+    //         img.onload = () => {
+    //             const canvas = document.getElementById(canvasId);
+    //             const maxDim = 480; 
+    //             let w = img.width, h = img.height;
+                
+    //             // Redimensiona mantendo proporção
+    //             if (w > maxDim || h > maxDim) {
+    //                 const scale = Math.min(maxDim/w, maxDim/h);
+    //                 w *= scale; h *= scale;
+    //             }
+                
+    //             // Configura o canvas visual
+    //             canvas.width = w; canvas.height = h;
+    //             const ctx = canvas.getContext('2d');
+                
+    //             // Desenha a imagem para o usuário ver
+    //             ctx.drawImage(img, 0, 0, w, h);
+                
+    //             // --- A CORREÇÃO MÁGICA ---
+    //             // Em vez de .detect(canvas), usamos .detect(img).
+    //             // Isso garante que ele leia a imagem FONTE, não o canvas (que pode ter lag de pintura).
+    //             const result = faceLandmarker.detect(img);
+                
+    //             if (result.faceLandmarks.length > 0) {
+    //                 // Como detectamos na imagem original (tamanho full), as coordenadas normalizadas (0 a 1)
+    //                 // funcionarão perfeitamente quando multiplicadas pelo tamanho do canvas (w, h).
+    //                 let landmarks = result.faceLandmarks[0].map(lm => ({
+    //                     x: lm.x * w, 
+    //                     y: lm.y * h
+    //                 }));
+                    
+    //                 // Adiciona os 8 pontos de borda artificiais
+    //                 landmarks.push({x:0, y:0}, {x:w-1, y:0}, {x:w-1, y:h-1}, {x:0, y:h-1});
+    //                 landmarks.push({x:w/2, y:0}, {x:w-1, y:h/2}, {x:w/2, y:h-1}, {x:0, y:h/2});
+                    
+    //                 // 1. Captura dados limpos para o worker
+    //                 const imgDataClean = ctx.getImageData(0, 0, w, h);
+                    
+    //                 // 2. Desenha landmarks na tela para debug (verde)
+    //                 drawLandmarksOnCanvas(ctx, landmarks);
+
+    //                 resolve({ data: imgDataClean, points: landmarks });
+    //             } else {
+    //                 alert("Rosto não detectado nesta imagem!");
+    //                 resolve(null);
+    //             }
+    //         };
+    //         img.src = URL.createObjectURL(file);
+    //     });
+    // }
+
+    // async function processInputImage(file, canvasId) {
+    //     return new Promise((resolve) => {
+    //         const img = new Image();
+    //         img.onload = () => {
+    //             const canvas = document.getElementById(canvasId);
+    //             const maxDim = 480; 
+    //             let w = img.width, h = img.height;
+                
+    //             if (w > maxDim || h > maxDim) {
+    //                 const scale = Math.min(maxDim/w, maxDim/h);
+    //                 w *= scale; h *= scale;
+    //             }
+                
+    //             canvas.width = w; canvas.height = h;
+    //             const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                
+    //             // Limpa o canvas explicitamente antes de desenhar
+    //             ctx.clearRect(0, 0, w, h);
+    //             ctx.drawImage(img, 0, 0, w, h);
+                
+    //             // MUDANÇA: Voltamos a usar .detect(canvas) COM o modo CPU.
+    //             // Isso força o MediaPipe a ler os pixels brutos da RAM atual.
+    //             const result = faceLandmarker.detect(canvas);
+                
+    //             if (result.faceLandmarks.length > 0) {
+    //                 let landmarks = result.faceLandmarks[0].map(lm => ({
+    //                     x: lm.x * w, 
+    //                     y: lm.y * h
+    //                 }));
+                    
+    //                 landmarks.push({x:0, y:0}, {x:w-1, y:0}, {x:w-1, y:h-1}, {x:0, y:h-1});
+    //                 landmarks.push({x:w/2, y:0}, {x:w-1, y:h/2}, {x:w/2, y:h-1}, {x:0, y:h/2});
+
+    //                 console.log(landmarks);
+                    
+    //                 const imgDataClean = ctx.getImageData(0, 0, w, h);
+                    
+    //                 // Desenha pontos para debug
+    //                 drawLandmarksOnCanvas(ctx, landmarks);
+
+    //                 resolve({ data: imgDataClean, points: landmarks });
+    //             } else {
+    //                 alert("Rosto não detectado nesta imagem!");
+    //                 resolve(null);
+    //             }
+    //         };
+    //         img.src = URL.createObjectURL(file);
+    //     });
+    // }
+
+    async function processInputImage(file, canvasId) {
+        
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.getElementById(canvasId);
+                const maxDim = 480; 
+                let w = img.width, h = img.height;
+                
+                if (w > maxDim || h > maxDim) {
+                    const scale = Math.min(maxDim/w, maxDim/h);
+                    w *= scale; h *= scale;
+                }
+                
+                canvas.width = w; canvas.height = h;
+                
+                // willReadFrequently ajuda na performance de getImageData
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                
+                // 1. Limpa e Desenha
+                ctx.clearRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                // 2. SINCRONIZAÇÃO FORÇADA (O Pulo do Gato)
+                // getImageData obriga o navegador a "commitar" o desenho na hora.
+                // Pegamos os pixels crus da nova imagem.
+                const imageData = ctx.getImageData(0, 0, w, h);
+                
+                // 3. Detecta usando os PIXELS DA RAM (ImageData), não o elemento HTML
+                // Isso elimina qualquer chance de cache de textura ou lag de renderização.
+                console.log("Reinicia o MediaPipe...");
+                
+                console.log("Realmente aguardou a inicialização do MediaPipe...");
+                const result = faceLandmarker.detect(imageData);
+                
+                if (result.faceLandmarks.length > 0) {
+                    let landmarks = result.faceLandmarks[0].map(lm => ({
+                        x: lm.x * w, 
+                        y: lm.y * h
+                    }));
+                    
+                    landmarks.push({x:0, y:0}, {x:w-1, y:0}, {x:w-1, y:h-1}, {x:0, y:h-1});
+                    landmarks.push({x:w/2, y:0}, {x:w-1, y:h/2}, {x:w/2, y:h-1}, {x:0, y:h/2});
+
+                    console.log("Novos Landmarks detectados:", landmarks[0]); // Debug para confirmar mudança
+                    
+                    // Desenha os pontos (apenas visual)
+                    drawLandmarksOnCanvas(ctx, landmarks);
+
+                    // DESTRÓI O ANTERIOR (Se houver método close, senão apenas sobrescreve)
+                    if (faceLandmarker && faceLandmarker.close) {
+                        console.log("Fechando o MediaPipe...");
+                        faceLandmarker.close(); 
+                    }
+                    initMediaPipe(); // Reinicia o MediaPipe
+                    // Resolve com os dados que acabamos de pegar
+                    resolve({ data: imageData, points: landmarks });
+                } else {
+                    alert("Rosto não detectado nesta imagem!");
+                    resolve(null);
+                }
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+
+    function calculateShapeDistance(p1, p2) {
+        // Calcula MSE (Mean Squared Error) da geometria alinhada
+        // Normaliza pelo tamanho da imagem para ser comparável com Procrustes
+        let error = 0;
+        // Ignora bordas artificiais (últimos 8 pontos)
+        const len = p1.length - 8;
+        
+        for(let i=0; i<len; i++) {
+            let dx = p1[i].x - p2[i].x;
+            let dy = p1[i].y - p2[i].y;
+            error += (dx*dx + dy*dy);
+        }
+        
+        // Normalização empírica para ficar na escala 0-100 similar ao Python
+        return (error / len) * 0.1; 
+    }
+    function calculateDistance(){
+        if (img1Raw && img2Raw) {
+            const shapeDist = calculateShapeDistance(img1Raw.points, img2Raw.points)
+            const resSSIM = ssim.ssim(img1Raw.data, img2Raw.data);
+            const ssimDist = (1 - resSSIM.mssim) * 100; // Escala 0 a 100
+
+
+            // Fórmula Combinada (Igual ao Python: calculate_procrustes_metric)
+            // 60% Geometria (Estrutura Óssea) + 40% Visual (Pele/Iluminação)
+            const finalScore = (shapeDist * 0.6) + (ssimDist * 0.4);
+
+            // 4. Exibe Limpo
+            document.getElementById('metricsOutput').innerHTML = `
+                <h4>Métricas de Similaridade</h4>
+                <strong>Diferença Total: ${finalScore.toFixed(2)}</strong><br>
+                <span style="font-size:0.9em; color:#ccc">
+                Quanto menor, mais parecidos (0 = Idênticos)
+                </span>
+                <hr>
+                Detalhes:<br>
+                - Geometria (Shape): ${shapeDist.toFixed(2)}<br>
+                - Visual (SSIM): ${ssimDist.toFixed(2)}
+            `;
+        }        
+    }
+    // --- ENVIAR PARA O WORKER ---
+    function sendToWorker() {
+        if (img1Raw && img2Raw) {
+            document.getElementById('status').innerText = "⚙️ Processando no Background...";
+            document.getElementById('alphaSlider').disabled = false;
+            
+            morphWorker.postMessage({
+                type: 'setImages',
+                payload: {
+                    img1: img1Raw.data,
+                    img2: img2Raw.data,
+                    p1: img1Raw.points,
+                    p2: img2Raw.points
+                }
+            });
+        }
+    }
+
+    // --- EVENTOS ---
+    document.getElementById('file1').onchange = (e) => {
+        if(e.target.files.length === 0) return;
+        processInputImage(e.target.files[0], 'canvas1').then(res => {
+            if(res) { img1Raw = res; sendToWorker(); calculateDistance();}
+        });
+    };
+    document.getElementById('file2').onchange = (e) => {
+        if(e.target.files.length === 0) return;
+        processInputImage(e.target.files[0], 'canvas2').then(res => {
+            if(res) { img2Raw = res; sendToWorker(); calculateDistance();}
+        });
+    };
+
+    document.getElementById('alphaSlider').oninput = (e) => {
+        const val = e.target.value;
+        document.getElementById('alphaVal').innerText = (val/100).toFixed(2);
+        
+        if(morphTimeout) clearTimeout(morphTimeout);
+        morphTimeout = setTimeout(() => {
+            morphWorker.postMessage({
+                type: 'morph',
+                payload: { alpha: val / 100 }
+            });
+        }, 16); 
+    };
+
+</script>
+</body>
+</html>

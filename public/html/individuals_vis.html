@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<h3>Individual Visualization</h3>
+<p id="status">Aguardando dados...</p>
+<div id="container"></div>
+<script type="module">
+
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+let num_of_generations = 10;
+
+
+const width = 300;
+const height = 450;
+const svg = d3.select("body")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+// let data = [];
+
+
+const socket = new WebSocket("ws://localhost:3214");
+            
+
+socket.onmessage = function(event) {
+    // console.log(event);
+    const message = JSON.parse(event.data);
+
+    switch(message.act){
+        case "log":
+            console.log(message.data);
+            break;
+        case "data":
+            document.getElementById("status").innerHTML = 
+             `Geração: ${message.data.generation}`;
+            redraw(message.data);
+            break;
+    }
+    
+};
+
+socket.onopen = function() {
+    console.log("Conectado ao servidor WebSocket");
+    socket.send(JSON.stringify({act:"obs", data:"individuals"}));
+};
+
+
+
+
+
+
+// const data = [ { generation: 2, population: [
+//     [1, 1, 1, 0, 1],
+//     [0, 1, 0, 1, 0],
+//     [1, 0, 1, 0, 1],
+//     [0, 1, 0, 1, 0],
+//     [1, 0, 1, 0, 1]
+// ]},
+
+// { generation: 3, population: [
+//     [1, 1, 1, 0, 1],
+//     [0, 1, 0, 1, 0],
+//     [1, 0, 0, 0, 1],
+//     [0, 1, 0, 1, 0],
+//     [1, 0, 1, 0, 1]
+// ]}
+
+// ];
+
+function redraw(data){
+
+    // const cellSize = Math.min(width/data.population[0].length, height/data.population.length);
+    // const width = data.population[0].length * cellSize;
+    // const height = data.population.length * cellSize;
+    const cellWidth = width/data.population[0].length;
+    const cellHeight = height/data.population.length;
+    
+
+    // const columns = svg.selectAll(".columns")
+    //     .data(data)
+    //     .enter()
+    //     .append("g")
+    //     .attr("class", "columns")
+    //     .attr("transform", (d, i) => `translate(${i * (width+cellSize)}, 0)`);
+
+
+    const rows = svg.selectAll(".row")
+        .data(data.population)
+        .join(enter => enter.append("g").attr("class", "row"))
+        .attr("transform", (d, i) => `translate(0, ${i * cellHeight})`);
+
+    rows.selectAll(".cell")
+        .data(d => d)
+        .join(enter=>enter.append("rect").attr("class", "cell")
+            .attr("x", (d, i) => i * cellWidth).attr("y", 0).attr("width", cellWidth)
+            .attr("height", cellHeight).attr("stroke", "none"))
+        .attr("fill", d => d === 1 ? "black" : "white");
+}
+
+
+
+
+
+</script>

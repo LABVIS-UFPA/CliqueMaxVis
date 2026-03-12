@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Tempo por Usuário</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* .dot {
+            fill: black;
+            stroke: white;
+            stroke-width: 1px;
+        }
+
+        .user_line {
+            stroke: rgba(1, 1, 1, 0.1)
+        }
+
+        .number {
+            font: 10px monospace;
+            stroke: #FFFFFF;
+            stroke-width: 0.05px;
+        }
+
+        .back {
+            fill: #FFFFFF;
+        }
+
+        .icone_GA_setting {
+            transform: scale(0.5);
+            fill: #0000009c;
+            fill-opacity: 1;
+            stroke: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_window_open {
+            transform: scale(0.5);
+            fill: #000000dd;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_play {
+            transform: scale(0.8) translate(0px, -3px);
+            fill: #000000c1;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icone_pause {
+            transform: scale(0.6);
+            fill: #0000009c;
+            fill-opacity: 1;
+            stroke: #FFFFFF;
+            stroke-width: 0.6px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        } */
+    </style>
+</head>
+
+<body>
+    <svg id="MeuSVG" width="600" height="80"></svg>
+    <button onclick="downloadSVG('MeuSVG')">download</button>
+
+
+
+
+    <script>
+        function downloadSVG(svgId) {
+            const svgElement = document.getElementById(svgId);
+            if (!svgElement) {
+                console.error("SVG não encontrado");
+                return;
+            }
+
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const blob = new Blob([svgString], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "download.svg";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        (async () => {
+
+            function parseTSV(tsvString, user, dataset) {
+
+                // const lines = tsvString.trim().split("\n");
+                // const headers = lines[0].split("\t");
+                // let data = lines.slice(1).map(line => {
+                //     const values = line.split("\t");
+                //     return Object.fromEntries(headers.map((h, i) => [h, values[i]]));
+                // });
+                let data = tsvString;
+
+                // Filtrar globalBest consecutivos mantendo apenas o último
+                data = data.filter((log, index, arr) => {
+                    if (log.Type !== "globalBest") return true;
+                    return index === arr.length - 1 || arr[index + 1].Type !== "globalBest";
+                });
+
+                let startTime = new Date(data[0].Timestamp).getTime();
+                let lastGlobalBestIndex = -1;
+                let globalBestResults = [];
+                let interactions = []
+                let totalElapsedTime = (new Date(data[data.length - 1].Timestamp).getTime() - new Date(data[0].Timestamp).getTime()) / 1000;
+
+                data.forEach((log, index) => {
+                    const currentTime = new Date(log.Timestamp).getTime();
+                    const duration = (currentTime - startTime) / 1000; // em segundos
+                    if (log.Type === "globalBest") {
+                        const logsSinceLast = index - lastGlobalBestIndex - 1;
+                        globalBestResults.push({
+                            tempo: duration,
+                            logs: logsSinceLast,
+                            globalBest: log.Action,
+                            user,
+                            dataset
+                        });
+                        lastGlobalBestIndex = index;
+                    } else if (log.Type === "GA_setting" || log.Type === "window_open") {
+                        interactions.push({
+                            tempo: duration,
+                            interaction: log.Type,
+                            user,
+                            dataset
+                        });
+                    } else if (log.Type === "GA_running") {
+                        interactions.push({
+                            tempo: duration,
+                            interaction: log.Action,
+                            user,
+                            dataset
+                        });
+                    }
+                });
+
+                return { globalBestResults, interactions, totalElapsedTime };
+            }
+
+            //             const tsvData = `Timestamp\tType\tAction
+            // 2025-03-24T23:31:22.501Z\tprojectCRUD\tnew_project
+            // 2025-03-24T23:31:31.718Z\tGA_running\tplay
+            // 2025-03-24T23:31:31.719Z\tglobalBest\t8
+            // 2025-03-24T23:31:31.784Z\tglobalBest\t9
+            // 2025-03-24T23:31:31.901Z\tglobalBest\t10
+            // 2025-03-24T23:31:36.705Z\twindow_open\tparameter_setter.html
+            // 2025-03-24T23:31:40.649Z\twindow_open\tline_chart.html
+            // 2025-03-24T23:31:43.901Z\tglobalBest\t12
+            // 2025-03-24T23:31:44.752Z\twindow_open\tindividuals_vis_canvas.html
+            // 2025-03-24T23:35:45.221Z\tGA_setting\tmutationRate
+            // 2025-03-24T23:35:46.221Z\tprojectCRUD\tsave_project`;
+
+            const datasets = [
+                "C125.9",
+                "C250.9",
+                "C500.9",
+                "C1000.9",
+                "C2000.9",
+                "DSJC1000_5",
+                "DSJC500_5",
+                "C2000.5",
+                "C4000.5",
+                "MANN_a27",
+                "MANN_a45",
+                "MANN_a81",
+                "brock200_2",
+                "brock200_4",
+                "brock400_2",
+                "brock400_4",
+                "brock800_2",
+                "brock800_4",
+                "gen200_p0.9_44",
+                "gen200_p0.9_55",
+                "gen400_p0.9_55",
+                "gen400_p0.9_65",
+                "gen400_p0.9_75",
+                "hamming10-4",
+                "hamming8-4",
+                "keller4",
+                "keller5",
+                "keller6",
+                "p_hat300-1",
+                "p_hat300-2",
+                "p_hat300-3",
+                "p_hat700-1",
+                "p_hat700-2",
+                "p_hat700-3",
+                "p_hat1500-1",
+                "p_hat1500-2",
+                "p_hat1500-3"
+            ];
+            const sumarized_data = {};
+
+            // console.log(parseTSV(tsvData));
+
+            const dIcons = {
+                play: "M15 12.3301L9 16.6603L9 8L15 12.3301Z",
+                pause: "M5 4h3v12H5V4zm7 0h3v12h-3V4z",
+                window_open: "M 4 3.25 C 2.4901003 3.25 1.25 4.4901003 1.25 6 L 1.25 14 C 1.25 15.509919 2.4901139 16.75 4 16.75 L 6.25 16.75 L 6.25 19 C 6.25 20.509919 7.4901139 21.75 9 21.75 L 20 21.75 C 21.509905 21.75 22.75 20.509905 22.75 19 L 22.75 11 C 22.75 9.4901139 21.509919 8.25 20 8.25 L 17.75 8.25 L 17.75 6 C 17.75 4.4901139 16.509919 3.25 15 3.25 L 4 3.25 z M 4 4.75 L 15 4.75 C 15.699281 4.75 16.25 5.3007461 16.25 6 L 16.25 8.25 L 9 8.25 C 7.4901003 8.25 6.25 9.4901003 6.25 11 L 6.25 15.25 L 4 15.25 C 3.3007461 15.25 2.75 14.699281 2.75 14 L 2.75 6 C 2.75 5.3007597 3.3007597 4.75 4 4.75 z M 5 6.25 A 0.75 0.75 0 0 0 4.25 7 A 0.75 0.75 0 0 0 5 7.75 L 6 7.75 A 0.75 0.75 0 0 0 6.75 7 A 0.75 0.75 0 0 0 6 6.25 L 5 6.25 z M 9 9.75 L 20 9.75 C 20.699281 9.75 21.25 10.300746 21.25 11 L 21.25 19 C 21.25 19.699295 20.699295 20.25 20 20.25 L 9 20.25 C 8.3007461 20.25 7.75 19.699281 7.75 19 L 7.75 11 C 7.75 10.30076 8.3007597 9.75 9 9.75 z M 10 11.25 A 0.75 0.75 0 0 0 9.25 12 A 0.75 0.75 0 0 0 10 12.75 L 11 12.75 A 0.75 0.75 0 0 0 11.75 12 A 0.75 0.75 0 0 0 11 11.25 L 10 11.25 z",
+                GA_setting: "M 8.2578125,2.5410156 A 0.693932,0.693932 0 0 0 7.5644531,3.2324219 l -0.00781,4.7988281 -0.00586,3.585938 C 7.4150645,11.482828 7.3835311,11.457513 7.1933594,11.267578 L 5.9980469,10.072266 a 0.693932,0.693932 0 0 0 -0.984375,0.002 l -0.1855469,0.1875 -0.1855469,0.1875 a 0.693932,0.693932 0 0 0 -0.1503906,0.74414 l 0.1503906,0.378907 a 0.693932,0.693932 0 0 0 0,0.002 c 0.4609844,1.154773 1.1145253,2.131557 1.9902344,2.972656 1.1005729,1.057076 1.195192,1.163219 1.4804687,1.732422 0.3198836,0.638252 0.4497998,1.22046 0.4511719,2.152344 v 0.333984 a 0.693932,0.693932 0 0 0 0.6933594,0.693359 h 2.2480465 2.246094 a 0.693932,0.693932 0 0 0 0.693359,-0.6875 l 0.01367,-1.492187 c 0.0064,-0.742195 0.01113,-1.117942 0.02149,-1.316406 0.01036,-0.198465 0.01382,-0.193316 0.05469,-0.363282 0.105641,-0.439334 0.166709,-0.607745 0.427735,-1.162109 0.206161,-0.437847 0.356247,-0.795725 0.423828,-1.253906 0.06758,-0.458181 0.06508,-0.972216 0.05859,-1.875 l -0.0098,-1.277344 A 0.693932,0.693932 0 0 0 14.960938,9.3789062 l -2.9375,-0.9804687 C 10.938873,8.037078 10.202662,7.7891025 9.7382812,7.6269531 9.6075,7.5812878 9.5472487,7.5575307 9.4589844,7.5253906 9.4526326,7.2122874 9.4511719,6.6549355 9.4511719,5.5898438 V 3.234375 A 0.693932,0.693932 0 0 0 8.7578125,2.5410156 h -0.25 z"
+            }
+
+            const margin = { top: 0, right: 30, bottom: 0, left: 50 },
+                width = 600 - margin.left - margin.right,
+                height = 50 - margin.top - margin.bottom;
+
+            const svg = d3.select("svg");
+            svg.attr("height", (height + 20) * datasets.length);
+
+
+            for (let k = 0; k < datasets.length; k++) {
+                const dataset = datasets[k];
+
+                const users = ["Gustavo", "Kevin", "Brynner"];
+                const users_durations = [];
+                let data = [];
+                let interaction_data = [];
+                let totalTime = 0;
+                const durantion_by_user = [];
+
+
+
+
+                for (let u of users) {
+                    try{
+                        const tsv = await d3.tsv(`../logs/${dataset}[${u}].log.tsv`);
+                    const { globalBestResults, interactions, totalElapsedTime } = parseTSV(tsv, u, dataset);
+                    data = data.concat(globalBestResults);
+                    users_durations.push(totalElapsedTime);
+                    interaction_data = interaction_data.concat(interactions);
+                    if (totalTime < totalElapsedTime) totalTime = totalElapsedTime;
+                    sumarized_data[`${dataset}_${u}`] = { tempo: Math.round(totalElapsedTime / 60), interactions: interaction_data.length };
+                    }catch(e){
+                        console.error(e);
+                    }
+                    
+                }
+
+                console.log(data)
+                console.log("interaction_data", interaction_data)
+
+
+
+                // const data = [
+                //     { tempo: 30, globalBest: 5, user: "Gustavo" },
+                //     { tempo: 50, globalBest: 3, user: "Gustavo" },
+                //     { tempo: 35, globalBest: 3, user: "Brynner" },
+                //     { tempo: 45, globalBest: 3, user: "Brynner" },
+                //     { tempo: 40, globalBest: 3, user: "Ana" },
+                //     { tempo: 55, globalBest: 3, user: "Ana" }
+                // ];
+
+
+                const g_chart = svg
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top + (20 + 50) * k})`)
+                    .attr("data-dataset", dataset);
+
+                // const users = [...new Set(data.map(d => d.user))];
+
+                const x = d3.scaleLinear()
+                    .domain([0, totalTime])
+                    .range([0, width]);
+
+                const y = d3.scaleBand()
+                    .domain(users)
+                    .range([5, height + 5])
+                    .padding(0.5);
+
+                g_chart.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x));
+
+                // svg.append("g")
+                //    .call(d3.axisLeft(y));
+
+
+                g_chart.selectAll(".user_line")
+                    .data(users)
+                    .enter().append("line")
+                    .attr("class", "user_line")
+                    .attr("x1", x.range()[0])
+                    .attr("x2", (d, i) => x(users_durations[i]))
+                    .attr("y1", d => y(d) + y.bandwidth() / 2)
+                    .attr("y2", d => y(d) + y.bandwidth() / 2)
+                    .attr("stroke", "black");
+
+                interaction_data
+
+
+
+                g_chart.selectAll(".iconeInteraction")
+                    .data(interaction_data)
+                    .enter().append("g")
+                    .attr("class", "iconeInteraction")
+                    .attr("transform", d => `translate(${x(d.tempo) - 3.3},${y(d.user) - 4})`)
+                    .append("path")
+                    .attr("transform", "scale(0.5)")
+                    .attr("class", d => `icone_${d.interaction}`)
+                    .attr("d", d => dIcons[d.interaction])
+                // .attr("d", "M15 12.3301L9 16.6603L9 8L15 12.3301Z")
+
+
+
+
+                let gNumber = g_chart.selectAll(".number")
+                    .data(data)
+                    .enter()
+                    .append("g")
+                    .attr("transform", d => `translate(${x(d.tempo) + 2}, ${y(d.user) + y.bandwidth() / 2 - 2})`)
+
+                gNumber.append("rect")
+                    .attr("class", "back")
+                    .attr("rx", 3);
+
+                gNumber.append("text")
+                    .attr("class", "number")
+                    .style("font", "10px monospace")
+                    // .attr("x", d => x(d.tempo) + 2)
+                    // .attr("y", d => y(d.user) + y.bandwidth() / 2 - 2)
+                    .text(d => `${d.globalBest}`);
+                // .text(d => `${d.globalBest}(${d.logs})`);
+
+                gNumber.selectAll(".back")
+                    .attr("width", function () {
+                        return this.parentNode.childNodes[1].getBoundingClientRect().width + 2;
+                    })
+                    .attr("height", function () {
+                        return this.parentNode.childNodes[1].getBoundingClientRect().height / 1.4;
+                    }).attr("x", -1).attr("y", function () {
+                        let text = this.parentNode.childNodes[1];
+                        return -parseFloat(text.getBoundingClientRect().height) / 1.4 + 1;
+                    });
+
+
+
+                g_chart.selectAll(".dot")
+                    .data(data)
+                    .enter().append("circle")
+                    .attr("class", "dot")
+                    .attr("cx", d => x(d.tempo))
+                    .attr("cy", d => y(d.user) + y.bandwidth() / 2)
+                    .attr("r", 3);
+
+                //    console.log(x.domain())
+            }
+
+            console.log(sumarized_data);
+
+
+
+            const styles = [
+                { selector: ".dot", styles: { fill: "black", stroke: "white", strokeWidth: "1px" } },
+                { selector: ".user_line", styles: { stroke: "rgb(1, 1, 1)", "stroke-opacity": "0.1" } },
+                { selector: ".number", styles: { font: "10px monospace", stroke: "#FFFFFF", strokeWidth: "0.05px" } },
+                { selector: ".back", styles: { fill: "#FFFFFF" } },
+                { selector: ".icone_GA_setting", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.5", stroke: "none", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_window_open", styles: { transform: "scale(0.5)", fill: "#000000", fillOpacity: "0.9", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_play", styles: { transform: "scale(0.8) translate(0px, -3px)", fill: "#000000", fillOpacity: "0.75", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } },
+                { selector: ".icone_pause", styles: { transform: "scale(0.6)", fill: "#000000", fillOpacity: "0.61", stroke: "#FFFFFF", strokeWidth: "0.6px", strokeLinecap: "round", strokeLinejoin: "round" } }
+            ];
+
+            styles.forEach(({ selector, styles }) => {
+                document.querySelectorAll(selector).forEach(element => {
+                    Object.assign(element.style, styles);
+                });
+            });
+
+
+        })();
+    </script>
+
+
+
+</body>
+
+</html>

@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experimento de Visualização de Bits</title>
+    <style>
+        :root {
+            --primary-color: #333;
+            --accent-color: #007bff;
+            --bg-color: #f4f4f9;
+            --placeholder-bg: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: var(--primary-color);
+        }
+
+        /* --- Containers de Tela --- */
+        .screen {
+            display: none;
+            width: 90%;
+            max-width: 1600px;
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Componentes Gerais --- */
+        h1, h2 { margin-bottom: 1rem; }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background 0.3s;
+            margin: 10px;
+        }
+
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .id-box {
+            background: #eee;
+            padding: 10px;
+            border: 1px dashed #999;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 1.2rem;
+            margin: 10px 0;
+        }
+
+        /* --- Layout do Experimento --- */
+        #experiment-area {
+            width: 100%;
+            height: 600px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        /* Layouts Específicos */
+        .layout-similarity { display: flex; width: 100%; height: 100%; }
+        .sim-left { width: 50%; border-right: 2px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; padding: 20px; }
+        .sim-right { width: 50%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .layout-center { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+
+        .options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; }
+
+        /* Placeholders Visuais */
+        .vis-placeholder {
+            background-color: #ddd;
+            border: 2px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 0.8rem;
+            position: relative;
+        }
+        .vis-target { width: 200px; height: 200px; }
+        .vis-option { width: 120px; height: 120px; cursor: pointer; transition: 0.2s; }
+        .vis-option:hover { border-color: var(--accent-color); transform: scale(1.05); }
+        .vis-loop-main { width: 400px; height: 400px; }
+
+        .hud {
+            display: flex; justify-content: space-between; width: 100%; padding: 10px;
+            background: #333; color: white; position: absolute; top: 0; left: 0; box-sizing: border-box; z-index: 10;
+        }
+
+        /* --- Questionário Likert --- */
+        .likert-container {
+            width: 100%;
+            text-align: left;
+            margin-top: 20px;
+        }
+        
+        .likert-row {
+            display: flex;
+            align-items: center;
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .likert-thumb {
+            width: 80px;  /* Aumentei um pouco para melhor visibilidade */
+            height: 80px;
+            background: #fff;
+            margin-right: 20px;
+            
+            /* Garante que a imagem não vaze do quadrado */
+            overflow: hidden; 
+            border: 1px solid #999;
+            border-radius: 4px;
+            
+            /* Impede que o flexbox esmague a imagem */
+            flex-shrink: 0; 
+            
+            /* Centraliza conteúdo (caso a imagem falhe) */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Atualização no CSS --- */
+
+        .likert-thumb {
+            width: 80px;  /* Aumentei um pouco para melhor visibilidade */
+            height: 80px;
+            background: #fff;
+            margin-right: 20px;
+            
+            /* Garante que a imagem não vaze do quadrado */
+            overflow: hidden; 
+            border: 1px solid #999;
+            border-radius: 4px;
+            
+            /* Impede que o flexbox esmague a imagem */
+            flex-shrink: 0; 
+            
+            /* Centraliza conteúdo (caso a imagem falhe) */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Regra para a imagem ficar do mesmo tamanho */
+        .likert-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* A mágica: preenche o quadrado cortando excessos */
+            display: block;
+        }
+
+        .likert-info {
+            flex: 1;
+        }
+        .likert-info h4 { margin: 0 0 5px 0; }
+        .likert-info p { margin: 0; font-size: 0.9rem; color: #666; }
+
+        .likert-scale {
+            display: flex;
+            gap: 35px;
+            align-items: center;
+        }
+        
+        .scale-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .scale-option input { margin-bottom: 5px; cursor: pointer; }
+        .scale-label { font-size: 0.8rem; }
+        .scale-header { margin-left: 181px; justify-content: flex-start; display: flex; font-size: 0.8rem; width: 200px;}
+
+
+        /* --- Botões de Resposta Numéricos --- */
+        .response-container {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .response-label {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .response-buttons-row {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .resp-btn {
+            width: 45px;
+            height: 50px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            padding: 0;
+        }
+
+        .resp-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .resp-btn:active {
+            background-color: var(--accent-color);
+            color: white;
+            transform: translateY(0);
+        }
+
+        /* --- Camada de Iframes (Cache) --- */
+        #vis-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Deixa cliques passarem onde não tem iframe */
+            z-index: 50; /* Acima do layout normal */
+        }
+
+        .cached-iframe {
+            position: absolute;
+            border: none;
+            display: none; /* Escondido por padrão */
+            pointer-events: auto; /* Reativa cliques no iframe */
+            background: white; /* Evita transparência indesejada */
+            transition: opacity 0.2s;
+        }
+
+        /* --- Tela de Carregamento --- */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.7);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .loader-bar {
+            width: 300px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .loader-progress {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        #dev-skip {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+            text-decoration: underline;
+            cursor: pointer;
+            /* display: none; <--- Descomente essa linha para esconder na versão final */
+        }
+
+        #dev-skip:hover {
+            color: var(--accent-color);
+        }
+
+        /* Classe para esconder visualmente enquanto carrega */
+        .invisible {
+            opacity: 0;
+            pointer-events: none; /* Impede cliques acidentais enquanto carrega */
+        }
+
+        /* Adiciona transição suave ao iframe */
+        .cached-iframe {
+            position: absolute;
+            border: none;
+            display: none;
+            background: white;
+            transition: opacity 0.3s ease-in-out; /* Suavidade */
+        }
+
+        /* --- TIMER TIPO PIZZA --- */
+        .timer-pie {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent-color) 360deg, #e0e0e0 0deg);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 2000;
+            display: none; /* Escondido por padrão */
+            transition: transform 0.2s;
+            border: 4px solid #fff;
+        }
+
+        /* Cores do Timer */
+        .timer-pie.safe { --accent-color: #28a745; }   /* Verde */
+        .timer-pie.warn { --accent-color: #ffc107; }   /* Amarelo */
+        .timer-pie.danger { --accent-color: #dc3545; animation: pulse 1s infinite; } /* Vermelho pulsante */
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .trend-opt, .trend-replay{
+            width: auto;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <h2>Preparando o Experimento...</h2>
+        <p id="loading-text">Inicializando visualizações...</p>
+        <div class="loader-bar"><div id="loader-progress" class="loader-progress"></div></div>
+
+        <a id="dev-skip" onclick="ExpManager.skipLoading()">[DEV] Pular (Skip Loading)</a>
+    </div>
+
+    <div id="vis-layer"></div>
+
+    <div id="screen-start" class="screen active">
+        <h1>Experimento de Visualização</h1>
+        <p>Clique no ID para copiar:</p>
+        <div id="participant-id" class="id-box" title="Clique para copiar">Gerando...</div>
+        <p>O teste consiste em 4 tarefas com diferentes visualizações.</p>
+        <button onclick="ExpManager.startExperiment()">INICIAR</button>
+    </div>
+
+    <div id="screen-instruction" class="screen">
+        <h2 id="instr-title">Instruções</h2>
+        <div id="instr-content" style="text-align: left; max-width: 800px; margin-bottom: 20px;"></div>
+        
+        <button onclick="ExpManager.startTraining()">Iniciar</button>
+    </div>
+
+    <div id="screen-test" class="screen">
+        <div class="hud">
+            <span id="hud-task">Tarefa: --</span>
+            <span id="hud-counter">Progresso: --/--</span>
+            <span id="hud-timer">Tempo: 00:00</span>
+        </div>
+        <div id="experiment-area"></div>
+        <div id="controls-area"></div>
+    </div>
+
+    <div id="screen-questionnaire" class="screen">
+        <h2>Avaliação da Tarefa</h2>
+        <p>Com base na tarefa que você acabou de realizar, avalie <strong>o quão fácil</strong> foi encontrar a resposta utilizando cada tipo de visualização.</p>
+        
+        <div class="scale-header" style="width: 100%; display: flex; padding-right: 30px; box-sizing: border-box;">
+            <span style="margin-right: 130px;">Muito Difícil (1)</span>
+            <span>Muito Fácil (5)</span>
+        </div>
+
+        <div id="likert-list" class="likert-container">
+            </div>
+
+        <button onclick="ExpManager.submitQuestionnaire()">Enviar e Continuar</button>
+    </div>
+
+
+    <div id="screen-end" class="screen">
+        <h1>Fim do Experimento</h1>
+        <p>Obrigado!</p>
+
+        <p id="server-status" style="font-weight:bold; color:#666;">Salvando dados no servidor...</p>
+        
+        
+        
+        <div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
+            
+            <div style="border:1px solid #ddd; padding:15px; border-radius:8px; width:100%; max-width:600px;">
+                <h3>1. Dados de Performance (TSV)</h3>
+                <p style="font-size:0.9rem; color:#666;">Para análise de Tempos e Erros no JASP</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="ExpManager.downloadTaskTSV('similarity')" style="background-color: #28a745;">Similaridade</button>
+                    <button onclick="ExpManager.downloadTaskTSV('memory')" style="background-color: #28a745;">Memória</button>
+                    <button onclick="ExpManager.downloadTaskTSV('loop')" style="background-color: #28a745;">Loop</button>
+                    <button onclick="ExpManager.downloadTaskTSV('trend')" style="background-color: #28a745;">Tendência</button>
+                </div>
+            </div>
+
+            <div style="border:1px solid #ddd; padding:15px; border-radius:8px; width:100%; max-width:600px;">
+                <h3>2. Questionários Likert (TSV)</h3>
+                <p style="font-size:0.9rem; color:#666;">Para análise de percepção subjetiva</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('similarity')" style="background-color: #ffc107; color:#333;">Similaridade</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('memory')" style="background-color: #ffc107; color:#333;">Memória</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('loop')" style="background-color: #ffc107; color:#333;">Loop</button>
+                    <button onclick="ExpManager.downloadSpecificQuestTSV('trend')" style="background-color: #ffc107; color:#333;">Tendência</button>
+                </div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <button onclick="ExpManager.downloadJSON()" style="background-color: #6c757d;">Baixar Backup Completo (.JSON)</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="timeout-pie" class="timer-pie"></div>
+
+    <script>
+        /* --- CONFIGURAÇÃO DO PROTOCOLO --- */
+    const PROTOCOL = {
+        timings: {
+            encoding: 2000,  // 2s para debug (Oficial: 5000ms)
+            retention: 2000, // 2s para debug (Oficial: 5000ms)
+            interTrial: 1000 // Intervalo entre testes
+        },
+        visualizations: [
+            { id: 'heatmap', name: 'Heatmap Binário', file: 'vis/heatmap.html'},
+            { id: 'scatter', name: 'Scatterplot (MDS)', file: 'vis/scatter.html' },
+            { id: 'cnn', name: 'Imagem (CNN)', file: 'vis/cnn.html'},
+            { id: 'sketch', name: 'Rabisco/Sketch', file: 'vis/sketch.html' },
+            { id: 'particles', name: 'Partículas Aleatórias', file: 'vis/particles.html'}
+        ],
+        tasks: {
+            similarity: {
+                name: "Similaridade Visual",
+                difficulties: ['medium', 'high', 'dense'], 
+                timeout: 40
+            },
+            memory: {
+                name: "Memória Visual",
+                difficulties: ['medium', 'dense'], 
+                timeout: 60
+            },
+            loop: {
+                name: "Detecção de Loop",
+                difficulties: ['high'], 
+                timeout: 60 
+            },
+            trend: {
+                name: "Análise de Tendência",
+                difficulties: ['medium'], // Reusa o iframe 'medium'
+                scenarios: ['divergence', 'convergence', 'random'], 
+                sequenceDuration: 10, // Tempo vendo a animação
+                responseWindow: 5,    // Tempo após sumir
+                get timeout() { return this.sequenceDuration + this.responseWindow; }
+            },
+            trend2: {
+                name: "Análise de Tendência (Replay)",
+                difficulties: ['medium2'],
+                scenarios: ['divergence', 'convergence', 'random', 'stagnation'], 
+                timeout: 120 // Tempo generoso para replay
+            }
+        },
+        // Mapeamento de contextos necessários para criar os iframes
+        contexts: ['target', 'candidates_grid', 'memory_target', 'carousel_page', 'loop_sequence']
+    };
+
+    const RENDER_DELAY = 1000; // 500ms de espera para estabilizar
+
+    const ExpManager = {
+        state: {
+            participantID: null,
+            taskOrder: [],
+            currentTaskIdx: 0,
+            trialList: [], 
+            currentTrialIdx: 0,
+            carouselPage: 0,
+            isTraining: false,
+            dataLog: [],
+            timerInterval: null, // Para controlar o countdown
+            // Cache de Iframes: iframeCache[visID][difficulty][context]
+
+            currentAnswerKey: null, // Guarda o objeto { correctIndex: X } ou { loopSize: Y }
+            trialStartTime: 0,
+
+            replayCount: 0,
+
+            iframeCache: {}, 
+            activeFrames: [] // Lista de iframes visíveis no momento (para resize)
+        },
+
+        init: function() {
+            this.state.participantID = 'P-' + Math.floor(Math.random() * 9999);
+            document.getElementById('participant-id').innerText = this.state.participantID;
+            document.getElementById('participant-id').onclick = () => {
+                navigator.clipboard.writeText(this.state.participantID);
+                alert("ID Copiado!");
+            };
+            
+            // // Sorteia ordem das tarefas
+            // this.state.taskOrder = this.shuffle(['trend','similarity', 'memory', 'loop']);
+            // console.log("Ordem das Tarefas:", this.state.taskOrder);
+
+            // TESTE SUPLEMENTAR: Apenas trend2
+            this.state.taskOrder = ['trend2'];
+            // console.log("Ordem das Tarefas:", this.state.taskOrder);
+
+
+            // Inicia o pré-carregamento
+            this.preloadVisualizations().then(() => {
+                // Quando tudo estiver pronto:
+                document.getElementById('loading-overlay').style.display = 'none';
+                console.log("Todas as visualizações carregadas e treinadas.");
+            });
+
+            // Listener para redimensionar os iframes se a janela mudar
+            window.addEventListener('resize', () => {
+                this.repositionActiveFrames();
+            });
+        },
+
+        /* --- SISTEMA DE PRELOAD COM WEBSOCKET CONTROL --- */
+        preloadVisualizations: function() {
+            let self = this;
+            return new Promise((resolve, reject) => {
+                const layer = document.getElementById('vis-layer');
+                const progressText = document.getElementById('loading-text');
+                const progressBar = document.getElementById('loader-progress');
+                
+               
+                // 1. CONFIGURAÇÃO: O que cada tipo de tarefa precisa?
+                const TASK_REQUIREMENTS = {
+                    'memory':     [{ role: 'carousel_page', numbered: true }, { role: 'candidates_grid', numbered: true }],
+                    'similarity': [{ role: 'target', numbered: false }, { role: 'candidates_grid', numbered: true }],
+                    'loop':       [{ role: 'loop_sequence', numbered: false }], 
+                    'trend':      [{ role: 'target', numbered: false }],
+                    'trend2':     [{ role: 'target', numbered: false }] // Só precisa de 1 visualização limpa
+                };
+
+                // 1.2. FILTRAGEM: Monta lista baseada SÓ no taskOrder
+                let loadQueue = [];
+                let uniqueKeys = new Set(); // Evita duplicatas
+
+                // Garante estrutura do cache
+                PROTOCOL.visualizations.forEach(vis => {
+                    if (!this.state.iframeCache[vis.id]) this.state.iframeCache[vis.id] = {};
+                });
+
+                // Itera apenas sobre as tarefas ativas (no seu caso, só 'trend2')
+                this.state.taskOrder.forEach(taskKey => {
+                    const taskConfig = PROTOCOL.tasks[taskKey];
+                    const reqs = TASK_REQUIREMENTS[taskKey];
+
+                    if (!taskConfig || !reqs) return;
+
+                    // Itera visualizações x dificuldades da tarefa x papéis
+                    PROTOCOL.visualizations.forEach(vis => {
+                        taskConfig.difficulties.forEach(diff => {
+                            // Garante cache para essa dificuldade
+                            if (!this.state.iframeCache[vis.id][diff]) {
+                                this.state.iframeCache[vis.id][diff] = {};
+                            }
+
+                            reqs.forEach(req => {
+                                const uniqueKey = `${vis.id}|${diff}|${req.role}`;
+                                
+                                if (!uniqueKeys.has(uniqueKey)) {
+                                    uniqueKeys.add(uniqueKey);
+                                    
+                                    loadQueue.push({
+                                        vis: vis,
+                                        diff: diff,
+                                        role: req.role,
+                                        numbered: req.numbered
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
+
+                const totalExpected = loadQueue.length;
+                console.log(`[Otimização] Carregando ${totalExpected} iframes necessários.`);
+                
+                if (totalExpected === 0) {
+                    console.warn("Nenhum iframe necessário.");
+                    resolve();
+                    return;
+                }
+
+                // 2. Conecta ao Servidor para Monitorar o Progresso Global
+                self.controlSocket = new WebSocket("ws://localhost:3214");
+
+                self.controlSocket.onopen = () => {
+                    console.log(`[Controller] Conectado. Aguardando ${totalExpected} visualizações.`);
+                    
+                    // Avisa o servidor: "Eu sou o controlador, espere X clientes ficarem prontos"
+                    self.controlSocket.send(JSON.stringify({ 
+                        act: "register_controller", 
+                        expected: totalExpected 
+                    }));
+
+                    // 3. Cria os Iframes APÓS conectar o controlador
+                    // Isso garante que o servidor já saiba que deve contar as conexões que virão
+                    loadQueue.forEach(item => {
+                        const iframe = document.createElement('iframe');
+                        iframe.className = 'cached-iframe';
+                        
+                        // Passamos 'preload=true' para que o script da visualização saiba que deve
+                        // conectar, treinar e avisar o servidor que está pronto.
+                        iframe.src = `${item.vis.file}?context=${item.role}&difficulty=${item.diff}&numbered=${item.numbered}`;
+                        iframe.id = `frame-${item.vis.id}-${item.diff}-${item.role}`;
+                        
+                        // Salva no Cache (para uso posterior no experimento)
+                        this.state.iframeCache[item.vis.id][item.diff][item.role] = iframe;
+                        layer.appendChild(iframe);
+                    });
+                };
+
+                self.controlSocket.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+
+                    // CASO A: Atualização da Barra de Progresso (Vinda do Servidor)
+                    if (msg.act === "progress_update") {
+                        const readyCount = msg.ready_count;
+                        const pct = Math.round((readyCount / totalExpected) * 100);
+                        
+                        console.log("ready", msg.ready);
+
+                        progressBar.style.width = pct + "%";
+                        progressText.innerText = `Treinando Modelos: ${readyCount}/${totalExpected}`;
+                    }else 
+
+                    // CASO B: Tudo Pronto
+                    if (msg.act === "all_systems_go") {
+                        console.log("[Controller] Todos os modelos treinados e sincronizados.");
+                        resolve(); // Libera o experimento para começar
+                    }else
+                    // CASO C: RECEBIMENTO DO GABARITO
+                    if (msg.act === "answer_key") {
+                        console.log(`[GABARITO RECEBIDO]`, msg);
+                        self.state.currentAnswerKey = msg;
+                        self.state.trialStartTime = Date.now();
+                        
+                        // Se for loop, zera contadores visuais se necessário
+                        if(msg.task === 'loop') {
+                            console.log(`Loop de tamanho ${msg.loopSize}. Aguardando detecção...`);
+                        }
+                    } else if (msg.act === "results_saved_success") {
+                        const statusEl = document.getElementById('server-status');
+                        if (statusEl) {
+                            statusEl.innerText = "✅ Dados salvos no servidor com sucesso!";
+                            statusEl.style.color = "#28a745"; // Verde
+                        }
+                    } 
+                    else if (msg.act === "results_saved_error") {
+                        const statusEl = document.getElementById('server-status');
+                        if (statusEl) {
+                            statusEl.innerText = "❌ Erro ao salvar no servidor. Verifique o console.";
+                            statusEl.style.color = "#dc3545"; // Vermelho
+                        }
+                    }else if (msg.act === "animation_ended") {
+                        console.log("Animação terminou. Liberando botões.");
+                        self.setPhase('decision'); // Função que vamos criar abaixo
+                    }
+
+                };
+
+                self.controlSocket.onerror = (err) => {
+                    console.error("Erro no WebSocket Controlador:", err);
+                    progressText.innerText = "Erro de Conexão com Servidor de Treino.";
+                };
+            });
+        },
+
+
+        /* --- GERENCIAMENTO DE FRAMES ATIVOS --- */
+        // Esconde todos os iframes
+        hideAllFrames: function() {
+            const frames = document.querySelectorAll('.cached-iframe');
+            frames.forEach(f => f.style.display = 'none');
+            this.state.activeFrames = [];
+        },
+
+        // Pega um frame do cache, mostra ele e posiciona sobre o placeholder
+        activateFrame: function(visId, diff, role, placeholderId) {
+            const iframe = this.state.iframeCache[visId][diff][role];
+            const placeholder = document.getElementById(placeholderId);
+
+            if (iframe && placeholder) {
+                //Começa invisível para não mostrar dados antigos
+                iframe.classList.add('invisible');
+                iframe.style.display = 'block';
+
+
+                
+                // Registra par para reposicionamento no resize
+                this.state.activeFrames.push({ iframe, placeholder });
+                // Posiciona agora
+                this.layoutIframeOver(iframe, placeholder);
+                
+                return iframe; // Retorna para podermos enviar dados via postMessage
+            }
+            return null;
+        },
+
+        // Matemática para colocar o iframe "em cima" da div vazia
+        layoutIframeOver: function(iframe, placeholder) {
+            const rect = placeholder.getBoundingClientRect();
+            iframe.style.width = rect.width + 'px';
+            iframe.style.height = rect.height + 'px';
+            iframe.style.top = rect.top + 'px';
+            iframe.style.left = rect.left + 'px';
+        },
+
+        repositionActiveFrames: function() {
+            this.state.activeFrames.forEach(pair => {
+                this.layoutIframeOver(pair.iframe, pair.placeholder);
+            });
+        },
+
+        /* --- FLUXO PRINCIPAL --- */
+        startExperiment: function() {
+            this.state.currentTaskIdx = 0;
+            this.loadTaskInstruction();
+        },
+
+        loadTaskInstruction: function() {
+            const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+            const taskConfig = PROTOCOL.tasks[taskKey];
+
+            document.getElementById('instr-title').innerText = taskConfig.name;
+            let details = "";
+            
+            if(taskKey === 'memory') {
+                details = `<li>Memorize o elemento (${PROTOCOL.timings.encoding/1000}s).</li>
+                           <li>Aguarde a tela vazia (${PROTOCOL.timings.retention/1000}s).</li>
+                           <li>Encontre o elemento memorizado no grid e clique no botão de número correspondente.</li>
+                           <li>O elemento que você deve encontrar é exatamente igual à referência.</li>`;
+            } else if (taskKey === 'loop') {
+                details = `<li>Identifique quando a sequência de elementos começar a repetir.</li>
+                           <li>Assim que perceber a repetição, clique em <strong>"DETECTEI O LOOP"</strong>.</li>
+                           <li>Se você achar que não existe padrão ou não conseguir encontrar, clique em <strong>"NÃO VEJO REPETIÇÃO"</strong>.</li>
+                           <li>Evite "chutar" baseando-se apenas no tempo decorrido.</li>`;
+            } else if (taskKey === 'trend') {
+                details = `<li>Observe a evolução da população durante <strong>${taskConfig.sequenceDuration}s</strong>.</li>
+                           <li>Identifique o comportamento global:
+                                <ul>
+                                   <li><strong>Convergência:</strong> Os elementos vão ficando todos iguais.</li>
+                                   <li><strong>Divergência:</strong> Os elementos se separam em grupos distintos.</li>
+                                   <li><strong>Aleatório:</strong> Não há padrão.</li>
+                                </ul>
+                           </li>
+                           <li>Após a animação, o gráfico sumirá e você terá <strong>${taskConfig.responseWindow} segundos</strong> para clicar na resposta.</li>`;
+            } else if (taskKey === 'trend2') {
+                details = `<li>Observe a animação da evolução dos dados.</li>
+                           <li>Decida qual é o padrão: <b>Convergência</b>, <b>Divergência</b>, <b>Aleatório</b> ou <b>Estagnação</b>.</li>
+                           <li>Use o botão <b>REPLAY</b> se precisar rever a animação.</li>`;
+            }
+
+            document.getElementById('instr-content').innerHTML = `
+                <ul>
+                    <li>Tarefa: <strong>${taskConfig.name}</strong></li>
+                    ${details}
+                    <li>Tempo limite de busca: ${taskConfig.timeout} segundos.</li>
+                </ul>`;
+            
+            this.showScreen('screen-instruction');
+        },
+
+        // --- SEU START TRAINING CORRIGIDO ---
+        startTraining: function() {
+            // this.state.isTraining = true;
+            // const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+            // // Gera 1 trial de treino qualquer, INCLUINDO A TASK
+            // this.state.trialList = [{ vis: PROTOCOL.visualizations[0], diff: 'low', task: taskKey}]; 
+            // this.state.currentTrialIdx = 0;
+            // this.runTrial();
+            this.state.isTraining = true;
+            const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+
+
+            // Se for trend2, PULA o treino e vai direto para o teste real
+            if (taskKey === 'trend2') {
+                this.state.isTraining = false;
+                this.state.trialList = this.generateBlockTrials(taskKey); // Gera os 20 trials
+                this.state.currentTrialIdx = 0;
+                this.runTrial(); // Começa valendo
+                return;
+            }
+
+            
+            // Cria um trial especial do tipo 'static'
+            this.state.trialList = [{ 
+                vis: { id: 'static', name: 'Treino Prático (Imagens)' }, 
+                diff: 'training', 
+                task: taskKey
+            }]; 
+            
+            this.state.currentTrialIdx = 0;
+            this.runTrial();
+        },
+
+        finishTraining: function() {
+            alert("Treino finalizado! Agora começa o teste real.");
+            this.startBlockExecution();
+        },
+
+        startBlockExecution: function() {
+            this.state.isTraining = false;
+            const taskKey = this.state.taskOrder[this.state.currentTaskIdx];
+            this.state.trialList = this.generateBlockTrials(taskKey);
+            this.state.currentTrialIdx = 0;
+            
+            console.log(`Iniciando Bloco ${taskKey} com ${this.state.trialList.length} testes.`);
+            this.runTrial();
+        },
+
+        generateBlockTrials: function(taskKey) {
+            const config = PROTOCOL.tasks[taskKey];
+            let trials = [];
+            if (config.scenarios) {
+                PROTOCOL.visualizations.forEach(vis => {
+                    config.scenarios.forEach(scenario => {
+                        // Nota: Usamos a dificuldade [0] ('medium') fixa para o visual
+                        trials.push({
+                            vis: vis, 
+                            diff: config.difficulties[0], 
+                            task: taskKey,
+                            scenario: scenario, // <--- Guarda 'convergence', 'random', etc.
+                            trend: scenario
+                        });
+                    });
+                });
+            }else{
+                PROTOCOL.visualizations.forEach(vis => {
+                    config.difficulties.forEach(diff => {
+                        trials.push({
+                            vis: vis, diff: diff, task: taskKey
+                        });
+                    });
+                });
+            }
+            return this.shuffle(trials);
+        },
+
+        /* --- EXECUÇÃO DO TESTE (COM SEQUÊNCIA DE MEMÓRIA) --- */
+        runTrial: function() {
+            this.hideAllFrames(); // Limpa a tela anterior
+
+            // LIMPEZA DO ESTADO ANTERIOR
+            this.state.currentAnswerKey = null; 
+            this.state.trialStartTime = Date.now(); // Define um tempo inicial provisório
+
+            if (this.state.staticLoopInterval) clearInterval(this.state.staticLoopInterval);
+
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            
+            // --- ENVIO AO SERVIDOR ---
+            if (trial.vis.id !== 'static' && trial.task !== 'trend' && trial.task !== 'trend2') {
+                if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+
+                    // Lógica de Contexto Atualizada para incluir 'trend'
+                    let contextToSend;
+                    if (trial.task === 'similarity') contextToSend = 'candidates_grid';
+                    else if (trial.task === 'loop') contextToSend = 'loop_sequence';
+                    else contextToSend = 'carousel_page'; // memory
+
+                    this.controlSocket.send(JSON.stringify({
+                        act: "start_task",
+                        task: trial.task,       // ex: 'similarity', 'memory'
+                        diff: trial.diff,  // ex: 'low', 'dense'
+                        vis: trial.vis.id,
+                        context: contextToSend
+                    }));
+                    if(trial.task==="similarity" || trial.task==="memory"){
+                        this.controlSocket.send(JSON.stringify({
+                            act: "start_task",
+                            task: trial.task,       // ex: 'similarity', 'memory'
+                            diff: trial.diff,  // ex: 'low', 'dense'
+                            vis: trial.vis.id,
+                            context: "target"
+                        }));
+                    }
+                }
+            }
+
+
+            // Reset HUD
+            document.getElementById('hud-task').innerText = this.state.isTraining ? "TREINO PRÁTICO" : PROTOCOL.tasks[trial.task].name;
+            document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${this.state.trialList.length}`;
+            document.getElementById('hud-timer').innerText = "Carregando..."; // Feedback visual
+
+            // --- LÓGICA DE DELAY ---
+            
+
+            // Função que roda após o layout ser montado
+            const onLayoutReady = () => {
+                setTimeout(() => {
+                    // 1. Mostra os iframes (Fade-in)
+                    this.revealActiveFrames();
+                    
+                    // 2. Atualiza o HUD
+                    document.getElementById('hud-timer').innerText = "VALENDO!";
+                    
+                    // 3. CRÍTICO: Reinicia o timer para ser justo com o usuário
+                    // O tempo de reação conta a partir de AGORA
+                    this.state.trialStartTime = Date.now();
+
+                    // --- INICIA TIMER AQUI ---
+                    const limit = PROTOCOL.tasks[trial.task].timeout; // 40 ou 90
+                    // Passa 'false' se for loop, 'true' para os outros
+                    const showVisual = (trial.task !== 'loop');
+                    this.startTimeoutTimer(limit, showVisual);
+
+                }, RENDER_DELAY);
+            };
+
+            // Lógica de Ramificação por Tipo de Tarefa
+            if (trial.task === 'memory') {
+                if (trial.vis.id === 'static') this.runStaticMemorySequence(); // <--- NOVA FUNÇÃO
+                else this.runMemorySequence(trial);
+            } else if (trial.task === 'trend') {
+                // --- NOVA RAMIFICAÇÃO PARA TENDÊNCIA ---
+                // Não usa onLayoutReady, pois tem temporização própria (10s + 5s)
+                // Verifica se é treino estático ou teste real
+                if (trial.vis.id === 'static') {
+                    this.runStaticTrendSequence(trial);
+                } else {
+                    this.runTrendSequence(trial);
+                }
+            } else if (trial.task === 'trend2') {
+                this.runTrend2Sequence(trial);
+            }else {
+                // Similaridade e Loop carregam direto
+                if (trial.vis.id === 'static') this.renderStaticLayout(trial); // <--- NOVA FUNÇÃO
+                else {
+                    this.renderLayout(trial);
+                    this.showScreen('screen-test');
+                    onLayoutReady(); // Dispara o delay e reveal
+                }
+            }
+        },
+
+        // --- SEQUÊNCIA DE MEMÓRIA (CODIFICAÇÃO -> RETENÇÃO -> BUSCA) ---
+        runMemorySequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // 1. CODIFICAÇÃO (Iframe Único)
+            document.getElementById('hud-timer').innerText = "MEMORIZE!";
+            // Cria placeholder HTML
+            area.innerHTML = `
+                <div class="layout-center">
+                    <h2 style="color:var(--accent-color)">MEMORIZE</h2>
+                    <div id="ph-mem-target" class="vis-placeholder vis-target" style="width:800px; height:400px; border: 4px solid var(--accent-color);"></div>
+                </div>`;
+            
+            // Ativa o iframe correto sobre o placeholder
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-mem-target');
+            // ENVIA DADOS PARA O IFRAME (AQUI OCORRE A TROCA DE DADOS)
+            if(frame) frame.contentWindow.postMessage({ act: 'new_trial_data', data: { seed: Math.random() } }, '*');
+
+            // --- Revela o Target após um breve delay ---
+            setTimeout(() => {
+                if(frame) frame.classList.remove('invisible');
+            }, 200); // 200ms para garantir que posicionou
+
+            // Timer para Retenção
+            setTimeout(() => {
+                // 2. RETENÇÃO (Tela Vazia)
+                this.hideAllFrames(); // Tela vazia (Retenção)
+                document.getElementById('hud-timer').innerText = "AGUARDE...";
+                area.innerHTML = `<div class="layout-center"><h3 style="color:#999">...</h3></div>`;
+
+                // Timer para Busca
+                setTimeout(() => {
+                    document.getElementById('hud-timer').innerText = "ENCONTRE!";
+                    this.renderLayout(trial); // Grid de busca
+                    // --- CORREÇÃO 2: Revela o Grid de Busca ---
+                    setTimeout(() => {
+                        this.revealActiveFrames(); // Tira o .invisible
+                        this.repositionActiveFrames(); // Garante posição
+                        
+                        // Reinicia o timer de reação AGORA (para ser justo)
+                        this.state.trialStartTime = Date.now(); 
+
+                        // --- INICIA TIMER AQUI (FASE DE BUSCA) ---
+                        // Memória tem timeout de 60s
+                        this.startTimeoutTimer(PROTOCOL.tasks.memory.timeout, true);
+                    }, RENDER_DELAY); // delay para carregar visual
+                }, PROTOCOL.timings.retention);
+
+            }, PROTOCOL.timings.encoding);
+        },
+
+        /* --- RENDERIZAÇÃO --- */
+        renderLayout: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
+            
+            if (trial.task === 'similarity') {
+                area.innerHTML = visLabel + `
+                    <div class="layout-similarity">
+                        <div class="sim-left">
+                            <h3>Referência</h3>
+                            <div id="ph-sim-target" class="vis-placeholder vis-target" style="width:100%; height:400px;"></div>
+                        </div>
+                        <div class="sim-right" style="flex-direction:column;">
+                            <div id="ph-sim-grid" style="width:100%; height:400px; border:1px solid #eee;"></div>
+                            
+                            <div class="response-container">
+                                <span class="response-label">Qual é a imagem correta?</span>
+                                <div class="response-buttons-row">
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                // Ativa os iframes sobre os placeholders
+                const f1 = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-sim-target');
+                const f2 = this.activateFrame(trial.vis.id, trial.diff, 'candidates_grid', 'ph-sim-grid');
+                
+                // Envia dados novos
+                if(f1) f1.contentWindow.postMessage({ act: 'data', mode: 'target', seed: Math.random() }, '*');
+                if(f2) f2.contentWindow.postMessage({ act: 'data', mode: 'grid', seed: Math.random() }, '*');
+
+            } else if (trial.task === 'memory') {
+                
+
+                // Removemos a lógica de paginação. Agora é tela única.
+                area.innerHTML = visLabel + `
+                    <div class="layout-center">
+                        <h3>Encontre a imagem memorizada</h3>
+                        
+                        <div style="display:flex; justify-content: center; margin-bottom: 15px;">
+                            <div id="ph-mem-carousel" style="height:400px; width: 800px; border:1px solid #ccc; background: #fff;"></div>
+                        </div>
+
+                        <div class="response-container" style="max-width:800px;">
+                            <span class="response-label" style="width:250px; text-align:center;">Qual é a imagem correta?</span>
+                            <div class="response-buttons-row">
+                                ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" style="flex: 1;" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                
+                // Ativa o iframe. O contexto continua sendo 'carousel_page' para aproveitar o cache,
+                // mas agora ele receberá 9 itens de uma vez só do servidor.
+                const frame = this.activateFrame(trial.vis.id, trial.diff, 'carousel_page', 'ph-mem-carousel');
+                
+                // Se precisar forçar um resize ou algo específico da visualização, pode fazer aqui
+                // mas geralmente o activateFrame já lida com o tamanho do placeholder.
+
+            } else if (trial.task === 'loop') {
+                area.innerHTML = visLabel + `
+                    <div class="layout-center">
+                        <div id="ph-loop" class="vis-loop-main" style="width:800px; height:400px; border:none;"></div>
+                    </div>`;
+                controls.innerHTML = `
+                    <div style="display:flex; gap:20px; justify-content:center;">
+                        <button class="resp-btn" style="width:200px; height:60px; background:#d9534f; color:white; font-size:1rem;" onclick="ExpManager.registerAnswer('LOOP')">
+                            DETECTEI O LOOP
+                        </button>
+                        
+                        <button id="btn-no-loop" disabled class="resp-btn" style="width:200px; height:60px; background:#6c757d; color:white; font-size:1rem;" onclick="ExpManager.registerAnswer('NO_LOOP')">
+                            NÃO VEJO REPETIÇÃO
+                        </button>
+                    </div>`;
+
+                const f = this.activateFrame(trial.vis.id, trial.diff, 'loop_sequence', 'ph-loop');
+                if(f) f.contentWindow.postMessage({ act: 'data', mode: 'loop', seed: Math.random() }, '*');
+                
+                
+                // Ele espera 15 segundos (15000ms) e então habilita o botão cinza
+                setTimeout(() => {
+                    const btn = document.getElementById('btn-no-loop');
+                    // Verifica se o botão ainda existe (o usuário pode ter respondido antes)
+                    if (btn) {
+                        btn.disabled = false;           // Habilita o clique
+                        btn.style.opacity = '1';        // Remove transparência
+                        btn.style.cursor = 'pointer';   // Muda o cursor do mouse
+                        // Opcional: Feedback visual de que agora pode clicar
+                        // btn.innerText = "NÃO VEJO REPETIÇÃO (Disponível)";
+                    }
+                }, 15000);
+            }
+        },
+
+
+        // --- MEMÓRIA ESTÁTICA ---
+        runStaticMemorySequence: function() {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // 1. CODIFICAÇÃO
+            document.getElementById('hud-timer').innerText = "MEMORIZE!";
+            
+            // Mostra o Target
+            area.innerHTML = `
+                <div class="layout-center">
+                    <h2 style="color:var(--accent-color)">MEMORIZE</h2>
+                    <img src="imgTrain/memory/memory-target.jpg" style="width:auto; height:400px; border: 4px solid var(--accent-color); object-fit: contain;">
+                </div>`;
+            
+            // Timer para Retenção
+            setTimeout(() => {
+                // 2. RETENÇÃO
+                area.innerHTML = `<div class="layout-center"><h3 style="color:#999">...</h3></div>`;
+                document.getElementById('hud-timer').innerText = "AGUARDE...";
+
+                // Timer para Busca
+                setTimeout(() => {
+                    document.getElementById('hud-timer').innerText = "ENCONTRE!";
+                    
+                    // Prepara o Gabarito Local
+                    // Temos 1 target + 8 options = 9 imagens.
+                    let options = [];
+                    // Adiciona as opções erradas
+                    for(let i=1; i<=8; i++) options.push({src: `imgTrain/memory/memory-option${i}.jpg`, isTarget: false});
+                    // Adiciona o target correto
+                    options.push({src: `imgTrain/memory/memory-target.jpg`, isTarget: true});
+                    
+                    // Embaralha
+                    options = this.shuffle(options);
+                    
+                    // Encontra onde o target caiu (índice 1-based para bater com os botões)
+                    const correctIndex = options.findIndex(o => o.isTarget) + 1;
+                    
+                    // Salva o gabarito manualmente no estado
+                    this.state.currentAnswerKey = { correctIndex: correctIndex };
+                    this.state.trialStartTime = Date.now();
+
+                    // Renderiza Grid 3x3 com imagens
+                    // Usamos Flexbox com wrap para simular o grid, ou CSS grid inline
+                    const gridHtml = options.map((opt, i) => `
+                        <div style="width:120px; height:120px; display:flex; align-items:center; justify-content:center; border:1px solid #ccc; margin:5px;">
+                            <img src="${opt.src}" style="max-width:100%; max-height:100%;">
+                            <div style="position:absolute; font-weight:bold; color:red; background:white;">${i+1}</div> </div>
+                    `).join('');
+
+                    area.innerHTML = `
+                        <div class="layout-center">
+                            <h3>Encontre a imagem memorizada</h3>
+                            <div style="display:flex; flex-wrap:wrap; width:420px; justify-content:center; align-items:center;">
+                                ${gridHtml}
+                            </div>
+                            <div class="response-container" style="max-width:420px; margin-top:10px;">
+                                <div class="response-buttons-row">
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>`;
+
+                }, PROTOCOL.timings.retention);
+
+            }, PROTOCOL.timings.encoding);
+        },
+
+        // --- SEQUÊNCIA DE TENDÊNCIA (EXTRA) ---
+        runTrendSequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // Configurações de Tempo
+            const taskConfig = PROTOCOL.tasks.trend;
+            const seqTime = taskConfig.sequenceDuration * 1000;
+            
+            // 1. Renderiza Layout (Iframe + Botões)
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
+            
+            area.innerHTML = visLabel + `
+                <div class="layout-center">
+                    <h3>Analise a Evolução</h3>
+                    
+                    <div id="ph-trend" class="vis-placeholder vis-target" style="width:600px; height:400px; transition: opacity 0.3s;"></div>
+                    
+                    <div style="margin-top:20px; display:flex; gap:20px;">
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('convergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            CONVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Unificando)</small>
+                        </button>
+                        
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('divergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            DIVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Separando)</small>
+                        </button>
+                        
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('random')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            ALEATÓRIO<br><small style="font-weight:normal; font-size:0.7rem">(Ruído)</small>
+                        </button>
+                    </div>
+                </div>`;
+
+            // 2. Ativa o Iframe (Reutilizando 'target' pois é um iframe único simples)
+            // Usamos 'target' pois ele já está no cache com diff 'medium'
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-trend');
+            
+            // 3. Envia sinal ao servidor (mesmo sem dados ainda, mantemos o protocolo)
+            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                this.controlSocket.send(JSON.stringify({
+                    act: "start_task",
+                    task: "trend",
+                    diff: trial.diff,
+                    vis: trial.vis.id,
+                    context: "target",
+                    trendType: trial.scenario
+                }));
+            }
+
+            // 4. Inicia Feedback Visual
+            document.getElementById('hud-task').innerText = taskConfig.name;
+            document.getElementById('hud-counter').innerText = `Teste: ${this.state.currentTrialIdx + 1}/${this.state.trialList.length}`;
+            document.getElementById('hud-timer').innerText = "OBSERVE...";
+
+            setTimeout(() => {
+                // Revela iframe
+                this.revealActiveFrames();
+                this.state.trialStartTime = Date.now();
+                
+                // Inicia Timer Principal (Pizza)
+                this.startTimeoutTimer(taskConfig.timeout, true);
+
+                // --- ALTERAÇÃO AQUI: Salva o timeout no estado ---
+                if (this.state.trendTimeout) clearTimeout(this.state.trendTimeout);
+
+                // 4. Agenda o Desaparecimento do Iframe
+                this.state.trendTimeout = setTimeout(() => {
+                    // Esconde o iframe (apenas visualmente, botões continuam)
+                    if(frame) frame.classList.add('invisible');
+                    const ph = document.getElementById('ph-trend');
+                    if(ph) ph.innerHTML = '<h2 style="color:#666">RESPONDA AGORA!</h2>'; // Feedback no buraco
+                    
+                    document.getElementById('hud-timer').innerText = "RESPONDA!";
+                    
+                    // O Timer principal continua rodando os 5s restantes até o timeout total
+                }, seqTime);
+
+            }, 500); // Pequeno delay inicial padrão
+        },
+
+        // --- TENDÊNCIA ESTÁTICA (TREINO COM IMAGENS) ---
+        runStaticTrendSequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            const taskConfig = PROTOCOL.tasks.trend;
+            const seqTime = taskConfig.sequenceDuration * 1000; // 10s
+            
+            // 1. Layout (Mesmo estilo do teste real, mas com IMG)
+            area.innerHTML = `
+                <div class="layout-center">
+                    <h3>Analise a Evolução (Treino)</h3>
+                    
+                    <div id="ph-trend-static" style="width:600px; height:400px; display:flex; align-items:center; justify-content:center; border: 4px solid #ccc;">
+                        <img id="trend-img" src="imgTrain/trend/trend1.jpg" style="max-width:100%; max-height:100%; display:block;">
+                        <h2 id="trend-msg" style="display:none; color:#666;">RESPONDA AGORA!</h2>
+                    </div>
+                    
+                    <div style="margin-top:20px; display:flex; gap:20px;">
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('convergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            CONVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Unificando)</small>
+                        </button>
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('divergence')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            DIVERGÊNCIA<br><small style="font-weight:normal; font-size:0.7rem">(Separando)</small>
+                        </button>
+                        <button class="resp-btn" onclick="ExpManager.registerAnswer('random')" style="width:auto; padding:0 30px; font-size:1rem; height:60px;">
+                            ALEATÓRIO<br><small style="font-weight:normal; font-size:0.7rem">(Ruído)</small>
+                        </button>
+                    </div>
+                </div>`;
+
+            // 2. Feedback HUD
+            document.getElementById('hud-task').innerText = "TREINO: TENDÊNCIA";
+            document.getElementById('hud-timer').innerText = "OBSERVE...";
+            this.state.trialStartTime = Date.now();
+
+            // 3. Animação das Imagens (1 a 10)
+            let imgIndex = 1;
+            const totalImages = 10;
+            const frameDuration = seqTime / totalImages; // 1000ms
+
+            if (this.state.staticTrendInterval) clearInterval(this.state.staticTrendInterval);
+
+            this.state.staticTrendInterval = setInterval(() => {
+                imgIndex++;
+                const img = document.getElementById('trend-img');
+                
+                if (imgIndex <= totalImages) {
+                    if(img) img.src = `imgTrain/trend/trend${imgIndex}.jpg`;
+                } else {
+                    // Fim da sequência de imagens
+                    clearInterval(this.state.staticTrendInterval);
+                    this.state.staticTrendInterval = null;
+                }
+            }, frameDuration);
+
+            // 4. Timer para esconder a imagem e pedir resposta (Igual ao protocolo real)
+            if (this.state.trendTimeout) clearTimeout(this.state.trendTimeout);
+            
+            this.state.trendTimeout = setTimeout(() => {
+                const img = document.getElementById('trend-img');
+                const msg = document.getElementById('trend-msg');
+                
+                if(img) img.style.display = 'none'; // Esconde imagem
+                if(msg) msg.style.display = 'block'; // Mostra texto
+                
+                document.getElementById('hud-timer').innerText = "RESPONDA!";
+            }, seqTime);
+        },
+
+
+        renderStaticLayout: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            area.innerHTML = ''; controls.innerHTML = '';
+            
+            this.showScreen('screen-test');
+
+            // --- CASO 1: SIMILARIDADE ---
+            if (trial.task === 'similarity') {
+                // Prepara dados
+                let options = [];
+                // 1 Correta, 8 Opções erradas
+                for(let i=1; i<=8; i++) options.push({src: `imgTrain/similarity/similarity-option${i}.jpg`, isTarget: false});
+                options.push({src: `imgTrain/similarity/similarity-correct.jpg`, isTarget: true});
+                
+                options = this.shuffle(options);
+                const correctIndex = options.findIndex(o => o.isTarget) + 1;
+                
+                // Salva gabarito
+                this.state.currentAnswerKey = { correctIndex: correctIndex };
+                this.state.trialStartTime = Date.now();
+
+                // Renderiza HTML (Flex Layout)
+                const gridHtml = options.map((opt, i) => `
+                    <div style="width:30%; height:100px; margin:1%; border:1px solid #ddd; display:flex; justify-content:center; align-items:center;">
+                        <img src="${opt.src}" style="max-width:95%; max-height:95%;">
+                        <div style="position:relative; background:rgba(255,255,255,0.9); border:1px solid #999; padding:2px 6px; font-weight:bold; color:#333; border-radius:4px; font-size: 12px;">
+                            ${i+1}
+                        </div>
+                    </div>
+                `).join('');
+
+                area.innerHTML = `
+                    <div class="layout-similarity">
+                        <div class="sim-left">
+                            <h3>Referência</h3>
+                            <img src="imgTrain/similarity/similarity-target.jpg" style="max-width:80%; max-height:300px;">
+                        </div>
+                        <div class="sim-right" style="flex-direction:column;">
+                            <div style="display:flex; flex-wrap:wrap; width:100%; justify-content:center;">
+                                ${gridHtml}
+                            </div>
+                            <div class="response-container">
+                                <span class="response-label">Qual é a correta?</span>
+                                <div class="response-buttons-row">
+                                    ${Array(9).fill(0).map((_, i) => `<button class="resp-btn" onclick="ExpManager.registerAnswer(${i+1})">${i+1}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            // --- CASO 2: LOOP ---
+            else if (trial.task === 'loop') {
+                // Configuração Local
+                const loopSize = 10; // Temos 10 imagens na pasta
+                // Vamos simular que o loop é o tamanho total (10). 
+                // Sequência: 1..10, 1..10.
+                
+                this.state.currentAnswerKey = { loopSize: loopSize };
+                this.state.trialStartTime = Date.now();
+
+                area.innerHTML = `
+                    <div class="layout-center">
+                        <img id="static-loop-img" src="imgTrain/loop/loop-option1.jpg" style="max-width:500px; max-height:500px; border:1px solid #ccc;">
+                    </div>`;
+                controls.innerHTML = `<button style="background:#d9534f; padding:15px;" onclick="ExpManager.registerAnswer('LOOP')">DETECTEI O LOOP</button>`;
+
+                // Lógica de Intervalo Local
+                let frameIndex = 0;
+                this.state.staticLoopInterval = setInterval(() => {
+                    frameIndex++;
+                    // Aritmética modular para voltar ao 1 quando passar de 10
+                    // frameIndex 0 -> img 1
+                    // frameIndex 9 -> img 10
+                    // frameIndex 10 -> img 1 (Loop começou!)
+                    
+                    const imgNum = (frameIndex % loopSize) + 1; 
+                    const img = document.getElementById('static-loop-img');
+                    if(img) img.src = `imgTrain/loop/loop-option${imgNum}.jpg`;
+
+                }, 800); // 800ms conforme protocolo
+            }
+        },
+
+
+
+        // Função chamada pelos botões numéricos
+        registerAnswer: function(answerValue) {
+
+            //PARA O TIMER IMEDIATAMENTE
+            this.stopTimeoutTimer();
+
+            // Cancela o agendamento do "RESPONDA AGORA" se ele ainda não aconteceu
+            if (this.state.trendTimeout) {
+                clearTimeout(this.state.trendTimeout);
+                this.state.trendTimeout = null;
+            }
+
+            // NOVO: Limpa intervalo de animação do Trend Estático (imagens .jpg)
+            if (this.state.staticTrendInterval) {
+                clearInterval(this.state.staticTrendInterval);
+                this.state.staticTrendInterval = null;
+            }
+
+            // Remove o texto visualmente agora mesmo (para não ficar piscando)
+            const phTrend = document.getElementById('ph-trend');
+            if (phTrend) phTrend.innerHTML = '';
+
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            const key = this.state.currentAnswerKey;
+            // const reactionTime = Date.now() - this.state.trialStartTime;
+            const reactionTime = (answerValue === "TIMEOUT") 
+                ? PROTOCOL.tasks[trial.task].timeout * 1000 
+                : Date.now() - this.state.trialStartTime;
+
+            let isCorrect = false;
+            let logDetails = {};
+
+            
+
+            // --- TRATAMENTO ESPECIAL PARA TIMEOUT ---
+            if (answerValue === "TIMEOUT") {
+                isCorrect = false;
+                logDetails = { outcome: "TIMEOUT", choice: "NONE" };
+                
+                // Se for Loop, precisa limpar intervalos extras
+                if (trial.task === 'loop') {
+                     if (this.state.staticLoopInterval) clearInterval(this.state.staticLoopInterval);
+                     else if (this.controlSocket) {
+                         this.controlSocket.send(JSON.stringify({ act: "stop_loop", vis: trial.vis.id, diff: trial.diff, context: 'loop_sequence' }));
+                     }
+                     logDetails.lagTime = null; 
+                }
+            } 
+            else {
+
+                // --- LÓGICA 1: SIMILARIDADE ---
+                if (trial.task === 'similarity') {
+                    // answerValue é o número do botão (1 a 9)
+                    // key.correctIndex vem do servidor (1 a 9)
+                    if (answerValue == key.correctIndex) {
+                        isCorrect = true;
+                    }
+                    logDetails = { type: 'selection', choice: answerValue, correctTarget: key.correctIndex };
+                } 
+
+                // --- LÓGICA 2: MEMÓRIA (CARROSSEL) ---
+                else if (trial.task === 'memory') {
+                    // Como agora é tela única com 9 itens, o botão clicado (1-9)
+                    // corresponde diretamente ao índice enviado pelo servidor.
+                    
+                    if (answerValue == key.correctIndex) {
+                        isCorrect = true;
+                    }
+                    
+                    logDetails = { 
+                        type: 'memory_selection', 
+                        choice: answerValue, 
+                        correctTarget: key.correctIndex 
+                    };
+                }
+
+                // --- LÓGICA 3: LOOP ---
+                else if (trial.task === 'loop') {
+                    // O usuário clicou "DETECTEI O LOOP". 
+                    // Precisamos calcular quantos frames passaram.
+                    // Protocolo: Intervalo de 800ms por frame.
+                    const frameDuration = 800;
+                    
+                    const loopSize = key.loopSize; // Ex: 15
+
+                    // 1. SE FOR TREINO ESTÁTICO: Para o intervalo local
+                    if (this.state.staticLoopInterval) {
+                        clearInterval(this.state.staticLoopInterval);
+                        this.state.staticLoopInterval = null;
+                    }else
+                    // Envia comando para PARAR o envio do servidor
+                    if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                        this.controlSocket.send(JSON.stringify({
+                            act: "stop_loop",
+                            vis: trial.vis.id,
+                            diff: trial.diff,
+                            context: 'loop_sequence'
+                        }));
+                    }
+
+                    if (answerValue === 'NO_LOOP') {
+                         isCorrect = false; // Errou pois o loop existia
+                         
+                         logDetails = {
+                            type: 'loop_detection',
+                            loopSize: loopSize,
+                            framesSeen: Math.floor(reactionTime / frameDuration),
+                            outcome: "GIVE_UP", // <--- Nova Categoria Importante
+                            lagTime: null,      // Não há lag pois não houve detecção
+                            cycle: null
+                        };
+                    } 
+                    // --- TRATAMENTO DO BOTÃO "DETECTEI" ---
+                    else {
+
+                        // Verificação: O usuário só acerta se clicar DEPOIS que o loop começou
+                        // O loop começa após 'loopSize' frames.
+                        // Ex: Tamanho 15. Frames 0 a 14 são novos. Frame 15 é repetido.
+                        // Acerto: framesPassed >= loopSize
+                        // Erro (Antecipação): framesPassed < loopSize
+                        const framesPassed = Math.floor(reactionTime / frameDuration);
+                        let outcome = "";
+                        let lagTime = null;
+                        let detectedCycle = null;
+                        
+                        if (framesPassed < loopSize) {
+                            // ERRO: ANTECIPAÇÃO
+                            isCorrect = false;
+                            outcome = "ANTICIPATION";
+                        } else {
+                            // SUCESSO (ou Timeout se o server mandar stop depois, mas aqui tratamos o clique)
+                            isCorrect = true;
+                            outcome = "HIT";
+                            
+                            // Em qual volta ele estava?
+                            // Volta 1: framesPassed >= loopSize E framesPassed < 2*loopSize
+                            detectedCycle = Math.floor((framesPassed - loopSize) / loopSize) + 1;
+                        }
+                        // Calcula o tempo exato que passou DESDE que o loop reiniciou
+                        // Ex: Se o loop é 15 (12000ms) e clicou em 13000ms. O Lag é 1000ms.
+                        lagTime = reactionTime - (loopSize * frameDuration);
+
+                        logDetails = {
+                            type: 'loop_detection',
+                            loopSize: loopSize,
+                            framesSeen: framesPassed,
+                            outcome: outcome,       // "ANTICIPATION", "HIT", "TIMEOUT"
+                            lagTime: lagTime,    // Tempo ms após o início do loop
+                            cycle: detectedCycle    // 1, 2, 3...
+                        };
+                    }
+                }else 
+                // --- LÓGICA 4: TENDÊNCIA (TREND) ---
+                if (trial.task === 'trend' || trial.task === 'trend2') {
+                    // key.correctTrend virá do server ("convergence", "divergence", "random")
+                    // Como "ainda sem dados do server", vamos assumir acerto ou deixar null por enquanto
+                    const correct = trial.scenario;
+                    
+                    if (answerValue === correct) isCorrect = true;
+                    
+                    logDetails = { 
+                        type: 'trend_analysis', 
+                        choice: answerValue, 
+                        correct: correct
+                    };
+
+                    if (trial.task === 'trend2') {
+                        logDetails.replays = this.state.replayCount;
+                    }
+                }
+            }
+            // --- LOG E FEEDBACK ---
+            console.log(`Resposta: ${isCorrect ? "CORRETO" : "ERRO"} | RT: ${reactionTime}ms | Vis: ${trial.vis.id}`, logDetails);
+            
+            // Salva no histórico de dados
+            this.state.dataLog.push({
+                participantID: this.state.participantID,
+                trialIdx: this.state.currentTrialIdx,
+                task: trial.task,
+                vis: trial.vis.id,
+                diff: trial.diff,
+                correct: isCorrect,
+                rt: reactionTime,
+                details: logDetails
+            });
+
+            // Feedback Visual (Opcional - Bordas verdes/vermelhas rapidas)
+            // alert(isCorrect ? "Acertou!" : "Errou!"); 
+
+            // Avança
+            this.endTrial();
+        },
+
+        endTrial: function() {
+            // Pequeno delay para feedback visual (opcional)
+            this.state.currentTrialIdx++;
+            
+            if (this.state.currentTrialIdx >= this.state.trialList.length) {
+                if (this.state.isTraining) {
+                    this.finishTraining();
+                } else {
+                    this.showQuestionnaire();
+                }
+            } else {
+                // Intervalo entre testes (Tela cinza rápida)
+                /*document.getElementById('experiment-area').innerHTML = '<div style="width:100%;height:100%;background:#f4f4f9;"></div>';
+                setTimeout(() => {
+                    this.runTrial();
+                }, PROTOCOL.timings.interTrial);*/
+                
+                // Por enquanto direto para agilizar debug:
+                this.runTrial();
+            }
+        },
+
+        /* --- QUESTIONÁRIO E UTILITÁRIOS --- */
+        showQuestionnaire: function() {
+            this.hideAllFrames();
+            const list = document.getElementById('likert-list');
+            list.innerHTML = '';
+            PROTOCOL.visualizations.forEach(vis => {
+                const row = document.createElement('div');
+                row.className = 'likert-row';
+                row.innerHTML = `
+                    <div class="likert-thumb">
+                        <img src="imgQuest/${vis.id}.jpg" alt="${vis.name}">
+                    </div>
+                    <div class="likert-info">
+                        <h4>${vis.name}</h4>
+                        <div class="likert-scale">
+                            ${[1, 2, 3, 4, 5].map(val => `
+                                <label class="scale-option">
+                                    <input type="radio" name="rate_${vis.id}" value="${val}">
+                                    <span class="scale-label">${val}</span>
+                                </label>`).join('')}
+                        </div>
+                    </div>`;
+                list.appendChild(row);
+            });
+            this.showScreen('screen-questionnaire');
+        },
+
+        submitQuestionnaire: function() {
+            // 1. Objeto para guardar as respostas temporariamente
+            const ratings = {};
+            let missingAnswers = false;
+
+            // 2. Loop de Validação: Verifica cada visualização do protocolo
+            PROTOCOL.visualizations.forEach(vis => {
+                // Procura o input marcado com o nome específico (rate_heatmap, rate_scatter, etc.)
+                const selected = document.querySelector(`input[name="rate_${vis.id}"]:checked`);
+                
+                if (!selected) {
+                    missingAnswers = true;
+                } else {
+                    ratings[vis.id] = selected.value;
+                }
+            });
+
+            // 3. Se houver respostas faltando, bloqueia e avisa
+            if (missingAnswers) {
+                alert("Por favor, avalie todas as visualizações antes de continuar.");
+                return; // INTERROMPE A FUNÇÃO AQUI
+            }
+
+            // 4. Se passou na validação, salva e prossegue
+            console.log("Questionário Salvo:", ratings);
+            this.state.dataLog.push({
+                type: 'questionnaire',
+                task: PROTOCOL.tasks[this.state.taskOrder[this.state.currentTaskIdx]].name,
+                ratings: ratings // ratings vem do seu código anterior
+            });
+
+
+            this.state.currentTaskIdx++;
+            if (this.state.currentTaskIdx >= this.state.taskOrder.length) {
+                this.finalizeExperiment(); // Chama a função que salva e mostra a tela final
+            } else {
+                this.loadTaskInstruction();
+            }
+        },
+
+        shuffle: function(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        },
+        
+        showScreen: function(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        },
+
+        /* --- NOVAS FUNÇÕES PARA O CARROSSEL --- */
+    
+        navCarousel: function(direction) {
+            const newPage = this.state.carouselPage + direction;
+            // Limita entre 0 e 3 (4 telas conforme protocolo)
+            if (newPage >= 0 && newPage < 4) {
+                this.state.carouselPage = newPage;
+                this.updateMemoryGrid();
+            }
+        },
+
+        updateMemoryGrid: function(visObjectOverride) {
+            const page = this.state.carouselPage;
+            const totalPages = 4;
+            
+            // Recupera a visualização do trial atual se não for passada
+            const currentTrial = this.state.trialList[this.state.currentTrialIdx];
+            const vis = visObjectOverride || currentTrial.vis;
+
+            // 1. Atualiza Botões
+            document.getElementById('car-page').innerText = page + 1;
+            document.getElementById('btn-prev').disabled = (page === 0);
+            document.getElementById('btn-next').disabled = (page === totalPages - 1);
+
+            // Reativa o iframe (caso tenha se perdido) e atualiza os dados dele
+            const trial = this.state.trialList[this.state.currentTrialIdx];
+            const frame = this.activateFrame(trial.vis.id, trial.diff, 'carousel_page', 'ph-mem-carousel');
+            
+            // Manda o iframe mostrar a página X
+            if(frame) frame.contentWindow.postMessage({ act: 'set_page', page: page }, '*');
+        },
+
+        /* --- UTILITÁRIOS --- */
+    
+        
+        skipLoading: function() {
+            console.warn("⚠️ MODO DEV: Carregamento pulado pelo usuário.");
+            document.getElementById('loading-overlay').style.display = 'none';
+            // Opcional: Se quiser matar o socket para parar os logs no console:
+            // if(this.controlSocket) this.controlSocket.close(); 
+        },
+
+        /* --- FUNÇÕES DE EXPORTAÇÃO E DOWNLOAD --- */
+
+        finalizeExperiment: function() {
+            this.showScreen('screen-end');
+
+            // 1. Envia para o servidor salvar automaticamente
+            if (this.controlSocket && this.controlSocket.readyState === WebSocket.OPEN) {
+                console.log("Enviando dados para o servidor...");
+                this.controlSocket.send(JSON.stringify({
+                    act: "save_results",
+                    data: this.state.dataLog // Envia o objeto inteiro que seria o JSON de backup
+                }));
+            } else {
+                document.getElementById('server-status').innerText = "Erro: Não conectado ao servidor. Faça o download manual.";
+                document.getElementById('server-status').style.color = "red";
+            }
+
+            // Backup automático apenas do JSON
+            setTimeout(() => { this.downloadJSON(); }, 500);
+        },
+
+        // Gera e baixa o arquivo JSON bruto
+        downloadJSON: function() {
+            const fileName = `EXP_${this.state.participantID}_FULL_BACKUP.json`;
+            this.triggerDownload(JSON.stringify(this.state, null, 2), fileName, 'application/json');
+        },
+
+        // --- EXPORTAÇÃO DE MÉTRICAS (PERFORMANCE) ---
+        downloadTaskTSV: function(taskName) {
+            // Filtra logs apenas dessa tarefa (exclui questionários e outras tasks)
+            const logs = this.state.dataLog.filter(e => e.task === taskName && e.type !== 'questionnaire');
+            
+            if (logs.length === 0) {
+                alert(`Nenhum dado encontrado para a tarefa: ${taskName}`);
+                return;
+            }
+
+            let headers = [];
+            let rows = [];
+
+            // CONFIGURAÇÃO DAS COLUNAS POR TAREFA
+            if (taskName === 'loop') {
+                // Colunas Específicas para Loop
+                headers = [
+                    "ParticipantID", "Visualization", "Difficulty", "Trial_Index", 
+                    "Loop_Size_N", "Frames_Seen", "Outcome_Class", "Lag_Time_ms", "Detection_Cycle"
+                ];
+
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.diff,
+                    e.trialIdx,
+                    e.details.loopSize,
+                    e.details.framesSeen,
+                    e.details.outcome,  // HIT, ANTICIPATION
+                    e.details.lagTime,  // Métrica principal
+                    e.details.cycle || "NA" // Ciclo (se houve acerto)
+                ].join('\t'));
+
+            } else if (taskName === 'trend') {
+                headers = [
+                    "ParticipantID", "Visualization", "Trial_Index", 
+                    "Scenario_Correct", "User_Choice", "Is_Correct", "Reaction_Time_ms"
+                ];
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.trialIdx,
+                    e.details.correct, // O cenário real (ex: convergence)
+                    e.details.choice,  // O que o usuário clicou
+                    e.correct ? 1 : 0,
+                    e.rt
+                ].join('\t'));
+            } else {
+                // Colunas Padrão para Similarity e Memory
+                headers = [
+                    "ParticipantID", "Visualization", "Difficulty", "Trial_Index", 
+                    "User_Choice", "Correct_Target", "Is_Correct", "Reaction_Time_ms"
+                ];
+
+                rows = logs.map(e => [
+                    e.participantID,
+                    e.vis,
+                    e.diff,
+                    e.trialIdx,
+                    e.details.choice,        // Botão clicado
+                    e.details.correctTarget, // Gabarito
+                    e.correct ? 1 : 0,       // 1 ou 0 para média fácil
+                    e.rt
+                ].join('\t'));
+            }
+
+            // Gera Arquivo
+            const content = headers.join('\t') + '\n' + rows.join('\n');
+            const fileName = `DATA_${taskName.toUpperCase()}_${this.state.participantID}.tsv`;
+            this.triggerDownload(content, fileName, 'text/tab-separated-values');
+        },
+
+        // --- EXPORTAÇÃO DE QUESTIONÁRIOS (SUBJETIVO) ---
+        downloadSpecificQuestTSV: function(taskFilter) {
+            // Filtra logs do tipo questionário E que pertencem à tarefa pedida
+            // Nota: No seu protocolo, os nomes das tasks são: "Similaridade Visual", "Memória Visual", "Detecção de Loop"
+            // Mas o ID interno é 'similarity', 'memory', 'loop'.
+            // Vamos filtrar pelo nome interno que salvamos no log anteriormente.
+            
+            // Precisamos garantir que no submitQuestionnaire a gente salve o ID da task ('similarity') e não o nome extenso.
+            // Vou assumir que você ajustou o submitQuestionnaire ou vamos filtrar pelo ID mapeado.
+            
+            const taskMapName = PROTOCOL.tasks[taskFilter].name; // Pega o nome extenso "Detecção de Loop"
+            
+            const logs = this.state.dataLog.filter(e => e.type === 'questionnaire' && e.task === taskMapName);
+
+            if (logs.length === 0) {
+                alert(`Nenhum questionário encontrado para: ${taskFilter}`);
+                return;
+            }
+
+            const headers = ["ParticipantID", "Task_Type", "Visualization", "Likert_Rating"];
+            let rows = [];
+
+            logs.forEach(entry => {
+                Object.entries(entry.ratings).forEach(([visId, ratingValue]) => {
+                    rows.push([
+                        this.state.participantID,
+                        taskFilter, // Nome curto para facilitar JASP (loop, memory...)
+                        visId,
+                        ratingValue
+                    ].join('\t'));
+                });
+            });
+
+            const content = headers.join('\t') + '\n' + rows.join('\n');
+            const fileName = `QUEST_${taskFilter.toUpperCase()}_${this.state.participantID}.tsv`;
+            this.triggerDownload(content, fileName, 'text/tab-separated-values');
+        },
+
+        triggerDownload: function(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+
+        
+
+        // Remove a invisibilidade de todos os frames ativos
+        revealActiveFrames: function() {
+            this.state.activeFrames.forEach(pair => {
+                pair.iframe.classList.remove('invisible');
+            });
+        },
+
+        /* --- CONTROLE DO TIMER VISUAL --- */
+        
+        startTimeoutTimer: function(durationSeconds, isVisual = true) {
+            // 1. Limpa anterior se existir
+            this.stopTimeoutTimer();
+            
+            const pie = document.getElementById('timeout-pie');
+            // Só mostra o elemento se for visual
+            if (isVisual) {
+                pie.style.display = 'block';
+                pie.className = 'timer-pie safe';
+                pie.style.background = `conic-gradient(var(--accent-color) 360deg, #e0e0e0 0deg)`;
+            } else {
+                pie.style.display = 'none';
+            }
+            
+            let timeLeft = durationSeconds;
+            const totalTime = durationSeconds;
+            
+            // Atualiza a cada 100ms para suavidade
+            this.state.timeoutInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                
+                if (isVisual) {
+                    // Cálculo da porcentagem para o gradiente
+                    const pct = (timeLeft / totalTime) * 360;
+                    pie.style.background = `conic-gradient(var(--accent-color) ${pct}deg, #e0e0e0 0deg)`;
+                    
+                    // Muda a cor baseado no tempo restante
+                    const ratio = timeLeft / totalTime;
+                    if (ratio < 0.2) pie.className = 'timer-pie danger'; // < 20%
+                    else if (ratio < 0.5) pie.className = 'timer-pie warn'; // < 50%
+                }
+
+                // ACABOU O TEMPO
+                if (timeLeft <= 0) {
+                    this.stopTimeoutTimer();
+                    console.warn("TIMEOUT ALCANÇADO!");
+                    this.registerAnswer("TIMEOUT"); // Dispara resposta automática
+                }
+            }, 100);
+        },
+
+        stopTimeoutTimer: function() {
+            if (this.state.timeoutInterval) {
+                clearInterval(this.state.timeoutInterval);
+                this.state.timeoutInterval = null;
+            }
+            document.getElementById('timeout-pie').style.display = 'none';
+        },
+
+
+        // --- NOVA LÓGICA PARA TREND 2 (COM REPLAY) ---
+        
+        runTrend2Sequence: function(trial) {
+            const area = document.getElementById('experiment-area');
+            const controls = document.getElementById('controls-area');
+            this.showScreen('screen-test');
+            area.innerHTML = ''; controls.innerHTML = '';
+
+            // 1. Zera Estado
+            this.state.replayCount = 0;
+            
+            // 2. Renderiza Layout Específico
+            const visLabel = `<div style="position:absolute; top:0; right:0; background:#eee; padding:5px; font-size:0.7rem;">${trial.vis.name}</div>`;
+            
+
+
+            // Área de Visualização: Adicionamos a classe 'vis-placeholder' para o reposicionador encontrar
+            area.innerHTML = visLabel + `
+                <div id="ph-target" class="vis-placeholder" style="width:800px; height:400px;"></div>
+                <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:230px;padding: 5px;">
+                    <h3 id="phase-label" style="text-align:center; color:#ff9800;">👁️ OBSERVANDO...</h3>
+                    
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('convergence')" disabled>CONVERGÊNCIA</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('divergence')" disabled>DIVERGÊNCIA</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('random')" disabled>ALEATÓRIO</button>
+                    <button class="resp-btn trend-opt" onclick="ExpManager.registerAnswer('stagnation')" disabled>ESTAGNAÇÃO</button>
+                    
+                    <hr style="width:100%; border:0; border-top:1px solid #ccc; margin:10px 0;">
+                    
+                    <button id="btn-replay" class="resp-btn trend-replay" onclick="ExpManager.handleReplay()" disabled style="background:#6c757d; color:white;">
+                        🔄 REPLAY (<span id="replay-cnt">0</span>)
+                    </button>
+                </div>`;
+            
+            this.activateFrame(trial.vis.id, trial.diff, 'target', 'ph-target');
+            setTimeout(()=>this.revealActiveFrames(), 100);
+            
+
+            // 3. Envia Comando de Início para o Servidor
+            if (this.controlSocket) {
+                this.controlSocket.send(JSON.stringify({
+                    act: "start_trend_trial",
+                    vis: trial.vis.id,
+                    trend: trial.trend, // ex: 'stagnation'
+                    base: trial.diff      // ex: 'medium2'
+                }));
+            }
+        },
+
+        setPhase: function(phase) {
+            const lbl = document.getElementById('phase-label');
+            const opts = document.querySelectorAll('.trend-opt');
+            const replay = document.getElementById('btn-replay');
+            
+            if (!lbl) return; // Proteção caso mude de tela
+
+            if (phase === 'decision') {
+                lbl.innerText = "⚡ SUA VEZ";
+                lbl.style.color = "#4caf50";
+                opts.forEach(b => b.disabled = false);
+                replay.disabled = false;
+                
+                // Reinicia contagem de tempo de reação aqui se quiser medir apenas a decisão
+                this.state.trialStartTime = Date.now(); 
+            } else {
+                lbl.innerText = "👁️ OBSERVANDO...";
+                lbl.style.color = "#ff9800";
+                opts.forEach(b => b.disabled = true);
+                replay.disabled = true;
+            }
+        },
+
+        handleReplay: function() {
+            this.state.replayCount++;
+            document.getElementById('replay-cnt').innerText = this.state.replayCount;
+            
+            // Bloqueia tudo novamente
+            this.setPhase('observing');
+            
+            // Pede replay
+            this.controlSocket.send(JSON.stringify({ act: "req_replay" }));
+        }
+
+    };
+
+    window.onload = () => ExpManager.init();
+    </script>
+</body>
+</html>

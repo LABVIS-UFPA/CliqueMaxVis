@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Clique Máximo - Algoritmo Genético</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0"></script>
+
+    <style media="screen">
+      /* Add space between Vega-Embed links  */
+      .vega-actions a {
+        margin-right: 5px;
+      }
+      #bestInfos {
+        font-family: monospace;
+        margin-left: 20px;
+        font-size: 11pt;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Container for the visualization -->
+    <p id="status">Aguardando dados...</p>
+    <div id="bestInfos">
+      Generation:&nbsp;<span id="infoGeneration">0</span> | 
+      Best&nbsp;Fitness:&nbsp;<span id="infoFitness">0</span> | 
+      Best&nbsp;Upper&nbsp;Bound:&nbsp;<span id="infoUpperBound">0</span>
+    </div>
+    <div id="vis" style="width: 100%;"></div>
+
+    <script>
+      
+      let x_len = 200;
+
+        // Assign the specification to a local variable vlSpec.
+      var vlSpec = {
+          $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+          data: {name: 'table'},
+          width: "container",
+          mark: 'line',
+          encoding: {
+              x: {field: 'x', type: 'quantitative', scale: {zero: false}, "title": "Generation" },
+              y: {field: 'y', type: 'quantitative', title: "Fitness"},
+              color: {field: 'category', type: 'nominal'}
+          },
+          "config": {"legend": {"orient": "bottom", "direction": "horizontal"}}
+          };
+          vegaEmbed('#vis', vlSpec).then(function (res) {
+
+
+            var minimumX = -1000000;
+            const socket = new WebSocket("ws://localhost:3214");
+            
+
+            socket.onmessage = function(event) {
+                // console.log(event);
+                const message = JSON.parse(event.data);
+
+                switch(message.act){
+                  case "log":
+                    console.log(message.data);
+                    break;
+                  case "data":
+                    document.getElementById("status").style.display = 'none';
+                    document.getElementById("infoGeneration").innerHTML = message.data.generation;
+                    document.getElementById("infoFitness").innerHTML = message.data.bestFitness;
+                    if(message.data.bestUpperBound)
+                      document.getElementById("infoUpperBound").innerHTML = message.data.bestUpperBound;
+                    let data = [];
+                    data.push({x:message.data.generation, y: message.data.bestFitness, category: "Best"})
+                    data.push({x:message.data.generation, y: message.data.worstFitness, category: "Worst"})
+                    if(minimumX < -x_len) minimumX = data[0].x-x_len;
+                    minimumX++;
+                    // console.log(data, minimumX);
+                    var changeSet = vega
+                    .changeset()
+                    .insert(data)
+                    // .remove(function (t) {
+                    //     return t.x < minimumX;
+                    // });
+                    res.view.change('table', changeSet).run();
+                    break;
+                }
+                
+            };
+
+            socket.onopen = function() {
+                console.log("Conectado ao servidor WebSocket");
+                socket.send(JSON.stringify({act:"obs", data:["fitness"]}));
+            };
+          
+      });
+
+        // Embed the visualization in the container with id `vis`
+        // vegaEmbed('#vis', vlSpec);
+
+        
+
+
+
+    </script>
+  </body>
+</html>

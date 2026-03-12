@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualização Populacional - Estilos Artísticos</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --header-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --card-border: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- HEADER & CONTROLS --- */
+        header {
+            background-color: var(--header-bg);
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #fff;
+            transition: transform 0.2s, filter 0.2s;
+            text-transform: uppercase;
+        }
+        button:hover { transform: scale(1.05); filter: brightness(1.2); }
+
+        #status-display { font-weight: bold; color: #03dac6; font-size: 0.9em; }
+        #gen-display { color: #888; font-size: 0.9em; margin-left: 10px;}
+
+        /* --- GRID CONTAINER --- */
+        #grid-container {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 8px; /* Espaço entre os indivíduos */
+        }
+
+        /* --- INDIVIDUAL CELLS --- */
+        .individual-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .number-label {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #888;
+            font-weight: bold;
+            font-family: monospace; /* Fonte monoespaçada fica melhor para números */
+        }
+
+        canvas.individual-cell {
+            width: 64px;   /* Tamanho visual */
+            height: 64px;  /* Tamanho visual */
+            background-color: #000;
+            border: 1px solid #444;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: transform 0.1s, border-color 0.2s;
+            image-rendering: auto; /* Nitidez */
+        }
+        
+       /*  canvas.individual-cell:hover {
+            transform: scale(1.5);
+            border-color: #fff;
+            z-index: 100;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+        } */
+
+        .fitness-label {
+            font-size: 10px;
+            color: #777;
+            margin-top: 2px;
+            display: none; /* Opcional: mostrar se quiser */
+        }
+
+    </style>
+</head>
+<body>
+
+    <header style="display: none;">
+        <div>
+            <span id="status-display">Desconectado</span>
+            <span id="gen-display">Geração: -</span>
+        </div>
+
+        <div class="controls">
+            <span style="font-size: 12px; color: #aaa; margin-right: 5px;">ESTILOS:</span>
+            <button style="background-color: #00CCFF; color: #000;" onclick="mudarEstilo('seta')">Seta</button>
+            <button style="background-color: #f9a825; color: #000;" onclick="mudarEstilo('vangogh')">Van Gogh</button>
+            <button style="background-color: #d84315;" onclick="mudarEstilo('maple')">Maple</button>
+        </div>
+    </header>
+
+    <div id="grid-container">
+        </div>
+
+    <script>
+
+        // 1. Ler a dificuldade da URL (passada pelo ExpManager)
+        const urlParams = new URLSearchParams(window.location.search);
+        const MY_DIFFICULTY = urlParams.get('difficulty');
+        const MY_CONTEXT = urlParams.get('context');
+        const IS_NUMBERED = urlParams.get('numbered') === 'true';
+
+        // --- 1. CONFIGURAÇÃO VISUAL (Strategy Pattern) ---
+        const EstiloSeta = {
+            id: 'seta',
+            fundo: '#050505',
+            cores: ['#FF0055', '#00CCFF', '#FFCC00', '#FFFFFF'], 
+            // O scaleFactor ajusta o tamanho do desenho relativo ao canvas de 128px
+            scaleFactor: 2, 
+            desenhar: function(ctx, r) {
+                const pathString = "M 0.8828125,-0.66796875 -0.05273437,0.953125 H 0.56835938 V 6.0605469 H 1.1953125 V 0.953125 h 0.6230469 z"
+                const p = new Path2D(pathString);
+                ctx.save();
+                const scale = (r * 3) / 6.73; 
+                ctx.scale(scale, scale);
+                ctx.translate(-0.88, -2.70); 
+                ctx.fill(p);
+                ctx.restore();
+                
+                // ctx.lineWidth = Math.max(1, r * 0.3);
+                // ctx.beginPath();
+                // ctx.moveTo(-r, -r); 
+                // ctx.lineTo(r, 0);       
+                // ctx.lineTo(-r, r);  
+                // ctx.stroke();
+            }
+        };
+
+        const EstiloVanGogh = {
+            id: 'vangogh',
+            fundo: '#0b0b0b',
+            cores: ['#1a237e', '#ffeb3b', '#29b6f6', '#f4511e', '#ffffff'],
+            scaleFactor: 2.5,
+            desenhar: function(ctx, r) {
+                const pathString = "m -6.99087,30.541962 c 0,0 -3.404838,4.697794 -3.1628,7.313775 0.2420377,2.615981 4.598059,3.062213 3.1223155,0.103997 -1.4757435,-2.958216 0.040484,-7.417772 0.040484,-7.417772 z";
+                const p = new Path2D(pathString);
+                ctx.save();
+                const scale = (r * 3) / 8; 
+                ctx.scale(scale, scale);
+                ctx.translate(9, -34); 
+                ctx.fill(p);
+                ctx.restore();
+            }
+        };
+
+        const EstiloMaple = {
+            id: 'maple',
+            fundo: '#f0f0eb',
+            cores: ['#d84315', '#f9a825', '#4e342e', '#c62828'],
+            scaleFactor: 2.5,
+            desenhar: function(ctx, r) {
+                const svgPath = "m 4.6610108,12.832431 c 0.039033,-0.865773 0.092097,-1.732439 0.09231,-2.599034 C 4.742439,9.7811669 4.097911,10.122714 3.635895,10.265625 3.3157177,10.360641 2.2761782,10.775834 2.6851526,10.080468 2.9565359,9.643859 2.6555058,9.2018414 2.4153006,8.9854432 1.6254878,8.3433704 0.83858022,7.6977338 0.04948692,7.0547775 0.30119488,6.8922694 0.78194803,6.8521555 0.76825202,6.4875677 0.62030362,5.9360569 0.39752862,5.4061085 0.26274096,4.8511027 0.8203732,4.9407507 1.3729872,5.1773828 1.9311891,5.1868079 2.5256722,4.3259209 2.0352898,3.9768866 2.6731018,4.7136079 3.0403305,5.051721 3.5649243,6.1349956 3.9833284,6.3875363 4.0097156,5.244923 3.4986143,3.4316954 3.351519,2.4167501 3.7385216,2.5445222 4.3862347,3.3542629 4.6224762,2.7033876 4.9360226,2.1189206 5.2201779,1.5190957 5.5362403,0.93601797 5.9006191,1.6025357 6.2132339,2.2969261 6.5929102,2.9550474 6.9545193,3.051689 7.5193514,2.3919733 7.7154353,2.4907071 7.5321101,3.5240215 6.9813415,5.2550815 6.8114634,6.290544 6.6843043,6.8556773 7.9088692,5.2064325 8.2117464,4.9094949 8.7937774,4.3388782 8.79443,4.223752 8.9426301,4.8713649 c 0.1515801,0.6623832 0.9390402,0.1654475 1.3875669,0.089222 0.358165,-0.060868 0.525699,-0.2013095 0.377378,0.2615162 -0.155385,0.4848685 -0.641601,1.1579806 -0.226421,1.5758977 0.0878,0.1278461 0.847729,0.023986 0.417199,0.3599381 C 9.9963051,7.9054682 8.2169823,8.79667 8.1878051,9.3970929 8.1730686,9.8052749 8.8721046,10.711106 8.0539059,10.384192 7.8098427,10.302327 7.1230839,9.9480204 6.4493065,10.027225 c -0.3471371,0.04262 -0.2846032,0.369034 -0.2676776,0.6152 0.027657,0.739295 0.065646,1.478402 0.081794,2.217971 -0.1641673,-0.01294 -1.4545481,0.03093 -1.6024126,-0.02797 z";
+                const p = new Path2D(svgPath);
+                ctx.save();
+                const scaleFactor = (r * 2.5) / 11;
+                ctx.scale(scaleFactor, scaleFactor);
+                ctx.translate(-5.5, -6.5);
+                ctx.fill(p);
+                ctx.restore();
+            }
+        };
+
+        // Estado Global
+        let estiloAtual = EstiloSeta;
+        let lastPopulation = [];
+        let socket;
+
+        // --- 2. WEBSOCKET & CORE LOGIC ---
+        function initWebSocket() {
+            socket = new WebSocket("ws://localhost:3214");
+            const elStatus = document.getElementById('status-display');
+
+            socket.onopen = function () {
+                console.log("WebSocket Conectado");
+                elStatus.textContent = "Conectado (Observando)";
+                elStatus.style.color = "#03dac6";
+                // Solicita dados de 'individuals'
+                // socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+                if (MY_DIFFICULTY) {
+                    socket.send(JSON.stringify({ act: "obs", data: [MY_DIFFICULTY], id:`particles-${MY_DIFFICULTY}-${MY_CONTEXT}`, context: MY_CONTEXT }));
+                }else{
+                    console.log("ATENÇÃO!!!! Não enviou mensagem ao socket!")
+                }
+            };
+
+            socket.onclose = function() {
+                elStatus.textContent = "Desconectado (Reconectando...)";
+                elStatus.style.color = "#cf6679";
+                console.log(`Particles-${MY_DIFFICULTY}-${MY_CONTEXT} Desconectado (Reconectando...)`)
+                setTimeout(initWebSocket, 2000);
+            };
+
+            socket.onmessage = function (event) {
+                // 1. TRAVA DE SEGURANÇA: Ignorar Binários (GZIP do modelo CNN)
+                if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                    // Se for binário, esta visualização não precisa dele. Ignora.
+                    return;
+                }
+                const message = JSON.parse(event.data);
+
+                if (message.act === "data" && message.data.population) {
+                    document.getElementById('gen-display').textContent = `Geração: ${message.data.generation}`;
+                    lastPopulation = message.data.population;
+                    renderGrid(lastPopulation);
+                } else if (message.act === "train") {
+                    socket.send(JSON.stringify({ id:`particles-${MY_DIFFICULTY}-${MY_CONTEXT}`, act: "visualization_ready" }));
+                } else if (message.act === "log") {
+                    console.log("[SERVER]", message.data);
+                }
+            };
+        }
+
+        // --- 3. GERENCIAMENTO DA GRADE ---
+        // function renderGrid(population) {
+        //     const grid = document.getElementById('grid-container');
+
+        //     // Sincronização simples: Se o tamanho mudou drasticamente, limpa.
+        //     // Se for igual, tenta reutilizar (melhoria de performance).
+        //     // Para simplificar e evitar bugs de estado, vamos recriar se o tamanho mudar
+        //     // ou apenas atualizar os contextos se o tamanho for o mesmo.
+            
+        //     if (grid.children.length !== population.length) {
+        //         grid.innerHTML = '';
+        //         population.forEach((ind, i) => {
+        //             const cvs = document.createElement('canvas');
+        //             cvs.className = 'individual-cell';
+        //             // Renderização interna em alta resolução (128x128)
+        //             cvs.width = 320; 
+        //             cvs.height = 320;
+        //             cvs.id = `ind-cvs-${i}`;
+        //             cvs.title = `Fitness: ${ind.fitness}`;
+        //             if(IS_NUMBERED){
+        //                 cvs.innerHTML = `<span>${i+1}</span>`;
+        //             }
+        //             grid.appendChild(cvs);
+                    
+        //         });
+        //     }
+
+        //     // Desenha cada indivíduo
+        //     population.forEach((ind, i) => {
+        //         const cvs = document.getElementById(`ind-cvs-${i}`);
+        //         if (cvs) {
+        //             cvs.title = `Fitness: ${ind.fitness}`;
+        //             desenharIndividuo(cvs, ind.nodeMask);
+        //         }
+        //     });
+        // }
+
+        // --- 3. GERENCIAMENTO DA GRADE ---
+        function renderGrid(population) {
+            const grid = document.getElementById('grid-container');
+
+            // Verifica se precisa recriar a estrutura (mudança de tamanho)
+            if (grid.children.length !== population.length) {
+                grid.innerHTML = '';
+                
+                population.forEach((ind, i) => {
+                    // 1. Cria o Wrapper (Container vertical)
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'individual-wrapper';
+
+                    // 2. Cria o Canvas
+                    const cvs = document.createElement('canvas');
+                    cvs.className = 'individual-cell';
+                    cvs.width = 320; 
+                    cvs.height = 320;
+                    cvs.id = `ind-cvs-${i}`; // Mantém ID para atualização
+                    
+                    // Adiciona Canvas ao Wrapper
+                    wrapper.appendChild(cvs);
+
+                    // 3. Cria o Número (SE numbered=true)
+                    if (IS_NUMBERED) {
+                        const label = document.createElement('div');
+                        label.className = 'number-label';
+                        label.innerText = i + 1; // Começa do 1
+                        
+                        // Adiciona clique no número para facilitar seleção (opcional)
+                        label.onclick = () => cvs.click(); 
+                        
+                        wrapper.appendChild(label);
+                    }
+
+                    // 4. Adiciona o Wrapper completo na Grid
+                    grid.appendChild(wrapper);
+                });
+            }
+
+            // Atualiza o desenho nos canvas existentes (mantém IDs funcionando)
+            population.forEach((ind, i) => {
+                const cvs = document.getElementById(`ind-cvs-${i}`);
+                if (cvs) {
+                    // cvs.title = `Fitness: ${ind.fitness}`;
+                    desenharIndividuo(cvs, ind.nodeMask);
+                }
+            });
+        }
+
+
+        // --- 4. RNG Determinístico ---
+        // Essencial para que o MESMO gene produza sempre o MESMO desenho (posições fixas)
+        function mulberry32(a) {
+            return function() {
+                var t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296; 
+            }
+        }
+
+        // --- 5. RENDERIZAÇÃO DO INDIVÍDUO ---
+        function desenharIndividuo(canvas, vetorBinario) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Limpa com a cor do estilo atual
+            ctx.fillStyle = estiloAtual.fundo;
+            ctx.fillRect(0, 0, w, h);
+
+            // Seed FIXA para o layout. 
+            // Assim, a posição 'i' sempre cai no mesmo lugar para todos os indivíduos.
+            // O que muda é se o vetorBinario[i] é 0 ou 1.
+            const rand = mulberry32(12345); 
+
+            const tamanhoBase = 13 * estiloAtual.scaleFactor; 
+            const opacidade = 0.7;
+            const padding = 20;
+
+            // Percorre o DNA do indivíduo
+            for (let i = 0; i < vetorBinario.length; i++) {
+                // Consumimos o RNG para gerar as coordenadas, independente se vamos desenhar ou não.
+                // Isso garante que a posição i seja consistente.
+                const x = rand() * (w - padding*2) + padding;
+                const y = rand() * (h - padding*2) + padding;
+                const angulo = rand() * Math.PI * 2; 
+                const idxCor = Math.floor(rand() * estiloAtual.cores.length);
+                rand(); // Consome extra para paridade com algoritmo original
+
+                // Só desenha se o gene estiver ativo (1)
+                if (vetorBinario[i] === 1) {
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(angulo);
+                    
+                    const corEscolhida = estiloAtual.cores[idxCor];
+                    ctx.fillStyle = corEscolhida;
+                    ctx.strokeStyle = corEscolhida;
+                    ctx.globalAlpha = opacidade;
+
+                    // Passa o raio ajustado
+                    estiloAtual.desenhar(ctx, tamanhoBase);
+
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- 6. FUNÇÕES DE CONTROLE ---
+        function mudarEstilo(nomeEstilo) {
+            if (nomeEstilo === 'seta') estiloAtual = EstiloSeta;
+            if (nomeEstilo === 'vangogh') estiloAtual = EstiloVanGogh;
+            if (nomeEstilo === 'maple') estiloAtual = EstiloMaple;
+            
+            // Força re-renderização imediata se já houver dados
+            if (lastPopulation && lastPopulation.length > 0) {
+                renderGrid(lastPopulation);
+            }
+        }
+
+        // Inicia
+        window.onload = initWebSocket;
+
+    </script>
+</body>
+</html>

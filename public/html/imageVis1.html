@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização Neural de População</title>
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --secondary-color: #03dac6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* O conteúdo rola dentro do container */
+        }
+
+        /* Header fixo com status */
+        header {
+            background-color: #252525;
+            padding: 10px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+            flex-shrink: 0;
+        }
+
+        #status-display {
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+
+        #gen-display {
+            color: #888;
+        }
+
+        /* Overlay de Treinamento */
+        #training-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex; /* Flex para centralizar */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        progress {
+            width: 300px;
+            height: 20px;
+            margin-top: 15px;
+            accent-color: var(--secondary-color);
+        }
+
+        /* Container do Grid */
+        #grid-container {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto; /* Scroll vertical */
+            display: flex;
+            flex-wrap: wrap; /* Mágica do resize: quebra linha se não couber */
+            align-content: flex-start; /* Itens começam do topo */
+            justify-content: center; /* Centraliza na linha */
+            gap: 4px; /* Espaço entre imagens */
+        }
+
+        /* Célula do Grid */
+        .individual-cell {
+            width: 64px; /* Tamanho da imagem visual */
+            height: 64px;
+            background-color: #000;
+            border: 1px solid #333;
+            image-rendering: auto; /* Suavização ativada */
+            transition: transform 0.1s;
+        }
+        
+        .individual-cell:hover {
+            transform: scale(1.5);
+            border-color: var(--accent-color);
+            z-index: 10;
+        }
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div id="status-display">Conectando ao WebSocket...</div>
+        <div id="gen-display">Geração: -</div>
+    </header>
+
+    <div id="training-overlay">
+        <h2 id="overlay-title">Aguardando Dados...</h2>
+        <p id="training-log" style="color: #888; font-size: 0.9em;">Conectando...</p>
+        <progress id="train-progress" value="0" max="100"></progress>
+    </div>
+
+    <div id="grid-container"></div>
+
+    <script>
+        // --- CONFIGURAÇÃO GLOBAL ---
+        // BITMAP_SIZE será detectado dinamicamente
+        let BITMAP_SIZE = 0;
+        let DENSITY = 0;
+        // Configuração de Coleta
+        const MIN_TRAINING_SAMPLES = 500; // Quantos indivíduos reais coletar antes de treinar
+        let trainingBuffer = []; // Armazena o histórico real
+        const MUTATION_RATE = 0; //Proporção de individuos mutados na base de treino.
+        const AUGMENTATION_LOOPS = 0; //Quantidade de loops para aumentar a base.
+
+        
+
+        //Características da imagem
+        const IMG_HEIGHT = 32;
+        const IMG_WIDTH = 32;
+        const IMG_CHANNELS = 3;
+        
+        // Treinamento
+        const EPOCHS = 30; 
+        const BATCH_SIZE = 32;
+        const LEARNING_RATE = 0.01;
+
+        // Estado do Sistema
+        const STATE = {
+            CONNECTING: 0,
+            COLLECTING: 1, // Novo estado: Acumulando dados reais
+            TRAINING: 2,
+            VISUALIZING: 3
+        };
+        let appState = STATE.CONNECTING;
+
+        // Variáveis Globais
+        let synthesizer; 
+        let socket;
+        let pendingPopulation = null; // Armazena população recebida enquanto treina
+        let lastPopulationBatch = null;
+
+        // Elementos DOM
+        const elStatus = document.getElementById('status-display');
+        const elGen = document.getElementById('gen-display');
+        const elOverlay = document.getElementById('training-overlay');
+        const elTitle = document.getElementById('overlay-title');
+        const elProgress = document.getElementById('train-progress');
+        const elLog = document.getElementById('training-log');
+        const elGrid = document.getElementById('grid-container');
+
+        // --- 1. WEBSOCKET SETUP ---
+        function initWebSocket() {
+            socket = new WebSocket("ws://localhost:3214");
+
+            socket.onopen = function () {
+                console.log("WebSocket Conectado");
+                elStatus.textContent = "Coletando Amostras...";
+                elTitle.textContent = "Coletando Dados Reais";
+                appState = STATE.COLLECTING;
+                // Solicita observar "individuals" conforme seu protocolo
+                socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+            };
+
+            socket.onclose = function() {
+                elStatus.textContent = "Desconectado (Tentando reconectar...)";
+                setTimeout(initWebSocket, 2000);
+            };
+
+            socket.onmessage = function (event) {
+                const message = JSON.parse(event.data);
+
+                if (message.act === "data" && message.data.population) {
+                    handlePopulationData(message.data);
+                } else if (message.act === "log") {
+                    console.log("[SERVER]", message.data);
+                }
+            };
+        }
+
+        // --- 2. GERENCIADOR DE DADOS ---
+        function handlePopulationData(data) {
+            const population = data.population;
+            const generation = data.generation;
+            
+
+            elGen.textContent = `Geração: ${generation} (Pop: ${population.length})`;
+
+            // MAQUINA DE ESTADOS
+            if (appState === STATE.COLLECTING) {
+                // Primeiro pacote recebido!
+                if (population.length > 0 ) {
+
+                     // Detecta tamanho no primeiro pacote
+                    if (BITMAP_SIZE === 0 && population[0].nodeMask) {
+                        BITMAP_SIZE = population[0].nodeMask.length;
+                    }
+                    if(BITMAP_SIZE !== 0){
+                        DENSITY = Math.max(BITMAP_SIZE/data.bestFitness, DENSITY);
+                    }
+
+                    // Acumula no buffer
+                    // Fazemos uma cópia leve para não perder referência se o objeto mudar
+                    trainingBuffer.push(...population);
+
+                    // Atualiza UI
+                    const count = trainingBuffer.length;
+                    elProgress.value = (count / MIN_TRAINING_SAMPLES) * 100;
+                    elLog.textContent = `Amostras coletadas: ${count} / ${MIN_TRAINING_SAMPLES}`;
+
+                    // Checa se já temos o suficiente
+                    if (count >= MIN_TRAINING_SAMPLES) {
+                        elTitle.textContent = "Treinando Rede Neural";
+                        elLog.textContent = "Iniciando treinamento com dados reais...";
+                        appState = STATE.TRAINING;
+                        
+                        // Guarda o último batch para exibir assim que acabar
+                        lastPopulationBatch = population;
+                        
+                        // Executa o Augmentation antes do treino
+                        augmentDataset();
+                        runTraining();
+                    }
+                    
+                }
+            } 
+            else if (appState === STATE.TRAINING) {
+                // Se chegar dados novos enquanto treina, atualizamos o "pendente"
+                // para exibir o mais recente assim que o treino acabar
+                lastPopulationBatch = population;
+            } 
+            else if (appState === STATE.VISUALIZING) {
+                // Atualizar visualização
+                renderGrid(population);
+                // logAllPairwiseDistances(population);
+            }
+        }
+
+        // --- 2.5 DATA AUGMENTATION (NOVO) ---
+        function augmentDataset() {
+            augmentedBuffer = [];
+            
+            trainingBuffer.forEach(ind => {
+                augmentedBuffer.push(ind.nodeMask);
+            });
+            let augmentFunc = () => {
+                // Copia dados reais e cria mutações
+                trainingBuffer.forEach(ind => {
+                    // 1. Adiciona original
+                    // augmentedBuffer.push(ind.nodeMask);
+
+                    // 2. Cria clone mutado (Swap de Bits: Mantém a quantidade de 1s constante)
+                    const mutatedMask = [...ind.nodeMask]; // Cópia do array
+                    
+                    // Mapeia onde estão os 0s e os 1s
+                    const onesIndices = [];
+                    const zerosIndices = [];
+                    for(let i = 0; i < BITMAP_SIZE; i++) {
+                        if (mutatedMask[i] === 1) onesIndices.push(i);
+                        else zerosIndices.push(i);
+                    }
+
+                    // Define quantos pares trocar
+                    // O limite é a quantidade de 1s ou 0s disponíveis
+                    let swapCount = Math.floor((BITMAP_SIZE/DENSITY) * 0.5 * Math.random());
+                    swapCount = Math.min(swapCount, onesIndices.length, zerosIndices.length);
+                    
+                    // Realiza as trocas
+                    for(let i = 0; i < swapCount; i++) {
+                        // Sorteia um 1 para virar 0
+                        const rndOne = Math.floor(Math.random() * onesIndices.length);
+                        const idxOne = onesIndices[rndOne];
+
+                        // Sorteia um 0 para virar 1
+                        const rndZero = Math.floor(Math.random() * zerosIndices.length);
+                        const idxZero = zerosIndices[rndZero];
+
+                        // Aplica a troca
+                        mutatedMask[idxOne] = 0;
+                        mutatedMask[idxZero] = 1;
+
+                        // Remove os índices usados das listas para não repetir (Swap-and-Pop O(1))
+                        onesIndices[rndOne] = onesIndices[onesIndices.length - 1];
+                        onesIndices.pop();
+                        
+                        zerosIndices[rndZero] = zerosIndices[zerosIndices.length - 1];
+                        zerosIndices.pop();
+                    }
+                    
+                    augmentedBuffer.push(mutatedMask);
+                });
+            }
+
+            for (let i = 0; i < AUGMENTATION_LOOPS; i++) {
+                augmentFunc();
+            }
+
+            console.log(`Dataset expandido (Swap): ${trainingBuffer.length} -> ${augmentedBuffer.length} amostras.`);
+        }
+
+
+        // --- 3. REDE NEURAL (TensorFlow.js) ---
+        
+        function buildSynthesizer() {
+            const model = tf.sequential();
+            
+            // Input dinâmico baseado no BITMAP_SIZE detectado
+            model.add(tf.layers.dense({
+                inputShape: [BITMAP_SIZE],
+                units: 8 * 8 * 128,
+                activation: 'relu',
+                kernelInitializer: 'heNormal'
+            }));
+
+            model.add(tf.layers.reshape({
+                targetShape: [8, 8, 128]
+            }));
+
+            model.add(tf.layers.conv2dTranspose({
+                filters: 64, kernelSize: 3, strides: 2, padding: 'same', activation: 'relu'
+            }));
+
+            model.add(tf.layers.conv2dTranspose({
+                filters: 32, kernelSize: 3, strides: 2, padding: 'same', activation: 'relu'
+            }));
+
+            // Saída RGB (Sigmoid 0-1)
+            model.add(tf.layers.conv2dTranspose({
+                filters: IMG_CHANNELS, kernelSize: 3, strides: 1, padding: 'same', activation: 'sigmoid'
+            }));
+
+            return model;
+        }
+
+        // --- FUNÇÃO AUXILIAR: TOTAL VARIATION LOSS ---
+        // Calcula a diferença entre pixels vizinhos para medir "rugosidade"
+        function totalVariationLoss(image) {
+            const h = image.shape[1];
+            const w = image.shape[2];
+
+            // Diferença vertical: pixel[i] - pixel[i-1]
+            const dy = tf.sub(
+                image.slice([0, 1, 0, 0], [-1, h - 1, w, -1]),
+                image.slice([0, 0, 0, 0], [-1, h - 1, w, -1])
+            );
+            
+            // Diferença horizontal: pixel[j] - pixel[j-1]
+            const dx = tf.sub(
+                image.slice([0, 0, 1, 0], [-1, h, w - 1, -1]),
+                image.slice([0, 0, 0, 0], [-1, h, w - 1, -1])
+            );
+
+            // Retorna a média das diferenças absolutas
+            return tf.mean(tf.abs(dy)).add(tf.mean(tf.abs(dx)));
+        }
+
+        // --- 4.1 DISTÂNCIA APENAS: HAMMING (Bits) ---
+        // Retorna a Distância Alvo (Scalar) baseada em Hamming
+        function calculateHammingDistance(bitmapA, bitmapB) {
+            const diffBit = tf.sub(bitmapA, bitmapB);
+            const absDiffBit = tf.abs(diffBit);
+            const rawTargetDistance = tf.mean(absDiffBit, -1);//tf.mean(tf.div(absDiffBit, 2.0), -1);
+            
+            // Aplica DENSITY apenas aqui
+            return rawTargetDistance.mul(DENSITY);
+        }
+
+        // --- 4.2 DISTÂNCIA APENAS: JACCARD (Bits) ---
+        // Retorna a Distância Alvo (Scalar) baseada em Jaccard
+        function calculateJaccardDistance(bitmapA, bitmapB) {
+            // Converter -1/1 para 0/1
+            const bitsA =bitmapA;//bitmapA.add(1.0).div(2.0); 
+            const bitsB = bitmapB;//bitmapB.add(1.0).div(2.0);
+
+            const bitsInter = tf.sum(bitsA.mul(bitsB), -1);
+            const bitsUnion = tf.sum(tf.maximum(bitsA, bitsB), -1);
+            
+            // Distância = 1 - Jaccard Index
+            return tf.sub(1.0, bitsInter.div(bitsUnion.add(1e-7)));
+        }
+
+        // --- 4. LOSS ADJUSTADA (Hamming Scaled + TV) ---
+        function multiScaleProportionalLoss(bitmapA, bitmapB, imageA, imageB) {
+            return tf.tidy(() => {
+               
+
+                // 1. SELETOR DE MÉTRICA DE BITS (TARGET)
+                // Comente/Descomente para trocar a métrica
+                // const targetDistance = calculateHammingDistance(bitmapA, bitmapB);
+                const targetDistance = calculateJaccardDistance(bitmapA, bitmapB);
+                console.log(targetDistance.dataSync());
+
+
+                // 2. Distância Visual (Multi-Escala)
+                const scales = [0.9];
+                const scaleDistances = [];
+
+                for (let scale of scales) {
+                    const newH = Math.floor(IMG_HEIGHT * scale);
+                    const newW = Math.floor(IMG_WIDTH * scale);
+                    
+                    // Em TFJS, resizeBilinear espera rank 3 ou 4. imageA é [Batch, H, W, C]
+                    const imgAScaled = tf.image.resizeBilinear(imageA, [newH, newW]);
+                    const imgBScaled = tf.image.resizeBilinear(imageB, [newH, newW]);
+
+                    // Diferença absoluta média (L1)
+                    // reduce mean axis=[1, 2, 3] (altura, largura, canais)
+                    const diffImg = tf.sub(imgAScaled, imgBScaled);
+                    const absDiffImg = tf.abs(diffImg);
+                    const distAtScale = tf.mean(absDiffImg, [1, 2, 3]);
+                    
+                    scaleDistances.push(distAtScale);
+                }
+
+                // Média das distâncias de todas as escalas
+                const predictedDistance = tf.mean(tf.stack(scaleDistances), 0);
+
+                // 3. Loss Principal (Erro da Distância)
+                const distLoss = tf.mean(tf.square(tf.sub(targetDistance, predictedDistance)));
+                return distLoss;
+                // // 4. TV LOSS (Suavização) - NOVO
+                // const tvLossA = totalVariationLoss(imageA);
+                // const tvLossB = totalVariationLoss(imageB);
+                // const tvLoss = tvLossA.add(tvLossB);
+
+                // // Soma ponderada: Foco principal na distância, penalidade leve para ruído
+                // return distLoss.add(tvLoss.mul(0));
+            });
+        }
+
+        // Helper: Converter array de 0/1 do servidor para tensor
+        function populationToTensor(popSlice) {
+            const batchSize = popSlice.length;
+            const buffer = new Float32Array(batchSize * BITMAP_SIZE);
+            
+            for (let i = 0; i < batchSize; i++) {
+                const mask = popSlice[i].nodeMask;
+                for (let j = 0; j < BITMAP_SIZE; j++) {
+                    // Converter 0 -> -1 e 1 -> 1
+                    // CORREÇÃO CRÍTICA: 0.0 e 1.0
+                    buffer[i * BITMAP_SIZE + j] = (mask[j] === 1) ? 1.0 : 0.0//-1.0;
+                }
+            }
+            return tf.tensor2d(buffer, [batchSize, BITMAP_SIZE]);
+        }
+
+
+        function getMutated(ind){
+            // 2. Cria clone mutado (Swap de Bits: Mantém a quantidade de 1s constante)
+            const mutatedMask = [...ind]; // Cópia do array
+            
+            // Mapeia onde estão os 0s e os 1s
+            const onesIndices = [];
+            const zerosIndices = [];
+            for(let i = 0; i < BITMAP_SIZE; i++) {
+                if (mutatedMask[i] === 1) onesIndices.push(i);
+                else zerosIndices.push(i);
+            }
+
+            // Define quantos pares trocar
+            // O limite é a quantidade de 1s ou 0s disponíveis
+            let swapCount = Math.floor((BITMAP_SIZE/DENSITY) * 0.75 * Math.random());
+            swapCount = Math.min(swapCount, onesIndices.length, zerosIndices.length);
+            
+            // Realiza as trocas
+            for(let i = 0; i < swapCount; i++) {
+                // Sorteia um 1 para virar 0
+                const rndOne = Math.floor(Math.random() * onesIndices.length);
+                const idxOne = onesIndices[rndOne];
+
+                // Sorteia um 0 para virar 1
+                const rndZero = Math.floor(Math.random() * zerosIndices.length);
+                const idxZero = zerosIndices[rndZero];
+
+                // Aplica a troca
+                mutatedMask[idxOne] = 0;
+                mutatedMask[idxZero] = 1;
+
+                // Remove os índices usados das listas para não repetir (Swap-and-Pop O(1))
+                onesIndices[rndOne] = onesIndices[onesIndices.length - 1];
+                onesIndices.pop();
+                
+                zerosIndices[rndZero] = zerosIndices[zerosIndices.length - 1];
+                zerosIndices.pop();
+            }
+            return mutatedMask;
+        }
+
+        // --- 5. DATA GEN: EXTRAÇÃO DE BUFFER REAL ---
+        // Pega pares aleatórios do histórico real coletado
+        function getRealDataBatch(batchSize) {
+            return tf.tidy(() => {
+                const batchA_buffer = new Float32Array(batchSize * BITMAP_SIZE);
+                const batchB_buffer = new Float32Array(batchSize * BITMAP_SIZE);
+                
+                for(let i = 0; i < batchSize; i++) {
+                    // Sorteia dois índices aleatórios do buffer de treino
+                    const idxA = Math.floor(Math.random() * augmentedBuffer.length);
+                    const idxB = Math.floor(Math.random() * augmentedBuffer.length);
+                    
+                    const indA = augmentedBuffer[idxA];
+                    let indB = augmentedBuffer[idxB];
+
+                    if(Math.random()<MUTATION_RATE){
+                        indB = getMutated(indA);
+                    }
+
+                    // Copia bits para o buffer do tensor (-1 e 1)
+                    for(let k = 0; k < BITMAP_SIZE; k++) {
+                        batchA_buffer[i * BITMAP_SIZE + k] = (indA[k] === 1) ? 1.0 : 0.0;//-1.0;
+                        batchB_buffer[i * BITMAP_SIZE + k] = (indB[k] === 1) ? 1.0 : 0.0;//-1.0;
+                    }
+                }
+
+                const tensorA = tf.tensor2d(batchA_buffer, [batchSize, BITMAP_SIZE]);
+                const tensorB = tf.tensor2d(batchB_buffer, [batchSize, BITMAP_SIZE]);
+                
+                return [tensorA, tensorB];
+            });
+        }
+        // --- GERAÇÃO DE DADOS ALEATÓRIOS PARA TREINO ---
+        // Essencial para aprender o mapeamento geral sem viciar na população atual
+        function createPairBatch(batchSize) {
+            return tf.tidy(() => {
+                // const randA = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                // const randB = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                
+                // // Lógica de Probabilidade:
+                // // Se queremos X% de 1s, então (100-X)% devem ser -1s (zeros lógicos).
+                // // tf.less(rand, threshold) retorna true com probabilidade 'threshold'.
+                // // Se definirmos threshold = (1.0 - MEAN1s), teremos a proporção correta de -1s.
+                
+                // const threshold = 1.0 - MEAN1s;
+
+                // const bitA = tf.where(tf.less(randA, threshold), -1.0, 1.0);
+                // const bitB = tf.where(tf.less(randB, threshold), -1.0, 1.0);
+                
+                // return [bitA, bitB];
+            //     return tf.tidy(() => {
+            //     const randA = tf.randomUniform([batchSize, BITMAP_SIZE]);
+            //     const randB = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                
+            //     // Geração de Distribuição Normal para as probabilidades de 1s
+            //     // Shape [batchSize, 1] permite que cada exemplo no batch tenha sua própria densidade
+            //     // baseada na média (MEAN1s) e desvio padrão (STD1s) da população real.
+            //     const batchDensities = tf.randomNormal([batchSize, 1], MEAN1s, STD1s);
+            //      // Garante que a probabilidade permaneça válida entre 0 e 1 (clamp)
+            //     const clippedDensities = tf.clipByValue(batchDensities, 0.0, 1.0);
+                
+            //     // O threshold varia por amostra. Threshold = 1.0 - probabilidade_de_ser_1
+            //     const thresholds = tf.sub(1.0, clippedDensities);
+
+            //     // Aplica o threshold variável
+            //     // O TensorFlow faz broadcasting automático: compara [batch, BITMAP_SIZE] com [batch, 1]
+            //     const bitA = tf.where(tf.less(randA, thresholds), -1.0, 1.0);
+            //     const bitB = tf.where(tf.less(randB, thresholds), -1.0, 1.0);
+                
+            //     return [bitA, bitB];
+            // });
+
+                // 1. Gera o Lote A normalmente (com densidade correta)
+                const randA = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                const batchDensities = tf.randomNormal([batchSize, 1], MEAN1s, STD1s);
+                const clippedDensities = tf.clipByValue(batchDensities, 0.0, 1.0);
+                const thresholds = tf.sub(1.0, clippedDensities);
+                
+                const bitA = tf.where(tf.less(randA, thresholds), -1.0, 1.0);
+                
+                // 2. Gera o Lote B como uma "Mutação" do Lote A
+                // Taxa de mutação varia de 0.0 (igual) a 1.0 (totalmente aleatório)
+                const mutationRates = tf.randomUniform([batchSize, 1], 0.0, 1.0);
+                
+                // Matriz de ruído para decidir quais bits flipar
+                const changeMask = tf.randomUniform([batchSize, BITMAP_SIZE]);
+                
+                // Se o ruído for menor que a taxa de mutação, geramos um novo bit aleatório
+                // Se for maior, mantemos o bit original de A
+                const randomBits = tf.where(tf.less(tf.randomUniform([batchSize, BITMAP_SIZE]), thresholds), -1.0, 1.0);
+                
+                // bitB é uma mistura de bitA e bits aleatórios
+                const bitB = tf.where(tf.less(changeMask, mutationRates), randomBits, bitA);
+                
+                return [bitA, bitB];
+
+            });
+        }
+
+        // --- 4. LOOP DE TREINAMENTO ---
+        async function runTraining() {
+            synthesizer = buildSynthesizer();
+            const optimizer = tf.train.adam(LEARNING_RATE);
+            elProgress.value = 0;
+            elProgress.max = EPOCHS;
+
+            for (let epoch = 1; epoch <= EPOCHS; epoch++) {
+                const lossValue = tf.tidy(() => {
+                    // USANDO DADOS ALEATÓRIOS (CORREÇÃO)
+                    const [tensorA, tensorB] = getRealDataBatch(BATCH_SIZE);//createPairBatch(BATCH_SIZE);
+                    
+                    const f = () => {
+                        const imgA = synthesizer.predict(tensorA);
+                        const imgB = synthesizer.predict(tensorB);
+                        return multiScaleProportionalLoss(tensorA, tensorB, imgA, imgB);
+                    };
+                    const cost = optimizer.minimize(f, true);
+                    return cost.dataSync()[0];
+                });
+
+                // Atualizar UI
+                elProgress.value = epoch;
+                // if (epoch % 1 === 0 || epoch === 1) {
+                    elLog.textContent = `Epoch ${epoch}/${EPOCHS} - Loss: ${lossValue.toFixed(5)}`;
+                    await new Promise(r => setTimeout(r, 10)); // Yield para UI não travar
+                // }
+            }
+
+            // Fim do Treino
+            elOverlay.classList.add('hidden');
+            elStatus.textContent = "Visualização em Tempo Real";
+            appState = STATE.VISUALIZING;
+            
+            // Renderiza o último batch recebido
+            if (lastPopulationBatch) {
+                renderGrid(lastPopulationBatch);
+            }
+        }
+
+
+
+
+
+        // --- FUNÇÃO DE DIAGNÓSTICO: TODOS OS PARES ---
+        async function logAllPairwiseDistances(population) {
+            console.log("=== INÍCIO DO DIAGNÓSTICO COMPLETO ===");
+            console.log(`População: ${population.length} indivíduos`);
+            
+            // Gera imagens para toda a população
+            const tensorPop = populationToTensor(population);
+            const imagesTensor = synthesizer.predict(tensorPop);
+            const imagesData = await imagesTensor.data(); // Float32Array linear
+            
+            const popSize = population.length;
+            const imgSize = IMG_HEIGHT * IMG_WIDTH * IMG_CHANNELS;
+
+            // Header CSV-like para facilitar cópia
+            console.log("IdxA,IdxB,JaccardBits,VisualDist");
+
+            for(let i=0; i<popSize; i++) {
+                for(let j=i+1; j<popSize; j++) { // j=i+1 evita duplicatas e auto-comparação
+                    
+                    // 1. Distância de Bits (Jaccard)
+                    const bitsA = population[i].nodeMask;
+                    const bitsB = population[j].nodeMask;
+                    
+                    let intersection = 0;
+                    let union = 0;
+                    for(let k=0; k<BITMAP_SIZE; k++) {
+                        if(bitsA[k] === 1 && bitsB[k] === 1) intersection++;
+                        if(bitsA[k] === 1 || bitsB[k] === 1) union++;
+                    }
+                    const jaccardDist = (union === 0) ? 0 : 1.0 - (intersection / union);
+
+                    // 2. Distância Visual (L1 Média)
+                    let visualDiffSum = 0;
+                    const offsetA = i * imgSize;
+                    const offsetB = j * imgSize;
+
+                    for(let p=0; p<imgSize; p++) {
+                        visualDiffSum += Math.abs(imagesData[offsetA + p] - imagesData[offsetB + p]);
+                    }
+                    const visualDist = visualDiffSum / imgSize;
+
+                    // Log formatado
+                    console.log(`${i},${j},${jaccardDist.toFixed(4)},${visualDist.toFixed(4)}`);
+                }
+            }
+            
+            tensorPop.dispose();
+            imagesTensor.dispose();
+            console.log("=== FIM DO DIAGNÓSTICO ===");
+        }
+
+
+
+
+
+
+        // --- 5. RENDERIZAÇÃO DO GRID ---
+        
+        async function renderGrid(population) {
+            // Se o grid tiver numero diferente de filhos da população, recriar
+            // Isso evita recriar canvas se a população for estável (Performance)
+            if (elGrid.children.length !== population.length) {
+                elGrid.innerHTML = '';
+                population.forEach((ind, i) => {
+                    const cvs = document.createElement('canvas');
+                    cvs.className = 'individual-cell';
+                    // Tamanho de exibição pode ser maior, mas o canvas interno desenha o original
+                    // cvs.width = 128; 
+                    // cvs.height = 128;
+                    cvs.id = `ind-cvs-${i}`;
+                    cvs.title = `Fitness: ${ind.fitness}`; // Tooltip nativo
+                    elGrid.appendChild(cvs);
+                });
+            }
+
+            // Gerar imagens em Batch é muito mais rápido que 1 por 1
+            tf.tidy(() => {
+                const tensorPop = populationToTensor(population);
+                const imagesTensor = synthesizer.predict(tensorPop);
+                
+                // Agora desenhamos no DOM
+                const imageList = tf.unstack(imagesTensor);
+                
+                imageList.forEach(async (imgTensor, i) => {
+                    const canvas = document.getElementById(`ind-cvs-${i}`);
+                    if(canvas) {
+                        // Processo de desenho com resize suave
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = IMG_WIDTH; // 32
+                        tempCanvas.height = IMG_HEIGHT; // 32
+                        
+                        await tf.browser.toPixels(imgTensor, tempCanvas);
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(tempCanvas, 0, 0, IMG_WIDTH, IMG_HEIGHT, 0, 0, canvas.width, canvas.height);
+                    }
+                });
+            });
+        }
+
+        // Inicializar
+        window.onload = initWebSocket;
+
+    </script>
+</body>
+</html>

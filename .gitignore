@@ -1,1 +1,5 @@
 *node_modules
+/public/saves
+/public/logs
+/public/bests
+*venv*

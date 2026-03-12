@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parameter Setter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 500px;
+        }
+
+        .config-item {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Parameter Setter</h2>
+
+    <!-- Container for dynamic controls -->
+    <div id="controls-container">
+        <p id="loading-message">Loading Parameters...</p>
+    </div>
+
+    <!-- Static controls -->
+    <div class="config-item">
+        <label>Partial Reset</label>
+        <button onclick="sendPartialReset()">Run</button>
+    </div>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:3214");
+
+        // --- Helper functions to parse values ---
+        function parseInt(val) { return Number.parseInt(val, 10); }
+        function parseFloat(val) { return Number.parseFloat(val); }
+        function parseString(val) { return val; } // For select/options
+
+        // --- Action functions ---
+        function sendPartialReset() {
+            socket.send(JSON.stringify({ act: "command", data: "partialReset" }));
+        }
+
+        // --- UI update functions ---
+        function updateValue(id, valueId) {
+            const el = document.getElementById(id);
+            const valEl = document.getElementById(valueId);
+            if (el && valEl) {
+                valEl.textContent = el.value;
+            }
+        }
+
+        /**
+         * Dynamically builds the entire control interface based on an array of options.
+         * @param {Array<Object>} options - The array describing the parameters.
+         */
+        function buildControls(options) {
+            const container = document.getElementById('controls-container');
+            container.innerHTML = ''; // Clear "Loading..." message or previous controls
+
+            options.forEach(param => {
+                const configItem = document.createElement('div');
+                configItem.className = 'config-item';
+
+                const label = document.createElement('label');
+                label.setAttribute('for', param.variableName);
+
+                let inputElement;
+
+                switch (param.type) {
+                    case 'Int':
+                    case 'Float':
+                        label.innerHTML = `${param.displayName}: <span id="${param.variableName}Value"></span>`;
+                        inputElement = document.createElement('input');
+                        inputElement.type = 'range';
+                        inputElement.id = param.variableName;
+                        inputElement.dataset.type = param.type;
+                        inputElement.min = param.min;
+                        inputElement.max = param.max;
+                        inputElement.step = param.step;
+                        configItem.appendChild(label);
+                        configItem.appendChild(inputElement);
+                        break;
+
+                    case 'Boolean':
+                        inputElement = document.createElement('input');
+                        inputElement.type = 'checkbox';
+                        inputElement.id = param.variableName;
+                        // For checkboxes, it's better to wrap the input inside the label
+                        label.removeAttribute('for');
+                        label.appendChild(inputElement);
+                        label.appendChild(document.createTextNode(` ${param.displayName}`));
+                        configItem.appendChild(label);
+                        break;
+
+                    case 'Options':
+                        label.textContent = param.displayName;
+                        inputElement = document.createElement('select');
+                        inputElement.id = param.variableName;
+                        inputElement.dataset.type = 'String'; // For the parser function
+                        param.options.forEach(opt => {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = opt;
+                            optionElement.textContent = opt;
+                            inputElement.appendChild(optionElement);
+                        });
+                        configItem.appendChild(label);
+                        configItem.appendChild(inputElement);
+                        break;
+                }
+                
+                if (configItem.hasChildNodes()) {
+                    container.appendChild(configItem);
+                }
+            });
+
+            addEventListeners();
+            // After building controls, request current values to populate them
+            socket.send(JSON.stringify({ act: "get_parameters" }));
+        }
+
+        /**
+         * Attaches event listeners to all dynamically created form elements.
+         */
+        function addEventListeners() {
+            document.querySelectorAll("input[type=range]").forEach(input => {
+                input.addEventListener("input", () => {
+                    updateValue(input.id, input.id + "Value");
+                });
+                input.addEventListener("change", () => {
+                    let config = {};
+                    const parser = window["parse" + input.dataset.type] || (val => val);
+                    config[input.id] = parser(input.value);
+                    socket.send(JSON.stringify({ act: "set_parameters", data: config }));
+                });
+            });
+
+            document.querySelectorAll("input[type=checkbox]").forEach(input => {
+                input.addEventListener("change", () => {
+                    let config = {};
+                    config[input.id] = input.checked;
+                    socket.send(JSON.stringify({ act: "set_parameters", data: config }));
+                });
+            });
+            
+            document.querySelectorAll("select").forEach(select => {
+                select.addEventListener("change", () => {
+                    let config = {};
+                    config[select.id] = select.value;
+                    socket.send(JSON.stringify({ act: "set_parameters", data: config }));
+                });
+            });
+        }
+
+        /**
+         * Sets the values of the form elements based on a configuration object.
+         * @param {Object} config - Key-value pairs matching element IDs and their values.
+         */
+        function setConfig(config) {
+            console.log("Setting config:", config);
+            for (const key in config) {
+                if (Object.hasOwnProperty.call(config, key)) {
+                    const element = document.getElementById(key);
+                    if (element) {
+                        const value = config[key];
+                        if (element.type === 'checkbox') {
+                            element.checked = Boolean(value);
+                        } else {
+                            element.value = value;
+                        }
+
+                        // If it's a range slider, also update its displayed value
+                        if (element.type === 'range') {
+                            updateValue(element.id, element.id + "Value");
+                        }
+                    } else {
+                         console.warn(`Element with id "${key}" not found.`);
+                    }
+                }
+            }
+        }
+
+        // --- WebSocket Handlers ---
+        socket.onmessage = function (event) {
+            const message = JSON.parse(event.data);
+            switch (message.act) {
+                case "log":
+                    console.log(message.data);
+                    break;
+                case "data": // Received current parameter values
+                    setConfig(message.data);
+                    break;
+                case "options": // Received parameter definitions to build UI
+                    buildControls(message.data);
+                    break;
+            }
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            // 1. Request the options to build the UI
+            socket.send(JSON.stringify({ act: "get_parameters_options" }));
+            // 2. Subscribe to automatically receive parameter updates from the server
+            socket.send(JSON.stringify({ act: "obs", data: ["parameters"] }));
+        };
+
+        socket.onclose = function() {
+            const container = document.getElementById('controls-container');
+            container.innerHTML = '<p style="color: red; font-weight: bold;">Connection lost. Please refresh.</p>';
+        }
+
+        socket.onerror = function(error) {
+            console.error("WebSocket Error:", error);
+            const container = document.getElementById('controls-container');
+            container.innerHTML = '<p style="color: red; font-weight: bold;">Connection error. Could not connect to the server.</p>';
+        }
+
+    </script>
+
+</body>
+
+</html>
