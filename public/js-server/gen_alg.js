@@ -698,9 +698,9 @@ class CRO extends MetaHeuristic {
         this.nodeIncludeProb = 0.5;
 
         // Keep project-level selection behavior configurable.
-        this.maxAge = 30;
-        this.hasMaxAge = true;
-        this.isBestImmortal = true;
+        this.maxAge = 500;
+        this.hasMaxAge = false;
+        this.isBestImmortal = false;
         this.preventEqualIndividuals = false;
     }
 
@@ -1002,7 +1002,7 @@ class CRO extends MetaHeuristic {
         const neighbors = this.newIndividual.graph.indexAdj[selectedNode];
         const candidates = [];
 
-        for (let v = 0; v < neighbors.length; v++) {
+        for (let v = 0; v < this.numNodes; v++) {
             if (neighbors[v] && mol.nodeMask[v] === 0) {
                 candidates.push(v);
             }
