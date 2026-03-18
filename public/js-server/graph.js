@@ -48,7 +48,7 @@ class Graph {
   }
 
   getDegrees() {
-    return this.indexAdj.map(adjs => adjs.length);
+    return this.nodes.map(n => Object.keys(this.adj[n.id]).length);
   }
 
   importFromText(text) {
