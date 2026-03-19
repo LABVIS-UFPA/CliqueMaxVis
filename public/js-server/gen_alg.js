@@ -1,5 +1,4 @@
-﻿
-const { performance } = require('perf_hooks');
+﻿const { performance } = require('perf_hooks');
 
 class MetaHeuristic {
     constructor(individualConstructor, numNodes) {
@@ -696,25 +695,17 @@ class CRO extends MetaHeuristic {
         this.alpha = 500;
         this.beta = 100;
         this.nodeIncludeProb = 0.5;
-
-        // Keep project-level selection behavior configurable.
-        this.maxAge = 500;
-        this.hasMaxAge = false;
-        this.isBestImmortal = false;
-        this.preventEqualIndividuals = false;
     }
 
     getParameters() {
         const {
             populationSize, KELossRate, MoleColl, buffer, InitialKE,
-            alpha, beta, nodeIncludeProb,
-            maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals
+            alpha, beta, nodeIncludeProb
         } = this;
 
         return {
             populationSize, KELossRate, MoleColl, buffer, InitialKE,
-            alpha, beta, nodeIncludeProb,
-            maxAge, hasMaxAge, isBestImmortal, preventEqualIndividuals
+            alpha, beta, nodeIncludeProb
         };
     }
 
@@ -727,11 +718,7 @@ class CRO extends MetaHeuristic {
             { displayName: "Molecule Collision", variableName: "MoleColl", type: "Float", min: 0, max: 1, step: 0.05 },
             { displayName: "Initial Buffer", variableName: "buffer", type: "Int", min: 0, max: 100000, step: 10 },
             { displayName: "Alpha", variableName: "alpha", type: "Int", min: 0, max: 5000, step: 10 },
-            { displayName: "Beta", variableName: "beta", type: "Int", min: 0, max: 5000, step: 10 },
-            { displayName: "Max Age", variableName: "maxAge", type: "Int", min: 1, max: 200, step: 1 },
-            { displayName: "Define Max Age", variableName: "hasMaxAge", type: "Boolean" },
-            { displayName: "Immortal Best", variableName: "isBestImmortal", type: "Boolean" },
-            { displayName: "Prevent Equal Individuals", variableName: "preventEqualIndividuals", type: "Boolean" }
+            { displayName: "Beta", variableName: "beta", type: "Int", min: 0, max: 5000, step: 10 }
         ];
     }
 
@@ -749,11 +736,6 @@ class CRO extends MetaHeuristic {
         if (this.population.length === 0) {
             this.timings.iteration = performance.now() - t1;
             return;
-        }
-
-        let bestClone = null;
-        if (this.isBestImmortal) {
-            bestClone = this.__cloneIndividual(this.population[0]);
         }
 
         const b = Math.random();
@@ -809,40 +791,12 @@ class CRO extends MetaHeuristic {
             this.__repairOperator(q);
         }
 
-        if (this.hasMaxAge) {
-            for (const individual of this.population) {
-                if (individual.age >= this.maxAge) {
-                    individual.fitness = 0; 
-                    individual.PE = 0;
-                }
-            }
-        }
-
         for (const individual of this.population) {
             individual.age++;
             this.__refreshIndividual(individual);
         }
 
         this.population.sort((a, b) => b.fitness - a.fitness);
-
-        if (this.isBestImmortal && bestClone) {
-            if (this.population[0].fitness < bestClone.fitness) {
-                this.population.unshift(bestClone);
-            }
-        }
-
-        if (this.preventEqualIndividuals) {
-            const uniquePop = [];
-            const seen = new Set();
-            for (const ind of this.population) {
-                const hash = ind.nodeMask.join(""); 
-                if (!seen.has(hash)) {
-                    seen.add(hash);
-                    uniquePop.push(ind);
-                }
-            }
-            this.population = uniquePop;
-        }
 
         if (this.population.length > this.populationSize * 5) {
             this.population.length = this.populationSize * 5; 
@@ -1004,6 +958,9 @@ class CRO extends MetaHeuristic {
         const oldMask = mol.nodeMask.slice();
         const oldPE = mol.PE;
         const oldKE = mol.KE;
+        const oldMinPE = mol.MinPE;
+        const oldMinStruct = mol.MinStruct ? mol.MinStruct.slice() : null;
+        const oldMinHit = mol.MinHit;
 
         const cliqueNodes = this.__getCliqueNodes(mol);
         if (cliqueNodes.length === 0) return;
@@ -1037,6 +994,9 @@ class CRO extends MetaHeuristic {
             mol.PE = oldPE;
             mol.fitness = this.numNodes - oldPE; 
             mol.KE = oldKE;
+            mol.MinPE = oldMinPE;
+            mol.MinStruct = oldMinStruct;
+            mol.MinHit = oldMinHit;
         }
 
         this.__updateBestMoleculeState(mol);
@@ -1104,6 +1064,12 @@ class CRO extends MetaHeuristic {
         const oldPE2 = mol2.PE;
         const oldKE1 = mol1.KE;
         const oldKE2 = mol2.KE;
+        const oldMinPE1 = mol1.MinPE;
+        const oldMinPE2 = mol2.MinPE;
+        const oldMinStruct1 = mol1.MinStruct ? mol1.MinStruct.slice() : null;
+        const oldMinStruct2 = mol2.MinStruct ? mol2.MinStruct.slice() : null;
+        const oldMinHit1 = mol1.MinHit;
+        const oldMinHit2 = mol2.MinHit;
 
         this.__applySingleNeighborAppend(mol1);
         this.__applySingleNeighborAppend(mol2);
@@ -1125,6 +1091,12 @@ class CRO extends MetaHeuristic {
             mol2.fitness = this.numNodes - oldPE2; 
             mol1.KE = oldKE1;
             mol2.KE = oldKE2;
+            mol1.MinPE = oldMinPE1;
+            mol2.MinPE = oldMinPE2;
+            mol1.MinStruct = oldMinStruct1;
+            mol2.MinStruct = oldMinStruct2;
+            mol1.MinHit = oldMinHit1;
+            mol2.MinHit = oldMinHit2;
         }
 
         this.__updateBestMoleculeState(mol1);
