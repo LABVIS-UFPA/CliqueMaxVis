@@ -781,7 +781,13 @@ class CRO extends MetaHeuristic {
             const mol1 = this.population[i];
             const mol2 = this.population[j];
 
-            if (mol1.KE <= this.beta && mol2.KE <= this.beta) {
+            // Trava de blowout. Só permite que a Síntese ocorra se a 
+            // população atual for maior que a metade do PopSize inicial.
+            // Isso força o algoritmo a usar a Colisão Ineficaz e dar tempo 
+            // para a Decomposição agir e repovoar o ambiente.
+            const canSynthesize = this.population.length > Math.floor(this.populationSize / 2);
+
+            if (mol1.KE <= this.beta && mol2.KE <= this.beta && canSynthesize) {
                 const merged = this.__synthesis(mol1, mol2);
                 if (merged) {
                     this.__enlargeClique(merged);
@@ -871,9 +877,11 @@ class CRO extends MetaHeuristic {
         individual.KE = this.InitialKE;
         individual.NumHit = 0;
         individual.MinStruct = individual.nodeMask.slice();
-        individual.MinPE = Number.POSITIVE_INFINITY;
+        // Como agora buscamos maximizar, o valor inicial base
+        // para comparação do histórico deve ser 0 (pior clique possível).
+        individual.MinPE = 0;
         individual.MinHit = 0;
-        individual.PE = this.numNodes;
+        individual.PE = individual.fitness;
     }
 
     __cloneIndividual(individual) {
@@ -891,12 +899,14 @@ class CRO extends MetaHeuristic {
 
     __refreshIndividual(individual) {
         individual.fitness = individual.verifyClique();
-        individual.PE = this.numNodes - individual.fitness; 
+        // A Energia Potencial reflete diretamente a maximização.
+        individual.PE = individual.fitness; 
         this.__updateBestMoleculeState(individual);
     }
 
     __updateBestMoleculeState(individual) {
-        if (!Number.isFinite(individual.MinPE) || individual.PE < individual.MinPE) {
+        // O algoritmo agora atualiza o histórico apenas se a nova PE for MAIOR.
+        if (individual.PE > individual.MinPE) {
             individual.MinPE = individual.PE;
             individual.MinStruct = individual.nodeMask.slice();
             individual.MinHit = individual.NumHit;
