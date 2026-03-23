@@ -962,26 +962,8 @@ class CRO extends MetaHeuristic {
         const oldMinStruct = mol.MinStruct ? mol.MinStruct.slice() : null;
         const oldMinHit = mol.MinHit;
 
-        const cliqueNodes = this.__getCliqueNodes(mol);
-        if (cliqueNodes.length === 0) return;
-
-        const selectedNode = this.__randChoice(cliqueNodes);
-        const neighbors = this.newIndividual.graph.indexAdj[selectedNode];
-        const candidates = [];
-
-        for (let v = 0; v < this.numNodes; v++) {
-            if (neighbors[v] && mol.nodeMask[v] === 0) {
-                candidates.push(v);
-            }
-        }
-
-        if (candidates.length > 0) {
-            const newNode = this.__randChoice(candidates);
-            mol.nodeMask[newNode] = 1;
-        }
-
-        this.__cliqueRepair(mol.nodeMask);
-        this.__refreshIndividual(mol);
+        const changed = this.__applySingleNeighborAppend(mol);
+        if (!changed) return;
 
         const availableEnergy = oldPE + oldKE;
         if (mol.PE <= availableEnergy) {
@@ -1071,8 +1053,26 @@ class CRO extends MetaHeuristic {
         const oldMinHit1 = mol1.MinHit;
         const oldMinHit2 = mol2.MinHit;
 
-        this.__applySingleNeighborAppend(mol1);
-        this.__applySingleNeighborAppend(mol2);
+        const changed1 = this.__applySingleNeighborAppend(mol1);
+        const changed2 = this.__applySingleNeighborAppend(mol2);
+
+        if (!changed1 || !changed2) {
+            mol1.nodeMask = oldMask1;
+            mol2.nodeMask = oldMask2;
+            mol1.PE = oldPE1;
+            mol2.PE = oldPE2;
+            mol1.fitness = this.numNodes - oldPE1;
+            mol2.fitness = this.numNodes - oldPE2;
+            mol1.KE = oldKE1;
+            mol2.KE = oldKE2;
+            mol1.MinPE = oldMinPE1;
+            mol2.MinPE = oldMinPE2;
+            mol1.MinStruct = oldMinStruct1;
+            mol2.MinStruct = oldMinStruct2;
+            mol1.MinHit = oldMinHit1;
+            mol2.MinHit = oldMinHit2;
+            return;
+        }
 
         const totalEnergy = oldPE1 + oldPE2 + oldKE1 + oldKE2;
         const newTotalPE = mol1.PE + mol2.PE;
@@ -1105,13 +1105,13 @@ class CRO extends MetaHeuristic {
 
     __applySingleNeighborAppend(mol) {
         const cliqueNodes = this.__getCliqueNodes(mol);
-        if (!cliqueNodes.length) return;
+        if (!cliqueNodes.length) return false;
 
         const selected = this.__randChoice(cliqueNodes);
         const neighbors = this.newIndividual.graph.indexAdj[selected];
         const candidates = [];
 
-        for (let v = 0; v < neighbors.length; v++) {
+        for (let v = 0; v < this.numNodes; v++) {
             if (neighbors[v] && mol.nodeMask[v] === 0) {
                 candidates.push(v);
             }
@@ -1124,6 +1124,7 @@ class CRO extends MetaHeuristic {
 
         this.__cliqueRepair(mol.nodeMask);
         this.__refreshIndividual(mol);
+        return true;
     }
 
     __synthesis(mol1, mol2) {
@@ -1137,8 +1138,6 @@ class CRO extends MetaHeuristic {
         for (let i = 0; i < this.numNodes; i++) {
             if (mol1.nodeMask[i] && mol2.nodeMask[i]) q.nodeMask[i] = 1;
         }
-
-        this.__cliqueRepair(q.nodeMask);
         this.__refreshIndividual(q);
 
         const totalEnergy = mol1.PE + mol2.PE + mol1.KE + mol2.KE;
