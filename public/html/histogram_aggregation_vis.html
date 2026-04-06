@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vertex Aggregation Histogram</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #f6f8fb;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #1e2a3a;
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+      gap: 8px;
+    }
+
+    #topBar {
+      background: #ffffff;
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    #title {
+      margin: 0 0 4px 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    #status {
+      margin: 0;
+      font-size: 13px;
+      color: #4f647a;
+    }
+
+    #controls {
+      background: #ffffff;
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 13px;
+      color: #33485f;
+      font-weight: 600;
+    }
+
+    select {
+      border: 1px solid #c7d3e2;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #1e2a3a;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+
+    #legendWrap {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 230px;
+    }
+
+    #legendBar {
+      height: 12px;
+      flex: 1;
+      border: 1px solid #c6d1e0;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #f7fbff 0%, #6aaed6 40%, #2b8cbe 70%, #084081 100%);
+    }
+
+    #legendLabels {
+      display: flex;
+      justify-content: space-between;
+      width: 86px;
+      font-size: 11px;
+      color: #40556d;
+      font-weight: 600;
+    }
+
+    #summary {
+      background: #ffffff;
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #33485f;
+    }
+
+    .tag {
+      background: #eef4fb;
+      border: 1px solid #d4e1f0;
+      border-radius: 999px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    #chartWrap {
+      flex: 1;
+      min-height: 200px;
+      background: #ffffff;
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #histCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hoverTooltip {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: none;
+      pointer-events: none;
+      background: rgba(17, 38, 64, 0.95);
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: nowrap;
+      transform: translate(10px, -10px);
+      z-index: 2;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="topBar">
+      <h3 id="title">Vertex Aggregation Histogram</h3>
+      <p id="status">Aguardando dados...</p>
+    </div>
+
+    <div id="controls">
+      <label for="groupSelect">Grupo:</label>
+      <select id="groupSelect">
+        <option value="top1">Maior clique</option>
+        <option value="top2">Segundo maior clique</option>
+        <option value="top3">Terceiro maior clique</option>
+        <option value="others">Demais tamanhos</option>
+        <option value="total" selected>Total</option>
+      </select>
+
+      <div id="legendWrap">
+        <div id="legendBar"></div>
+        <div id="legendLabels">
+          <span id="legendMin">0</span>
+          <span id="legendMax">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="summary">
+      <span class="tag" id="sumGenerations">Geracoes: 0</span>
+      <span class="tag" id="sumVertices">Vertices: 0</span>
+      <span class="tag" id="sumTop1">Top1 solucoes: 0</span>
+      <span class="tag" id="sumTop2">Top2 solucoes: 0</span>
+      <span class="tag" id="sumTop3">Top3 solucoes: 0</span>
+      <span class="tag" id="sumOthers">Outras solucoes: 0</span>
+      <span class="tag" id="sumTotal">Total solucoes: 0</span>
+    </div>
+
+    <div id="chartWrap">
+      <canvas id="histCanvas"></canvas>
+      <div id="hoverTooltip"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+    const GROUP_KEYS = ["top1", "top2", "top3", "others", "total"];
+    const GROUP_LABELS = {
+      top1: "Maior clique",
+      top2: "Segundo maior clique",
+      top3: "Terceiro maior clique",
+      others: "Demais tamanhos",
+      total: "Total"
+    };
+
+    const canvas = document.getElementById("histCanvas");
+    const chartWrap = document.getElementById("chartWrap");
+    const hoverTooltipEl = document.getElementById("hoverTooltip");
+    const ctx = canvas.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const groupSelectEl = document.getElementById("groupSelect");
+
+    const sumGenerationsEl = document.getElementById("sumGenerations");
+    const sumVerticesEl = document.getElementById("sumVertices");
+    const sumTop1El = document.getElementById("sumTop1");
+    const sumTop2El = document.getElementById("sumTop2");
+    const sumTop3El = document.getElementById("sumTop3");
+    const sumOthersEl = document.getElementById("sumOthers");
+    const sumTotalEl = document.getElementById("sumTotal");
+    const legendMinEl = document.getElementById("legendMin");
+    const legendMaxEl = document.getElementById("legendMax");
+
+    const colorScale = d3.scaleSequential(d3.interpolateBlues);
+
+    let vertexCount = 0;
+    let processedGenerations = 0;
+    let currentGeneration = 0;
+    let drawScheduled = false;
+    let hoveredIndex = -1;
+    let lastDrawState = null;
+
+    let counters = {
+      top1: 0,
+      top2: 0,
+      top3: 0,
+      others: 0,
+      total: 0
+    };
+
+    let accumulators = {
+      top1: [],
+      top2: [],
+      top3: [],
+      others: [],
+      total: []
+    };
+
+    function createZeroArray(size) {
+      return Array.from({ length: size }, () => 0);
+    }
+
+    function resetAccumulatorState(newVertexCount = vertexCount) {
+      vertexCount = newVertexCount;
+      accumulators = {
+        top1: createZeroArray(vertexCount),
+        top2: createZeroArray(vertexCount),
+        top3: createZeroArray(vertexCount),
+        others: createZeroArray(vertexCount),
+        total: createZeroArray(vertexCount)
+      };
+      counters = {
+        top1: 0,
+        top2: 0,
+        top3: 0,
+        others: 0,
+        total: 0
+      };
+      processedGenerations = 0;
+      currentGeneration = 0;
+    }
+
+    function ensureAccumulatorSize(size) {
+      if (size !== vertexCount) {
+        resetAccumulatorState(size);
+      }
+    }
+
+    function addMaskToAccumulator(target, nodeMask) {
+      for (let i = 0; i < nodeMask.length; i++) {
+        target[i] += nodeMask[i] ? 1 : 0;
+      }
+    }
+
+    function classifyPopulation(population) {
+      const groupedByFitness = new Map();
+
+      for (const individual of population) {
+        if (!individual || !Array.isArray(individual.nodeMask)) continue;
+        const fitness = Number(individual.fitness ?? 0);
+
+        if (!groupedByFitness.has(fitness)) groupedByFitness.set(fitness, []);
+        groupedByFitness.get(fitness).push(individual.nodeMask);
+      }
+
+      const sortedFitnessLevels = Array.from(groupedByFitness.keys()).sort((a, b) => b - a);
+      const top1Fitness = sortedFitnessLevels[0];
+      const top2Fitness = sortedFitnessLevels[1];
+      const top3Fitness = sortedFitnessLevels[2];
+
+      for (const [fitness, masks] of groupedByFitness.entries()) {
+        const isTop1 = fitness === top1Fitness;
+        const isTop2 = fitness === top2Fitness;
+        const isTop3 = fitness === top3Fitness;
+
+        let bucket = "others";
+        if (isTop1) bucket = "top1";
+        else if (isTop2) bucket = "top2";
+        else if (isTop3) bucket = "top3";
+
+        for (const mask of masks) {
+          addMaskToAccumulator(accumulators[bucket], mask);
+          addMaskToAccumulator(accumulators.total, mask);
+        }
+
+        counters[bucket] += masks.length;
+        counters.total += masks.length;
+      }
+    }
+
+    function scheduleDraw() {
+      if (drawScheduled) return;
+      drawScheduled = true;
+      requestAnimationFrame(() => {
+        drawScheduled = false;
+        drawHistogram();
+      });
+    }
+
+    function updateSummary() {
+      sumGenerationsEl.textContent = `Geracoes: ${processedGenerations}`;
+      sumVerticesEl.textContent = `Vertices: ${vertexCount}`;
+      sumTop1El.textContent = `Top1 solucoes: ${counters.top1}`;
+      sumTop2El.textContent = `Top2 solucoes: ${counters.top2}`;
+      sumTop3El.textContent = `Top3 solucoes: ${counters.top3}`;
+      sumOthersEl.textContent = `Outras solucoes: ${counters.others}`;
+      sumTotalEl.textContent = `Total solucoes: ${counters.total}`;
+    }
+
+    function drawTextMessage(message) {
+      lastDrawState = null;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#5b6f85";
+      ctx.font = "14px Segoe UI";
+      ctx.fillText(message, 16, 24);
+    }
+
+    function drawHistogram() {
+      const activeKey = groupSelectEl.value;
+      const histogram = accumulators[activeKey] || [];
+
+      if (!histogram.length) {
+        legendMinEl.textContent = "0";
+        legendMaxEl.textContent = "0";
+        drawTextMessage("Sem dados para desenhar o histograma.");
+        return;
+      }
+
+      const margin = { top: 14, right: 16, bottom: 28, left: 52 };
+      const innerWidth = canvas.width - margin.left - margin.right;
+      const innerHeight = canvas.height - margin.top - margin.bottom;
+
+      if (innerWidth <= 0 || innerHeight <= 0) return;
+
+      const maxValue = d3.max(histogram) || 0;
+      const minValue = d3.min(histogram) || 0;
+
+      lastDrawState = {
+        activeKey,
+        histogram,
+        margin,
+        innerWidth,
+        innerHeight,
+        barWidth: innerWidth / histogram.length,
+        maxValue
+      };
+
+      legendMinEl.textContent = String(minValue);
+      legendMaxEl.textContent = String(maxValue);
+
+      colorScale.domain([0, Math.max(1, maxValue)]);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#9fb0c4";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, margin.top);
+      ctx.lineTo(margin.left, margin.top + innerHeight);
+      ctx.lineTo(margin.left + innerWidth, margin.top + innerHeight);
+      ctx.stroke();
+
+      const yScale = d3.scaleLinear()
+        .domain([0, Math.max(1, maxValue)])
+        .range([margin.top + innerHeight, margin.top]);
+
+      const tickValues = d3.ticks(0, Math.max(1, maxValue), 4);
+      ctx.font = "11px Segoe UI";
+      ctx.fillStyle = "#5d7289";
+      ctx.strokeStyle = "#e5ecf4";
+
+      for (const tick of tickValues) {
+        const y = yScale(tick);
+        ctx.beginPath();
+        ctx.moveTo(margin.left, y);
+        ctx.lineTo(margin.left + innerWidth, y);
+        ctx.stroke();
+
+        ctx.fillStyle = "#5d7289";
+        ctx.fillText(String(Math.round(tick)), 8, y + 4);
+      }
+
+      const barWidth = innerWidth / histogram.length;
+      for (let i = 0; i < histogram.length; i++) {
+        const value = histogram[i];
+        if (!value) continue;
+
+        const barHeight = (value / Math.max(1, maxValue)) * innerHeight;
+        const x = margin.left + i * barWidth;
+        const y = margin.top + innerHeight - barHeight;
+
+        ctx.fillStyle = colorScale(value);
+        ctx.fillRect(x, y, Math.max(1, Math.ceil(barWidth)), barHeight);
+      }
+
+      if (hoveredIndex >= 0 && hoveredIndex < histogram.length) {
+        const highlightX = margin.left + hoveredIndex * barWidth + barWidth / 2;
+        ctx.strokeStyle = "#f08c00";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(highlightX, margin.top);
+        ctx.lineTo(highlightX, margin.top + innerHeight);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#2f445a";
+      ctx.font = "12px Segoe UI";
+      ctx.fillText(`Vertice 1`, margin.left, canvas.height - 8);
+      ctx.fillText(`Vertice ${histogram.length}`, Math.max(margin.left + 4, canvas.width - 110), canvas.height - 8);
+    }
+
+    function hideTooltip() {
+      hoverTooltipEl.style.display = "none";
+    }
+
+    function handleCanvasHover(event) {
+      if (!lastDrawState) {
+        hideTooltip();
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const {
+        activeKey,
+        histogram,
+        margin,
+        innerWidth,
+        innerHeight,
+        barWidth
+      } = lastDrawState;
+
+      const insidePlot =
+        x >= margin.left &&
+        x <= margin.left + innerWidth &&
+        y >= margin.top &&
+        y <= margin.top + innerHeight;
+
+      if (!insidePlot || barWidth <= 0) {
+        if (hoveredIndex !== -1) {
+          hoveredIndex = -1;
+          scheduleDraw();
+        }
+        hideTooltip();
+        return;
+      }
+
+      const index = Math.floor((x - margin.left) / barWidth);
+      if (index < 0 || index >= histogram.length) {
+        if (hoveredIndex !== -1) {
+          hoveredIndex = -1;
+          scheduleDraw();
+        }
+        hideTooltip();
+        return;
+      }
+
+      const value = histogram[index] || 0;
+      hoverTooltipEl.style.left = `${x}px`;
+      hoverTooltipEl.style.top = `${y}px`;
+      hoverTooltipEl.innerHTML = `Vertice ${index + 1}<br>Ocorrencias: ${value}<br>Grupo: ${GROUP_LABELS[activeKey]}`;
+      hoverTooltipEl.style.display = "block";
+
+      if (hoveredIndex !== index) {
+        hoveredIndex = index;
+        scheduleDraw();
+      }
+    }
+
+    function resizeCanvas() {
+      const bounds = chartWrap.getBoundingClientRect();
+      canvas.width = Math.max(320, Math.floor(bounds.width));
+      canvas.height = Math.max(220, Math.floor(bounds.height));
+      scheduleDraw();
+    }
+
+    groupSelectEl.addEventListener("change", () => {
+      hoveredIndex = -1;
+      hideTooltip();
+      scheduleDraw();
+    });
+
+    canvas.addEventListener("mousemove", handleCanvasHover);
+    canvas.addEventListener("mouseleave", () => {
+      if (hoveredIndex !== -1) {
+        hoveredIndex = -1;
+        scheduleDraw();
+      }
+      hideTooltip();
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+
+    const socket = new WebSocket("ws://localhost:3214");
+
+    socket.onopen = function() {
+      statusEl.textContent = "Conectado ao servidor. Aguardando populacao...";
+      socket.send(JSON.stringify({ act: "obs", data: ["individuals", "ui_events"] }));
+    };
+
+    socket.onmessage = function(event) {
+      const message = JSON.parse(event.data);
+
+      if (message.act === "resetCharts") {
+        resetAccumulatorState(vertexCount);
+        hoveredIndex = -1;
+        hideTooltip();
+        statusEl.textContent = "Processo resetado. Acumuladores limpos automaticamente.";
+        updateSummary();
+        scheduleDraw();
+        return;
+      }
+
+      if (message.act !== "data" || message.type !== "individuals") return;
+      if (!message.data || !Array.isArray(message.data.population) || message.data.population.length === 0) return;
+
+      const population = message.data.population;
+      const maskLength = Array.isArray(population[0].nodeMask) ? population[0].nodeMask.length : 0;
+      if (!maskLength) return;
+
+      const incomingGeneration = Number(message.data.generation || (currentGeneration + 1));
+
+      ensureAccumulatorSize(maskLength);
+
+      if (incomingGeneration < currentGeneration) {
+        resetAccumulatorState(maskLength);
+        hoveredIndex = -1;
+        hideTooltip();
+      }
+
+      classifyPopulation(population);
+
+      processedGenerations++;
+      currentGeneration = incomingGeneration;
+      statusEl.textContent = `Geracao ${currentGeneration} | Populacao ${population.length} | Acumulado em ${processedGenerations} geracoes`;
+
+      updateSummary();
+      scheduleDraw();
+    };
+
+    socket.onerror = function(err) {
+      console.error("Erro WebSocket", err);
+      statusEl.textContent = "Erro de conexao com o WebSocket.";
+    };
+
+    socket.onclose = function() {
+      statusEl.textContent = "Conexao WebSocket encerrada.";
+    };
+
+    resetAccumulatorState(0);
+    updateSummary();
+    resizeCanvas();
+  </script>
+</body>
+</html>
