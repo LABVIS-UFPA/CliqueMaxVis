@@ -332,6 +332,74 @@ class CliqueMask {
     return this;
   }
 
+  /**
+   * Verifica se um vértice pode ser adicionado ao clique atual
+   * @param {number} pos - Índice do vértice a ser verificado
+   * @returns {boolean} - true se o vértice pode ser adicionado
+   */
+  verifyInsertion(pos) {
+      for (let i = 0; i < this.nodeMask.length; i++) {
+          if (this.nodeMask[i] && !this.graph.matAjd[i][pos]) return false;
+      }
+      return true;
+  }
+
+  /**
+   * Remove vértices conflitantes de forma mais eficiente
+   * @returns {CliqueMask} - this para encadeamento
+   */
+  fastRepair() {
+      const conflicts = this.getConflicts();
+      
+      for (const [u, v] of conflicts) {
+          // Remove o vértice de menor grau
+          const degreeU = this.graph.getNodeDegree(this.graph.nodes[u]);
+          const degreeV = this.graph.getNodeDegree(this.graph.nodes[v]);
+          
+          if (degreeU <= degreeV) {
+              this.nodeMask[u] = 0;
+          } else {
+              this.nodeMask[v] = 0;
+          }
+      }
+      
+      return this;
+  }
+
+  /**
+   * Estende o clique adicionando todos os vértices possíveis (gulosamente)
+   * @returns {CliqueMask} - this para encadeamento
+   */
+  greedyExtend() {
+      let improved = true;
+      
+      while (improved) {
+          improved = false;
+          
+          // Encontra todos os vértices que podem ser adicionados
+          const candidates = [];
+          for (let v = 0; v < this.nodeMask.length; v++) {
+              if (this.nodeMask[v]) continue;
+              if (this.verifyInsertion(v)) {
+                  candidates.push(v);
+              }
+          }
+          
+          if (candidates.length === 0) break;
+          
+          // Adiciona o candidato com maior grau
+          candidates.sort((a, b) => 
+              this.graph.getNodeDegree(this.graph.nodes[b]) - 
+              this.graph.getNodeDegree(this.graph.nodes[a])
+          );
+          
+          this.nodeMask[candidates[0]] = 1;
+          improved = true;
+      }
+      
+      return this;
+  }
+  // fim aqui
   colorir() {
     let colorCount = 0;
     const cores = this.nodeMask.map(v => v ? colorCount++ : -1); // Inicializa todas as cores como -1 (não colorido)
