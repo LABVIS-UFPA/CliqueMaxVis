@@ -389,6 +389,11 @@
 			const generationMaxFitness = getGenerationMaxFitness(population);
 			if (generationMaxFitness === null) return;
 
+			//Inicializa o raceFitness.
+			raceFitness.top1 = generationMaxFitness;
+			raceFitness.top2 = generationMaxFitness-1;
+			raceFitness.top3 = generationMaxFitness-2;
+
 			if (raceFitness.top1 === null || generationMaxFitness > raceFitness.top1) {
 				shiftRacePodiumForNewLeader(generationMaxFitness);
 			}
