@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Vertex Aggregation Histogram</title>
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			background: #f6f8fb;
+			font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+			color: #1e2a3a;
+			overflow: hidden;
+		}
+
+		#app {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			padding: 8px;
+			box-sizing: border-box;
+			gap: 6px;
+		}
+
+		#topBar {
+			background: #ffffff;
+			border: 1px solid #d9e1ec;
+			border-radius: 8px;
+			padding: 8px 10px;
+		}
+
+		#title {
+			margin: 0 0 2px 0;
+			font-size: 17px;
+			font-weight: 700;
+		}
+
+		#status {
+			margin: 0;
+			font-size: 12px;
+			color: #4f647a;
+		}
+
+		#selectorBar {
+			background: #ffffff;
+			border: 1px solid #d9e1ec;
+			border-radius: 8px;
+			padding: 6px 8px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			align-items: center;
+		}
+
+		.check-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			border: 1px solid #d4e1f0;
+			background: #f7faff;
+			border-radius: 999px;
+			padding: 3px 8px;
+			font-size: 12px;
+			color: #2e4660;
+			user-select: none;
+			white-space: nowrap;
+		}
+
+		.check-chip input {
+			width: 12px;
+			height: 12px;
+			margin: 0;
+			cursor: pointer;
+		}
+
+		.check-label {
+			font-weight: 700;
+		}
+
+		.check-count {
+			color: #5a738d;
+			font-size: 11px;
+		}
+
+		#chartWrap {
+			flex: 1;
+			min-height: 200px;
+			position: relative;
+			overflow: hidden;
+			background: #ffffff;
+			border: 1px solid #d9e1ec;
+			border-radius: 8px;
+			padding: 6px;
+			box-sizing: border-box;
+		}
+
+		#chartsStack {
+			height: 100%;
+			width: 100%;
+			display: grid;
+			gap: 6px;
+			overflow: auto;
+			align-content: stretch;
+		}
+
+		.chart-panel {
+			position: relative;
+			background: #ffffff;
+			border: 1px solid #d9e1ec;
+			border-radius: 8px;
+			overflow: hidden;
+			min-height: 170px;
+		}
+
+		.chart-canvas {
+			width: 100%;
+			height: 100%;
+			display: block;
+		}
+
+		.panel-legend {
+			position: absolute;
+			top: 6px;
+			right: 8px;
+			background: rgba(255, 255, 255, 0.93);
+			border: 1px solid #c7d3e2;
+			border-radius: 8px;
+			padding: 4px 6px;
+			min-width: 150px;
+			z-index: 1;
+			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+		}
+
+		.panel-legend-bar {
+			height: 9px;
+			width: 100%;
+			border-radius: 8px;
+			border: 1px solid #c6d1e0;
+			background: linear-gradient(90deg, #c7cdd6 0%, #9db2c8 30%, #6d97bd 58%, #2f73ab 80%, #164f88 100%);
+		}
+
+		.panel-legend-labels {
+			margin-top: 2px;
+			display: flex;
+			justify-content: space-between;
+			font-size: 10px;
+			color: #40556d;
+			font-weight: 600;
+		}
+
+		#emptyState {
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: #607991;
+			font-size: 13px;
+			text-align: center;
+			padding: 8px;
+			border: 1px dashed #d4deea;
+			border-radius: 8px;
+			background: #f9fbfd;
+		}
+
+		#hoverTooltip {
+			position: absolute;
+			left: 0;
+			top: 0;
+			display: none;
+			pointer-events: none;
+			background: rgba(17, 38, 64, 0.95);
+			color: #ffffff;
+			border-radius: 6px;
+			padding: 6px 8px;
+			font-size: 12px;
+			line-height: 1.35;
+			white-space: pre-line;
+			z-index: 4;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+			max-width: 260px;
+		}
+
+		@media (max-width: 1024px) {
+			#selectorBar {
+				gap: 5px;
+			}
+
+			.check-chip {
+				padding: 3px 7px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div id="app">
+		<div id="topBar">
+			<h3 id="title">Vertex Aggregation Histogram</h3>
+			<p id="status">Waiting for data...</p>
+		</div>
+
+		<div id="selectorBar">
+			<label class="check-chip">
+				<input id="chk-total" type="checkbox" checked />
+				<span class="check-label">Total</span>
+				<span id="count-total" class="check-count">0</span>
+			</label>
+			<label class="check-chip">
+				<input id="chk-top1" type="checkbox" />
+				<span class="check-label">Top 1</span>
+				<span id="count-top1" class="check-count">0</span>
+			</label>
+			<label class="check-chip">
+				<input id="chk-top2" type="checkbox" />
+				<span class="check-label">Top 2</span>
+				<span id="count-top2" class="check-count">0</span>
+			</label>
+			<label class="check-chip">
+				<input id="chk-top3" type="checkbox" />
+				<span class="check-label">Top 3</span>
+				<span id="count-top3" class="check-count">0</span>
+			</label>
+			<label class="check-chip">
+				<input id="chk-others" type="checkbox" />
+				<span class="check-label">Others</span>
+				<span id="count-others" class="check-count">0</span>
+			</label>
+		</div>
+
+		<div id="chartWrap">
+			<div id="chartsStack"></div>
+			<div id="hoverTooltip"></div>
+		</div>
+	</div>
+
+	<script type="module">
+		import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+		const GROUP_CONFIG = [
+			{ key: "total", label: "Total" },
+			{ key: "top1", label: "Top 1" },
+			{ key: "top2", label: "Top 2" },
+			{ key: "top3", label: "Top 3" },
+			{ key: "others", label: "Others" }
+		];
+
+		const GROUP_LABELS = GROUP_CONFIG.reduce((acc, cur) => {
+			acc[cur.key] = cur.label;
+			return acc;
+		}, {});
+
+		const chartWrapEl = document.getElementById("chartWrap");
+		const chartsStackEl = document.getElementById("chartsStack");
+		const hoverTooltipEl = document.getElementById("hoverTooltip");
+		const statusEl = document.getElementById("status");
+
+		const checkboxes = {
+			total: document.getElementById("chk-total"),
+			top1: document.getElementById("chk-top1"),
+			top2: document.getElementById("chk-top2"),
+			top3: document.getElementById("chk-top3"),
+			others: document.getElementById("chk-others")
+		};
+
+		const countEls = {
+			total: document.getElementById("count-total"),
+			top1: document.getElementById("count-top1"),
+			top2: document.getElementById("count-top2"),
+			top3: document.getElementById("count-top3"),
+			others: document.getElementById("count-others")
+		};
+
+		const colorScale = d3.scaleSequential(
+			d3.interpolateRgbBasis(["#c7cdd6", "#9db2c8", "#6d97bd", "#2f73ab", "#164f88"])
+		);
+
+		let vertexCount = 0;
+		let processedGenerations = 0;
+		let currentGeneration = 0;
+		let drawScheduled = false;
+
+		let counters = {
+			total: 0,
+			top1: 0,
+			top2: 0,
+			top3: 0,
+			others: 0
+		};
+
+		let raceFitness = {
+			top1: null,
+			top2: null,
+			top3: null
+		};
+
+		let accumulators = {
+			total: [],
+			top1: [],
+			top2: [],
+			top3: [],
+			others: []
+		};
+
+		const panelStateByKey = new Map();
+
+		function createZeroArray(size) {
+			return Array.from({ length: size }, () => 0);
+		}
+
+		function resetAccumulatorState(newVertexCount = vertexCount) {
+			vertexCount = newVertexCount;
+			accumulators = {
+				total: createZeroArray(vertexCount),
+				top1: createZeroArray(vertexCount),
+				top2: createZeroArray(vertexCount),
+				top3: createZeroArray(vertexCount),
+				others: createZeroArray(vertexCount)
+			};
+			counters = {
+				total: 0,
+				top1: 0,
+				top2: 0,
+				top3: 0,
+				others: 0
+			};
+			raceFitness = {
+				top1: null,
+				top2: null,
+				top3: null
+			};
+			processedGenerations = 0;
+			currentGeneration = 0;
+		}
+
+		function ensureAccumulatorSize(size) {
+			if (size !== vertexCount) {
+				resetAccumulatorState(size);
+			}
+		}
+
+		function addMaskToAccumulator(target, nodeMask) {
+			for (let i = 0; i < nodeMask.length; i++) {
+				target[i] += nodeMask[i] ? 1 : 0;
+			}
+		}
+
+		function addAccumulatorToAccumulator(target, source) {
+			for (let i = 0; i < target.length && i < source.length; i++) {
+				target[i] += source[i];
+			}
+		}
+
+		function shiftRacePodiumForNewLeader(newTopFitness) {
+			if (raceFitness.top3 !== null) {
+				addAccumulatorToAccumulator(accumulators.others, accumulators.top3);
+				counters.others += counters.top3;
+			}
+
+			accumulators.top3 = accumulators.top2.slice();
+			counters.top3 = counters.top2;
+			raceFitness.top3 = raceFitness.top2;
+
+			accumulators.top2 = accumulators.top1.slice();
+			counters.top2 = counters.top1;
+			raceFitness.top2 = raceFitness.top1;
+
+			accumulators.top1 = createZeroArray(vertexCount);
+			counters.top1 = 0;
+			raceFitness.top1 = newTopFitness;
+		}
+
+		function getGenerationMaxFitness(population) {
+			let maxFitness = null;
+
+			for (const individual of population) {
+				if (!individual || !Array.isArray(individual.nodeMask)) continue;
+				const fitness = Number(individual.fitness ?? 0);
+				if (maxFitness === null || fitness > maxFitness) {
+					maxFitness = fitness;
+				}
+			}
+
+			return maxFitness;
+		}
+
+		function classifyPopulation(population) {
+			const generationMaxFitness = getGenerationMaxFitness(population);
+			if (generationMaxFitness === null) return;
+
+			//Inicializa o raceFitness.
+			raceFitness.top1 = generationMaxFitness;
+			raceFitness.top2 = generationMaxFitness-1;
+			raceFitness.top3 = generationMaxFitness-2;
+
+			if (raceFitness.top1 === null || generationMaxFitness > raceFitness.top1) {
+				shiftRacePodiumForNewLeader(generationMaxFitness);
+			}
+
+			for (const individual of population) {
+				if (!individual || !Array.isArray(individual.nodeMask)) continue;
+				const fitness = Number(individual.fitness ?? 0);
+
+				let bucket = "others";
+				if (raceFitness.top1 !== null && fitness === raceFitness.top1) bucket = "top1";
+				else if (raceFitness.top2 !== null && fitness === raceFitness.top2) bucket = "top2";
+				else if (raceFitness.top3 !== null && fitness === raceFitness.top3) bucket = "top3";
+
+				addMaskToAccumulator(accumulators[bucket], individual.nodeMask);
+				addMaskToAccumulator(accumulators.total, individual.nodeMask);
+				counters[bucket] += 1;
+				counters.total += 1;
+			}
+		}
+
+		function updateCounts() {
+			countEls.total.textContent = String(counters.total);
+			countEls.top1.textContent = String(counters.top1);
+			countEls.top2.textContent = String(counters.top2);
+			countEls.top3.textContent = String(counters.top3);
+			countEls.others.textContent = String(counters.others);
+		}
+
+		function getSelectedKeys() {
+			return GROUP_CONFIG
+				.map((group) => group.key)
+				.filter((key) => checkboxes[key].checked);
+		}
+
+		function hideTooltip() {
+			hoverTooltipEl.style.display = "none";
+		}
+
+		function positionTooltip(event) {
+			const wrapRect = chartWrapEl.getBoundingClientRect();
+			const pointerX = event.clientX - wrapRect.left;
+			const pointerY = event.clientY - wrapRect.top;
+
+			let left = pointerX + 12;
+			let top = pointerY - hoverTooltipEl.offsetHeight - 8;
+
+			if (left + hoverTooltipEl.offsetWidth > wrapRect.width - 4) {
+				left = pointerX - hoverTooltipEl.offsetWidth - 12;
+			}
+			if (left < 4) left = 4;
+
+			if (top < 4) top = pointerY + 12;
+			if (top + hoverTooltipEl.offsetHeight > wrapRect.height - 4) {
+				top = Math.max(4, wrapRect.height - hoverTooltipEl.offsetHeight - 4);
+			}
+
+			hoverTooltipEl.style.left = `${left}px`;
+			hoverTooltipEl.style.top = `${top}px`;
+		}
+
+		function drawNoDataMessage(ctx, canvas, message) {
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "#5b6f85";
+			ctx.font = "13px Segoe UI";
+			ctx.fillText(message, 14, 22);
+		}
+
+		function drawYAxisAndGrid(ctx, margin, innerWidth, innerHeight, maxValue) {
+			ctx.strokeStyle = "#9fb0c4";
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(margin.left, margin.top);
+			ctx.lineTo(margin.left, margin.top + innerHeight);
+			ctx.lineTo(margin.left + innerWidth, margin.top + innerHeight);
+			ctx.stroke();
+
+			const yScale = d3.scaleLinear()
+				.domain([0, Math.max(1, maxValue)])
+				.range([margin.top + innerHeight, margin.top]);
+
+			const tickValues = d3.ticks(0, Math.max(1, maxValue), 4);
+			ctx.font = "11px Segoe UI";
+			ctx.fillStyle = "#5d7289";
+			ctx.strokeStyle = "#e5ecf4";
+
+			for (const tick of tickValues) {
+				const y = yScale(tick);
+				ctx.beginPath();
+				ctx.moveTo(margin.left, y);
+				ctx.lineTo(margin.left + innerWidth, y);
+				ctx.stroke();
+				ctx.fillText(String(Math.round(tick)), 8, y + 4);
+			}
+		}
+
+		function renderPanel(panelState) {
+			const { key, canvas, ctx, legendMin, legendMax } = panelState;
+			const histogram = accumulators[key] || [];
+
+			const width = Math.max(320, Math.floor(canvas.clientWidth));
+			const height = Math.max(170, Math.floor(canvas.clientHeight));
+			canvas.width = width;
+			canvas.height = height;
+
+			if (!histogram.length) {
+				legendMin.textContent = "0";
+				legendMax.textContent = "0";
+				panelState.drawMeta = null;
+				drawNoDataMessage(ctx, canvas, `No data available for ${GROUP_LABELS[key]}.`);
+				return;
+			}
+
+			const margin = { top: 14, right: 16, bottom: 28, left: 52 };
+			const innerWidth = canvas.width - margin.left - margin.right;
+			const innerHeight = canvas.height - margin.top - margin.bottom;
+
+			if (innerWidth <= 0 || innerHeight <= 0) {
+				panelState.drawMeta = null;
+				return;
+			}
+
+			const maxValue = d3.max(histogram) || 0;
+			const barWidth = innerWidth / histogram.length;
+			colorScale.domain([0, Math.max(1, maxValue)]);
+
+			legendMin.textContent = "0";
+			legendMax.textContent = String(maxValue);
+
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			drawYAxisAndGrid(ctx, margin, innerWidth, innerHeight, maxValue);
+
+			for (let i = 0; i < histogram.length; i++) {
+				const value = histogram[i];
+				if (!value) continue;
+
+				const barHeight = (value / Math.max(1, maxValue)) * innerHeight;
+				const x = margin.left + i * barWidth;
+				const y = margin.top + innerHeight - barHeight;
+
+				ctx.fillStyle = colorScale(value);
+				ctx.fillRect(x, y, Math.max(1, Math.ceil(barWidth)), barHeight);
+			}
+
+			if (panelState.hoveredIndex >= 0 && panelState.hoveredIndex < histogram.length) {
+				const highlightX = margin.left + panelState.hoveredIndex * barWidth + barWidth / 2;
+				ctx.strokeStyle = "#f08c00";
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				ctx.moveTo(highlightX, margin.top);
+				ctx.lineTo(highlightX, margin.top + innerHeight);
+				ctx.stroke();
+			}
+
+			ctx.fillStyle = "#2f445a";
+			ctx.font = "12px Segoe UI";
+			ctx.textAlign = "right";
+			ctx.fillText(`Vertex ${histogram.length}`, margin.left + innerWidth, canvas.height - 8);
+			ctx.textAlign = "left";
+
+			ctx.fillStyle = "#3b5875";
+			ctx.font = "12px Segoe UI";
+			ctx.fillText(GROUP_LABELS[key], margin.left + 2, 16);
+
+			panelState.drawMeta = {
+				margin,
+				innerWidth,
+				innerHeight,
+				barWidth,
+				histogram
+			};
+		}
+
+		function scheduleDraw() {
+			if (drawScheduled) return;
+			drawScheduled = true;
+			requestAnimationFrame(() => {
+				drawScheduled = false;
+				for (const panelState of panelStateByKey.values()) {
+					renderPanel(panelState);
+				}
+			});
+		}
+
+		function handlePanelHover(event, panelState) {
+			const meta = panelState.drawMeta;
+			if (!meta) {
+				hideTooltip();
+				return;
+			}
+
+			const rect = panelState.canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			const { margin, innerWidth, innerHeight, barWidth, histogram } = meta;
+			const insidePlot =
+				x >= margin.left &&
+				x <= margin.left + innerWidth &&
+				y >= margin.top &&
+				y <= margin.top + innerHeight;
+
+			if (!insidePlot || barWidth <= 0) {
+				if (panelState.hoveredIndex !== -1) {
+					panelState.hoveredIndex = -1;
+					scheduleDraw();
+				}
+				hideTooltip();
+				return;
+			}
+
+			const index = Math.floor((x - margin.left) / barWidth);
+			if (index < 0 || index >= histogram.length) {
+				if (panelState.hoveredIndex !== -1) {
+					panelState.hoveredIndex = -1;
+					scheduleDraw();
+				}
+				hideTooltip();
+				return;
+			}
+
+			const value = histogram[index] || 0;
+			hoverTooltipEl.textContent = `Vertex ${index + 1}\nOccurrences: ${value}\nGroup: ${GROUP_LABELS[panelState.key]}`;
+			hoverTooltipEl.style.display = "block";
+			positionTooltip(event);
+
+			if (panelState.hoveredIndex !== index) {
+				panelState.hoveredIndex = index;
+				scheduleDraw();
+			}
+		}
+
+		function attachPanelEvents(panelState) {
+			panelState.canvas.addEventListener("mousemove", (event) => handlePanelHover(event, panelState));
+			panelState.canvas.addEventListener("mouseleave", () => {
+				if (panelState.hoveredIndex !== -1) {
+					panelState.hoveredIndex = -1;
+					scheduleDraw();
+				}
+				hideTooltip();
+			});
+		}
+
+		function createPanel(key) {
+			const panelEl = document.createElement("div");
+			panelEl.className = "chart-panel";
+
+			const canvas = document.createElement("canvas");
+			canvas.className = "chart-canvas";
+
+			const legendEl = document.createElement("div");
+			legendEl.className = "panel-legend";
+
+			const barEl = document.createElement("div");
+			barEl.className = "panel-legend-bar";
+
+			const labelsEl = document.createElement("div");
+			labelsEl.className = "panel-legend-labels";
+
+			const minEl = document.createElement("span");
+			minEl.textContent = "0";
+
+			const maxEl = document.createElement("span");
+			maxEl.textContent = "0";
+
+			labelsEl.appendChild(minEl);
+			labelsEl.appendChild(maxEl);
+			legendEl.appendChild(barEl);
+			legendEl.appendChild(labelsEl);
+			panelEl.appendChild(canvas);
+			panelEl.appendChild(legendEl);
+
+			const panelState = {
+				key,
+				panelEl,
+				canvas,
+				ctx: canvas.getContext("2d"),
+				legendMin: minEl,
+				legendMax: maxEl,
+				hoveredIndex: -1,
+				drawMeta: null
+			};
+
+			attachPanelEvents(panelState);
+			return panelState;
+		}
+
+		function rebuildPanels() {
+			panelStateByKey.clear();
+			chartsStackEl.innerHTML = "";
+
+			const selectedKeys = getSelectedKeys();
+			if (!selectedKeys.length) {
+				const emptyEl = document.createElement("div");
+				emptyEl.id = "emptyState";
+				emptyEl.textContent = "Select at least one group to display histograms.";
+				chartsStackEl.style.gridTemplateRows = "1fr";
+				chartsStackEl.appendChild(emptyEl);
+				hideTooltip();
+				return;
+			}
+
+			chartsStackEl.style.gridTemplateRows = `repeat(${selectedKeys.length}, minmax(170px, 1fr))`;
+
+			for (const key of selectedKeys) {
+				const panelState = createPanel(key);
+				panelStateByKey.set(key, panelState);
+				chartsStackEl.appendChild(panelState.panelEl);
+			}
+		}
+
+		function refreshLayoutAndDraw() {
+			rebuildPanels();
+			scheduleDraw();
+		}
+
+		for (const key of Object.keys(checkboxes)) {
+			checkboxes[key].addEventListener("change", refreshLayoutAndDraw);
+		}
+
+		window.addEventListener("resize", scheduleDraw);
+
+		const socket = new WebSocket("ws://localhost:3214");
+
+		socket.onopen = function() {
+			statusEl.textContent = "Connected to server. Waiting for population data...";
+			socket.send(JSON.stringify({ act: "obs", data: ["individuals", "ui_events"] }));
+		};
+
+		socket.onmessage = function(event) {
+			const message = JSON.parse(event.data);
+
+			if (message.act === "resetCharts") {
+				resetAccumulatorState(vertexCount);
+				hideTooltip();
+				statusEl.textContent = "Process reset detected. Accumulators were cleared.";
+				updateCounts();
+				scheduleDraw();
+				return;
+			}
+
+			if (message.act !== "data" || message.type !== "individuals") return;
+			if (!message.data || !Array.isArray(message.data.population) || message.data.population.length === 0) return;
+
+			const population = message.data.population;
+			const maskLength = Array.isArray(population[0].nodeMask) ? population[0].nodeMask.length : 0;
+			if (!maskLength) return;
+
+			const incomingGeneration = Number(message.data.generation || (currentGeneration + 1));
+			ensureAccumulatorSize(maskLength);
+
+			if (incomingGeneration < currentGeneration) {
+				resetAccumulatorState(maskLength);
+				hideTooltip();
+			}
+
+			classifyPopulation(population);
+			processedGenerations++;
+			currentGeneration = incomingGeneration;
+
+			statusEl.textContent = `Generation ${currentGeneration} | Population ${population.length} | Accumulated in ${processedGenerations} generations`;
+
+			updateCounts();
+			scheduleDraw();
+		};
+
+		socket.onerror = function(err) {
+			console.error("WebSocket error", err);
+			statusEl.textContent = "WebSocket connection error.";
+		};
+
+		socket.onclose = function() {
+			statusEl.textContent = "WebSocket connection closed.";
+		};
+
+		resetAccumulatorState(0);
+		updateCounts();
+		refreshLayoutAndDraw();
+	</script>
+</body>
+</html>
