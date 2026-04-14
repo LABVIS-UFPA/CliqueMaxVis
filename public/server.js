@@ -283,7 +283,7 @@ require('node:child_process')
 
 const fs = require("fs");
 const { Graph, CliqueBuilder, CliqueSolver, CliqueMask } = require("./js-server/graph.js");
-const { GA, GRASP, CRO } = require("./js-server/gen_alg.js");
+const { GA, GRASP, CRO, HS } = require("./js-server/gen_alg.js");
 let ga;
 let lastCpuUsage;
 let lastHrTime;
@@ -393,6 +393,8 @@ function loadGA(dbpath, metaheuristic = 'GA') {
         ga = new GRASP(CliqueMask.getConstructor(graph), graph.nodes.length);
     } else if (metaheuristic === 'CRO') {
         ga = new CRO(CliqueMask.getConstructor(graph), graph.nodes.length);
+    } else if (metaheuristic === 'HS') {
+        ga = new HS(CliqueMask.getConstructor(graph), graph.nodes.length);
     } else { // Default to GA
         ga = new GA(CliqueMask.getConstructor(graph), graph.nodes.length);
     }

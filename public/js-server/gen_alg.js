@@ -339,7 +339,6 @@ GA.strategies = {
     }
 }
 
-
 class PermutGA {
     constructor(individualConstructor, numNodes) {
         this.newIndividual = individualConstructor
@@ -498,8 +497,6 @@ class PermutGA {
     }
 
 }
-
-
 
 class GRASP extends MetaHeuristic {
     constructor(individualConstructor, numNodes) {
@@ -680,7 +677,6 @@ class GRASP extends MetaHeuristic {
         return array;
     }
 }
-
 
 class CRO extends MetaHeuristic {
     constructor(individualConstructor, numNodes) {
@@ -1201,8 +1197,6 @@ class CRO extends MetaHeuristic {
     }
 }
 
-
-
 class TabuTRIE {
 
     constructor() {
@@ -1226,6 +1220,288 @@ class TabuTRIE {
 
 }
 
+// =========================
+// Harmony Search (HS)
+// =========================
+class HS extends MetaHeuristic {
+    constructor(individualConstructor, numNodes) {
+        super(individualConstructor, numNodes);
+        
+        // Parâmetros do HS
+        this.HMCR = 0.9;
+        this.P = 0.3;
+        this.maxIters = 1000;
+        this.useLocalSearch = true;
+        this.useAdaptiveParams = true;
+        
+        // Não usar这些东西 do GA
+        this.hasMaxAge = false;
+        this.isBestImmortal = true;
+        
+        // Cache para graus (usado em extensão gulosa)
+        this.degrees = null;
+    }
+    
+    init() {
+        // Calcula graus uma vez
+        if (!this.degrees && this.newIndividual?.graph) {
+            this.degrees = this.newIndividual.graph.getDegrees();
+        }
+        
+        this.population = this.__initializeHM();
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        this.updateBest();
+        this.generation = 1;
+    }
+    
+    // ==========================================
+    // MÉTODOS PRÓPRIOS DO HS (NÃO REAPROVEITADOS)
+    // ==========================================
+    
+    __initializeHM() {
+        const HM = [];
+        for (let i = 0; i < this.populationSize; i++) {
+            let H = this.__randomClique();
+            H = this.__extend(H);
+            HM.push(H);
+        }
+        return HM;
+    }
+    
+    __randomClique() {
+        // Exatamente igual ao seu randomClique()
+        const nodeMask = Array(this.numNodes).fill(0);
+        
+        // Começa com vértice aleatório
+        let v = Math.floor(Math.random() * this.numNodes);
+        nodeMask[v] = 1;
+        
+        // Pega vizinhos
+        let candidates = this.__getNeighbors(v);
+        
+        // Adiciona vizinhos aleatoriamente
+        while (candidates.length > 0) {
+            let u = candidates[Math.floor(Math.random() * candidates.length)];
+            nodeMask[u] = 1;
+            candidates = candidates.filter(x => this.newIndividual.graph.matAjd[u][x]);
+        }
+        
+        const individual = this.newIndividual(nodeMask);
+        individual.fitness = individual.verifyClique();
+        return individual;
+    }
+    
+    __extend(individual) {
+        // Exatamente igual ao seu extend() - GULOSO POR GRAU
+        const nodeMask = [...individual.nodeMask];
+        
+        let candidates = [];
+        for (let v = 0; v < this.numNodes; v++) {
+            if (nodeMask[v]) continue;
+            
+            // Verifica se é adjacente a todos do clique
+            let isAdjacentToAll = true;
+            for (let u = 0; u < this.numNodes; u++) {
+                if (nodeMask[u] && !this.newIndividual.graph.matAjd[u][v]) {
+                    isAdjacentToAll = false;
+                    break;
+                }
+            }
+            if (isAdjacentToAll) candidates.push(v);
+        }
+        
+        // Extensão gulosa por grau (igual ao seu)
+        while (candidates.length > 0) {
+            candidates.sort((a, b) => this.degrees[b] - this.degrees[a]);
+            let v = candidates[0];
+            nodeMask[v] = 1;
+            candidates = candidates.filter(x => this.newIndividual.graph.matAjd[v][x]);
+        }
+        
+        const newIndividual = this.newIndividual(nodeMask);
+        newIndividual.fitness = newIndividual.verifyClique();
+        return newIndividual;
+    }
+    
+    __repair(individual) {
+        // Exatamente igual ao seu repair()
+        const nodeMask = [...individual.nodeMask];
+        
+        for (let i = 0; i < this.numNodes; i++) {
+            if (!nodeMask[i]) continue;
+            
+            for (let j = 0; j < this.numNodes; j++) {
+                if (nodeMask[j] && i !== j && !this.newIndividual.graph.matAjd[i][j]) {
+                    // Remove o de menor grau (como no seu)
+                    if (this.degrees[i] <= this.degrees[j]) {
+                        nodeMask[i] = 0;
+                        break;
+                    } else {
+                        nodeMask[j] = 0;
+                    }
+                }
+            }
+        }
+        
+        const repaired = this.newIndividual(nodeMask);
+        repaired.fitness = repaired.verifyClique();
+        return repaired;
+    }
+    
+    __newHarmony() {
+        // Exatamente igual ao seu newHarmony()
+        let nodeMask = Array(this.numNodes).fill(0);
+        
+        for (let i = 0; i < this.numNodes; i++) {
+            if (Math.random() < this.currentHMCR) {
+                let r = Math.floor(Math.random() * this.population.length);
+                if (this.population[r].nodeMask[i]) nodeMask[i] = 1;
+            } else {
+                if (Math.random() < this.currentP) nodeMask[i] = 1;
+            }
+        }
+        
+        return this.newIndividual(nodeMask);
+    }
+    
+    __generateValidHarmony() {
+        // Exatamente igual ao seu generateValidHarmony()
+        let individual = this.__newHarmony();
+        individual = this.__repair(individual);
+        individual = this.__extend(individual);
+        return individual;
+    }
+    
+    __findWorstIndex() {
+        // Exatamente igual ao seu findWorstIndex()
+        let worstIndex = 0;
+        let worstFitness = this.population[0].fitness;
+        
+        for (let i = 1; i < this.population.length; i++) {
+            if (this.population[i].fitness < worstFitness) {
+                worstFitness = this.population[i].fitness;
+                worstIndex = i;
+            }
+        }
+        return worstIndex;
+    }
+    
+    __updateHM(newIndividual) {
+        // Exatamente igual ao seu updateHM()
+        const worstIndex = this.__findWorstIndex();
+        if (newIndividual.fitness > this.population[worstIndex].fitness) {
+            this.population[worstIndex] = newIndividual;
+        }
+    }
+    
+    __localSearch(individual) {
+        // Exatamente igual ao seu localSearch()
+        let best = individual;
+        let bestFitness = best.fitness;
+        let improved = true;
+        
+        while (improved) {
+            improved = false;
+            
+            for (let i = 0; i < this.numNodes; i++) {
+                if (!best.nodeMask[i]) continue;
+                
+                // Remove vértice i
+                const newMask = [...best.nodeMask];
+                newMask[i] = 0;
+                
+                let candidate = this.newIndividual(newMask);
+                candidate = this.__extend(candidate);
+                
+                if (candidate.fitness > bestFitness) {
+                    best = candidate;
+                    bestFitness = candidate.fitness;
+                    improved = true;
+                    break;
+                }
+            }
+        }
+        
+        return best;
+    }
+    
+    __updateAdaptiveParams() {
+        // Exatamente igual ao seu updateParameters()
+        const progress = this.generation / this.maxIters;
+        this.currentHMCR = 0.7 + (0.95 - 0.7) * progress;
+        this.currentP = 0.4 - (0.4 - 0.1) * progress;
+    }
+    
+    __getNeighbors(vertex) {
+        const neighbors = [];
+        for (let i = 0; i < this.numNodes; i++) {
+            if (this.newIndividual.graph.matAjd[vertex][i]) neighbors.push(i);
+        }
+        return neighbors;
+    }
+    
+    // ==========================================
+    // nextGeneration - LOOP PRINCIPAL DO HS
+    // ==========================================
+    nextGeneration() {
+        this.observers.running("HS Iteration");
+        
+        // Atualiza parâmetros adaptativos
+        if (this.useAdaptiveParams) {
+            this.__updateAdaptiveParams();
+        } else {
+            this.currentHMCR = this.HMCR;
+            this.currentP = this.P;
+        }
+        
+        // Gera nova harmonia válida
+        let newIndividual = this.__generateValidHarmony();
+        
+        // Busca local
+        if (this.useLocalSearch) {
+            newIndividual = this.__localSearch(newIndividual);
+        }
+        
+        // Atualiza a memória
+        this.__updateHM(newIndividual);
+        
+        // Atualiza o melhor global
+        if (newIndividual.fitness > this.bestFitness) {
+            this.bestFitness = newIndividual.fitness;
+            this.bestIndividuals = [newIndividual];
+            this.observers.new_best(newIndividual);
+        }
+        
+        // Ordena população
+        this.population.sort((a, b) => b.fitness - a.fitness);
+        
+        this.generation++;
+    }
+    
+    // ==========================================
+    // Parâmetros
+    // ==========================================
+    getParameters() {
+        return {
+            populationSize: this.populationSize,
+            HMCR: this.HMCR,
+            P: this.P,
+            maxIters: this.maxIters,
+            useLocalSearch: this.useLocalSearch,
+            useAdaptiveParams: this.useAdaptiveParams
+        };
+    }
+    
+    getParametersOptions() {
+        return [
+            { displayName: "Harmony Memory Size (HMS)", variableName: "populationSize", type: "Int", min: 3, max: 100, step: 1 },
+            { displayName: "HMCR", variableName: "HMCR", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Initial Probability (P)", variableName: "P", type: "Float", min: 0, max: 1, step: 0.05 },
+            { displayName: "Max Iterations", variableName: "maxIters", type: "Int", min: 10, max: 10000, step: 100 },
+            { displayName: "Use Local Search", variableName: "useLocalSearch", type: "Boolean" },
+            { displayName: "Use Adaptive Parameters", variableName: "useAdaptiveParams", type: "Boolean" }
+        ];
+    }
+}
 
-
-if (typeof module !== "undefined") module.exports = { GA, PermutGA, GRASP, CRO };
+if (typeof module !== "undefined") module.exports = { GA, PermutGA, GRASP, CRO, HS};
