@@ -24,7 +24,7 @@ function autoAdjust(metrics, diagnosis, history, params) {
             diagnosis.state === "collapsed" ||
             diagnosis.state === "chaotic"
         ) {
-            control.frozen = false;
+            control.frozen = false; 
         } else {
             return {};
         }
