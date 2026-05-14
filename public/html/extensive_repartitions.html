@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Extensive Repartitions Search Space</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 5px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: white;
+            font-family: sans-serif;
+        }
+        #topBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            border-bottom: 1px solid #ccc;
+        }
+        #container { 
+            width: 100%; 
+            height: calc(100% - 50px); 
+            position: relative;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="topBar">
+    <h3>Search Space Visualization (Extensive Repartitions)</h3>
+    <p id="status">Aguardando dados...</p>
+</div>
+
+<div id="container">
+    <canvas id="canvasMatrix"></canvas>
+</div>
+
+<script type="module">
+    document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById("canvasMatrix");
+        const ctx = canvas.getContext("2d");
+
+        let lastPopulationData = null;
+        let isDrawingScheduled = false;
+        const PADDING = 40; // Margem para os pontos não encostarem na borda
+
+        function resizeCanvas() {
+            const container = document.getElementById('container');
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            if (lastPopulationData) drawSearchSpace(lastPopulationData);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const socket = new WebSocket("ws://localhost:3214");
+
+        socket.onmessage = function (event) {
+            const message = JSON.parse(event.data);
+
+            if (message.act === "data") {
+                lastPopulationData = message.data.population;
+                
+                const statusElem = document.getElementById("status");
+                if(statusElem) statusElem.innerHTML = `Geração: ${message.data.generation}`;
+
+                if (!isDrawingScheduled) {
+                    isDrawingScheduled = true;
+                    requestAnimationFrame(() => {
+                        drawSearchSpace(lastPopulationData);
+                        isDrawingScheduled = false;
+                    });
+                }
+            } else if (message.act === "log") {
+                console.log(message.data);
+            }
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+        };
+
+        /**
+         * Lógica de Mapeamento Geométrico Centrado
+         */
+        function extensiveRepartitionCentered(individual, reference, order, useLastForFirstCuts = true) {
+            let seq = [...order];
+            if (useLastForFirstCuts && seq.length >= 2) {
+                const lastTwo = seq.splice(-2);
+                seq = [...lastTwo, ...seq];
+            }
+
+            let x_min = 0.0, x_max = 1.0;
+            let y_min = 0.0, y_max = 1.0;
+
+            for (let i = 0; i < seq.length; i++) {
+                const bitIndex = seq[i];
+                const bit = individual[bitIndex];
+                const refBit = reference[bitIndex];
+                const isMatch = (bit === refBit);
+
+                if (i % 2 === 0) { 
+                    const mid = (x_min + x_max) / 2.0;
+                    const centerLower = (x_min + mid) / 2.0;
+                    const centerUpper = (mid + x_max) / 2.0;
+                    const lowerIsCloser = Math.abs(centerLower - 0.5) <= Math.abs(centerUpper - 0.5);
+
+                    if (isMatch) {
+                        if (lowerIsCloser) x_max = mid; else x_min = mid;
+                    } else {
+                        if (lowerIsCloser) x_min = mid; else x_max = mid;
+                    }
+                } else { 
+                    const mid = (y_min + y_max) / 2.0;
+                    const centerLower = (y_min + mid) / 2.0;
+                    const centerUpper = (mid + y_max) / 2.0;
+                    const lowerIsCloser = Math.abs(centerLower - 0.5) <= Math.abs(centerUpper - 0.5);
+
+                    if (isMatch) {
+                        if (lowerIsCloser) y_max = mid; else y_min = mid;
+                    } else {
+                        if (lowerIsCloser) y_min = mid; else y_max = mid;
+                    }
+                }
+            }
+
+            return {
+                x: (x_min + x_max) / 2.0,
+                y: (y_min + y_max) / 2.0
+            };
+        }
+
+        /**
+         * Renderiza o Espaço de Busca Bidimensional
+         */
+        function drawSearchSpace(population) {
+            if (!canvas || !population || population.length === 0) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Identifica o melhor indivíduo para usar como "Centro" (Referência)
+            // Assumindo que maior fitness é melhor. Inverta o sinal se for minimização.
+            let bestInd = population[0];
+            let minFitness = population[0].fitness;
+            let maxFitness = population[0].fitness;
+
+            for (let ind of population) {
+                if (ind.fitness > bestInd.fitness) bestInd = ind;
+                if (ind.fitness < minFitness) minFitness = ind.fitness;
+                if (ind.fitness > maxFitness) maxFitness = ind.fitness;
+            }
+
+            const referenceMask = bestInd.nodeMask;
+            const numBits = referenceMask.length;
+            
+            // Ordem padrão: 0, 1, 2... N
+            const order = Array.from({length: numBits}, (_, i) => i);
+
+            // Área desenhável
+            const drawWidth = canvas.width - 2 * PADDING;
+            const drawHeight = canvas.height - 2 * PADDING;
+
+            // 2. Desenha um retículo de fundo suave (opcional, ajuda na percepção espacial)
+            ctx.strokeStyle = "#eee";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, PADDING);
+            ctx.lineTo(canvas.width / 2, canvas.height - PADDING);
+            ctx.moveTo(PADDING, canvas.height / 2);
+            ctx.lineTo(canvas.width - PADDING, canvas.height / 2);
+            ctx.stroke();
+
+            // 3. Mapeia e desenha cada indivíduo
+            for (let i = 0; i < population.length; i++) {
+                const ind = population[i];
+                
+                // Extrai as coordenadas normalizadas [0, 1]
+                const coords = extensiveRepartitionCentered(ind.nodeMask, referenceMask, order, true);
+                
+                // Mapeia para os pixels do Canvas
+                const cx = PADDING + coords.x * drawWidth;
+                const cy = PADDING + coords.y * drawHeight;
+
+                // Normaliza o fitness para ajustar a cor ou tamanho (0 a 1)
+                const fitRange = maxFitness - minFitness || 1;
+                const normalizedFitness = (ind.fitness - minFitness) / fitRange;
+
+                if (ind === bestInd) {
+                    // Destaque para o indivíduo de referência (sempre no centro exato 0.5, 0.5)
+                    ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = "black";
+                    ctx.stroke();
+                } else {
+                    // Outros indivíduos: mapeamento de cor (azul = ruim, roxo = médio, vermelho = bom)
+                    // e variação de opacidade baseada no fitness
+                    const hue = (1.0 - normalizedFitness) * 240; // 240 é Azul, 0 é Vermelho
+                    ctx.fillStyle = `hsla(${hue}, 80%, 50%, 0.6)`;
+                    
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
