@@ -7,6 +7,10 @@ const Logger = require("./js-server/logger.js");
 let logger;
 const zlib = require('zlib');
 
+const { autoAdjust } = require("./js-server/auto_ajuste/AutoAdjust.js");
+const { getPopulationMetrics } = require("./js-server/auto_ajuste/metrics.js");
+const { updateHistory, diagnose, state } = require("./js-server/auto_ajuste/PopulationDiagnoser.js");
+
 
 const observers = {
     obs_fitness: [],
@@ -460,7 +464,6 @@ function loadGA(dbpath, metaheuristic = 'GA') {
 }
 
 
-
 server.on('connection', ws => {
     console.log("Client connected");
 
@@ -484,6 +487,11 @@ server.on('connection', ws => {
             case "set_parameters":
                 logger.log("GA_setting", Object.keys(obj.data).join(","));
                 ga.setParameters(obj.data);
+                console.log(obj.data)
+                for (const p of observers.obs_parameters) {
+                    p.send(JSON.stringify({ act: "data", data: ga.getParameters() }));
+                    if (ws === p ) continue;
+                }
                 break;
             case "command":
                 if (obj.data === "partialReset") {
@@ -767,7 +775,7 @@ function checkAndNotifyForBetterSolution() {
     let shouldShow = false;
     if (ga && globalBest.bestFitness > ga.bestFitness) {
         shouldShow = true;
-        console.log(`Nova solução da rede disponível! Global: ${globalBest.bestFitness}, Local: ${ga.bestFitness}`);
+        // console.log(`Nova solução da rede disponível! Global: ${globalBest.bestFitness}, Local: ${ga.bestFitness}`);
     }
 
     newSolutionAvailable = shouldShow;
@@ -930,6 +938,17 @@ function saveNetworkBest(datasetName, bestFitness, individual) {
 
 let mainInterval;
 
+function observerGetParameters() {
+    for (const ws of observers.obs_parameters) {
+        if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({
+                act: "data",
+                data: ga.getParameters()
+            }));
+        }
+    }
+}
+
 function startMainLoop() {
     mainInterval = setInterval(() => {
         // Só executa se estiver rodando ou se for solicitado um único passo
@@ -972,14 +991,88 @@ function startMainLoop() {
                 console.log("Novo Best local!");
                 logger.log("localBest", `${localBest}`);
             }
+            
+            //adições
+            const params = ga.getParameters()
+            const metricas = getPopulationMetrics(ga.population)
+            const historico = updateHistory(metricas)
+            const diagnostico = diagnose(metricas)
+            let valores = autoAdjust(metricas, diagnostico, historico, params)
 
+            console.log(diagnostico.state);
+            // console.log(ga.getParameters().populationSize);
+            if (Object.keys(valores).length !== 0) {
+                console.log(valores);
+                ga.setParameters(valores);
+                observerGetParameters();
+                valores = {};
+            }
 
-            console.log(`Best Fitness: ${ga.population[0].fitness}`);
-            console.log(`Worst Fitness: ${ga.population[ga.population.length - 1].fitness}`);
-            console.log(`Best age: ${ga.population[0].age}`);
-            console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
-            console.log(`generation: ${ga.generation}`);
-            console.log(`entropy: ${ga.entropy}`);
+            // const result = Observer(
+            //     ga.population[ga.population.length - 1].fitness
+            // )
+
+            // if (result && result.action) {
+            //     const p = ga.getParameters()
+            //     let dict = {}
+
+            //     switch (result.action) {
+            //         case "increase_mutation":
+            //             dict = {
+            //                 mutationRate: Math.min(
+            //                     1,
+            //                     p.mutationRate + result.value
+            //                 )
+            //             }
+            //         break
+
+            //         case "reduce_survival":
+            //             dict = {
+            //                 survivalRate: Math.max(
+            //                     0.05,
+            //                     p.survivalRate - result.value
+            //                 )
+            //             }
+            //         break
+
+            //         case "increase_population":
+            //             dict = {
+            //                 populationSize:
+            //                     p.populationSize + result.value
+            //             }
+            //         break
+
+            //         case "critical_escape":
+
+            //             dict = {
+            //                 mutationRate: Math.min(
+            //                     1,
+            //                     p.mutationRate + 0.08
+            //                 ),
+            //                 mutationSelectionRate: Math.min(
+            //                     1,
+            //                     p.mutationSelectionRate + 0.10
+            //                 ),
+            //                 survivalRate: Math.max(
+            //                     0.10,
+            //                     p.survivalRate - 0.10
+            //                 ),
+            //                 mutationType: "bitFlip"
+            //             }
+            //         break
+            //     }
+
+            //     ga.setParameters(dict)
+            //     observerGetParameters()
+
+            //     console.log(ga.population[0])
+            // }
+
+            // console.log(`Worst Fitness: ${ga.population[ga.population.length - 1].fitness}`);
+            // console.log(`Best age: ${ga.population[0].age}`);
+            // console.log(`Best Upper Bound: ${ga.bestUpperBound}`);
+            // console.log(`generation: ${ga.generation}`);
+            // console.log(`entropy: ${ga.entropy}`);
 
             // console.log('timings');
             // console.log(ga.timings);
