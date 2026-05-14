@@ -999,7 +999,7 @@ function startMainLoop() {
             const diagnostico = diagnose(metricas)
             let valores = autoAdjust(metricas, diagnostico, historico, params)
 
-            console.log(diagnostico.state);
+            // console.log(diagnostico.state);
             // console.log(ga.getParameters().populationSize);
             if (Object.keys(valores).length !== 0) {
                 console.log(valores);
@@ -1007,66 +1007,6 @@ function startMainLoop() {
                 observerGetParameters();
                 valores = {};
             }
-
-            // const result = Observer(
-            //     ga.population[ga.population.length - 1].fitness
-            // )
-
-            // if (result && result.action) {
-            //     const p = ga.getParameters()
-            //     let dict = {}
-
-            //     switch (result.action) {
-            //         case "increase_mutation":
-            //             dict = {
-            //                 mutationRate: Math.min(
-            //                     1,
-            //                     p.mutationRate + result.value
-            //                 )
-            //             }
-            //         break
-
-            //         case "reduce_survival":
-            //             dict = {
-            //                 survivalRate: Math.max(
-            //                     0.05,
-            //                     p.survivalRate - result.value
-            //                 )
-            //             }
-            //         break
-
-            //         case "increase_population":
-            //             dict = {
-            //                 populationSize:
-            //                     p.populationSize + result.value
-            //             }
-            //         break
-
-            //         case "critical_escape":
-
-            //             dict = {
-            //                 mutationRate: Math.min(
-            //                     1,
-            //                     p.mutationRate + 0.08
-            //                 ),
-            //                 mutationSelectionRate: Math.min(
-            //                     1,
-            //                     p.mutationSelectionRate + 0.10
-            //                 ),
-            //                 survivalRate: Math.max(
-            //                     0.10,
-            //                     p.survivalRate - 0.10
-            //                 ),
-            //                 mutationType: "bitFlip"
-            //             }
-            //         break
-            //     }
-
-            //     ga.setParameters(dict)
-            //     observerGetParameters()
-
-            //     console.log(ga.population[0])
-            // }
 
             // console.log(`Worst Fitness: ${ga.population[ga.population.length - 1].fitness}`);
             // console.log(`Best age: ${ga.population[0].age}`);
