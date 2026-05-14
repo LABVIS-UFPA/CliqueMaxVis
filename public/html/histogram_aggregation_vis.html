@@ -55,6 +55,17 @@
 			align-items: center;
 		}
 
+		#focusBar {
+			background: #ffffff;
+			border: 1px solid #d9e1ec;
+			border-radius: 8px;
+			padding: 6px 8px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			align-items: center;
+		}
+
 		.check-chip {
 			display: inline-flex;
 			align-items: center;
@@ -67,6 +78,57 @@
 			color: #2e4660;
 			user-select: none;
 			white-space: nowrap;
+		}
+
+		.focus-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			border: 1px solid #d4e1f0;
+			background: #f8fbff;
+			border-radius: 8px;
+			padding: 4px 8px;
+			font-size: 12px;
+			color: #2e4660;
+			user-select: none;
+			white-space: nowrap;
+		}
+
+		.focus-chip input {
+			width: 12px;
+			height: 12px;
+			margin: 0;
+			cursor: pointer;
+		}
+
+		.focus-button {
+			border: 1px solid #c8d5e5;
+			background: #ffffff;
+			border-radius: 7px;
+			color: #2f4d69;
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: 700;
+			min-height: 26px;
+			padding: 4px 8px;
+		}
+
+		.focus-button:hover:not(:disabled) {
+			background: #eef5ff;
+			border-color: #9db8d6;
+		}
+
+		.focus-button:disabled {
+			color: #98a8b9;
+			cursor: default;
+			background: #f4f7fb;
+		}
+
+		#selectedList {
+			min-width: 160px;
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 
 		.check-chip input {
@@ -119,6 +181,8 @@
 			width: 100%;
 			height: 100%;
 			display: block;
+			cursor: crosshair;
+			touch-action: none;
 		}
 
 		.panel-legend {
@@ -188,8 +252,16 @@
 				gap: 5px;
 			}
 
+			#focusBar {
+				gap: 5px;
+			}
+
 			.check-chip {
 				padding: 3px 7px;
+			}
+
+			#selectedList {
+				flex-basis: 100%;
 			}
 		}
 	</style>
@@ -229,6 +301,18 @@
 			</label>
 		</div>
 
+		<div id="focusBar">
+			<span id="selectedSummary" class="focus-chip">Selected vertices: 0</span>
+			<label class="focus-chip">
+				<input id="chk-focus-selected" type="checkbox" disabled />
+				<span>Show selected only</span>
+			</label>
+			<button id="btn-sort-asc" class="focus-button" type="button" disabled>Sort asc</button>
+			<button id="btn-sort-desc" class="focus-button" type="button" disabled>Sort desc</button>
+			<button id="btn-clear-selection" class="focus-button" type="button" disabled>Clear</button>
+			<span id="selectedList" class="focus-chip">Click or drag over bars to select vertices.</span>
+		</div>
+
 		<div id="chartWrap">
 			<div id="chartsStack"></div>
 			<div id="hoverTooltip"></div>
@@ -255,6 +339,12 @@
 		const chartsStackEl = document.getElementById("chartsStack");
 		const hoverTooltipEl = document.getElementById("hoverTooltip");
 		const statusEl = document.getElementById("status");
+		const focusSelectedCheckbox = document.getElementById("chk-focus-selected");
+		const selectedSummaryEl = document.getElementById("selectedSummary");
+		const selectedListEl = document.getElementById("selectedList");
+		const sortAscButton = document.getElementById("btn-sort-asc");
+		const sortDescButton = document.getElementById("btn-sort-desc");
+		const clearSelectionButton = document.getElementById("btn-clear-selection");
 
 		const checkboxes = {
 			total: document.getElementById("chk-total"),
@@ -280,6 +370,9 @@
 		let processedGenerations = 0;
 		let currentGeneration = 0;
 		let drawScheduled = false;
+		let histogramSortDirection = "vertex";
+		let selectedVertices = new Set();
+		let selectionAnchorVertex = null;
 
 		let counters = {
 			total: 0,
@@ -332,6 +425,9 @@
 			};
 			processedGenerations = 0;
 			currentGeneration = 0;
+			selectedVertices.clear();
+			selectionAnchorVertex = null;
+			updateFocusControls();
 		}
 
 		function ensureAccumulatorSize(size) {
@@ -385,16 +481,24 @@
 			return maxFitness;
 		}
 
+		function initializeRacePodium(population) {
+			const fitnessValues = [...new Set(population
+				.filter((individual) => individual && Array.isArray(individual.nodeMask))
+				.map((individual) => Number(individual.fitness ?? 0)))]
+				.sort((a, b) => b - a);
+
+			raceFitness.top1 = fitnessValues[0] ?? null;
+			raceFitness.top2 = fitnessValues[1] ?? null;
+			raceFitness.top3 = fitnessValues[2] ?? null;
+		}
+
 		function classifyPopulation(population) {
 			const generationMaxFitness = getGenerationMaxFitness(population);
 			if (generationMaxFitness === null) return;
 
-			//Inicializa o raceFitness.
-			raceFitness.top1 = generationMaxFitness;
-			raceFitness.top2 = generationMaxFitness-1;
-			raceFitness.top3 = generationMaxFitness-2;
-
-			if (raceFitness.top1 === null || generationMaxFitness > raceFitness.top1) {
+			if (raceFitness.top1 === null) {
+				initializeRacePodium(population);
+			} else if (generationMaxFitness > raceFitness.top1) {
 				shiftRacePodiumForNewLeader(generationMaxFitness);
 			}
 
@@ -426,6 +530,96 @@
 			return GROUP_CONFIG
 				.map((group) => group.key)
 				.filter((key) => checkboxes[key].checked);
+		}
+
+		function getOrderedSelectedVertices() {
+			return [...selectedVertices]
+				.filter((index) => index >= 0 && index < vertexCount)
+				.sort((a, b) => a - b);
+		}
+
+		function formatVertexList(indices) {
+			if (!indices.length) return "Click or drag over bars to select vertices.";
+
+			const preview = indices.slice(0, 14).map((index) => index + 1).join(", ");
+			const suffix = indices.length > 14 ? `, +${indices.length - 14} more` : "";
+			return `Vertices: ${preview}${suffix}`;
+		}
+
+		function updateFocusControls() {
+			const ordered = getOrderedSelectedVertices();
+			const selectedCount = ordered.length;
+			const hasFocusState =
+				selectedCount > 0 ||
+				histogramSortDirection !== "vertex" ||
+				focusSelectedCheckbox.checked;
+
+			selectedSummaryEl.textContent = `Selected vertices: ${selectedCount}`;
+			selectedListEl.textContent = formatVertexList(ordered);
+			focusSelectedCheckbox.disabled = selectedCount === 0;
+			sortAscButton.disabled = vertexCount < 2;
+			sortDescButton.disabled = vertexCount < 2;
+			clearSelectionButton.disabled = !hasFocusState;
+
+			if (selectedCount === 0) {
+				focusSelectedCheckbox.checked = false;
+			}
+		}
+
+		function setSelectedVertices(indices, append = false) {
+			const next = append ? new Set(selectedVertices) : new Set();
+
+			for (const index of indices) {
+				if (index >= 0 && index < vertexCount) next.add(index);
+			}
+
+			selectedVertices = next;
+			updateFocusControls();
+			scheduleDraw();
+		}
+
+		function setSelectionAnchor(index) {
+			selectionAnchorVertex = index >= 0 && index < vertexCount ? index : null;
+		}
+
+		function toggleSelectedVertex(index) {
+			const next = new Set(selectedVertices);
+			if (next.has(index)) next.delete(index);
+			else next.add(index);
+			selectedVertices = next;
+			updateFocusControls();
+			scheduleDraw();
+		}
+
+		function selectVertexRange(fromIndex, toIndex, append = false) {
+			const start = Math.max(0, Math.min(fromIndex, toIndex));
+			const end = Math.min(vertexCount - 1, Math.max(fromIndex, toIndex));
+			const indices = [];
+
+			for (let index = start; index <= end; index++) {
+				indices.push(index);
+			}
+
+			setSelectedVertices(indices, append);
+		}
+
+		function getDisplayData(histogram) {
+			let displayData = histogram.map((value, vertexIndex) => ({
+				vertexIndex,
+				value: value || 0
+			}));
+
+			if (focusSelectedCheckbox.checked && selectedVertices.size) {
+				displayData = displayData.filter((item) => selectedVertices.has(item.vertexIndex));
+			}
+
+			if (histogramSortDirection === "asc") {
+				displayData.sort((a, b) => a.value - b.value || a.vertexIndex - b.vertexIndex);
+			} else if (histogramSortDirection === "desc") {
+				displayData.sort((a, b) => b.value - a.value || a.vertexIndex - b.vertexIndex);
+			}
+
+			return displayData;
 		}
 
 		function hideTooltip() {
@@ -491,20 +685,33 @@
 			}
 		}
 
+		function isDisplayIndexInDragRange(panelState, displayIndex) {
+			if (!panelState.isPointerDown) return false;
+			if (panelState.dragStartDisplayIndex < 0 || panelState.dragCurrentDisplayIndex < 0) return false;
+
+			const min = Math.min(panelState.dragStartDisplayIndex, panelState.dragCurrentDisplayIndex);
+			const max = Math.max(panelState.dragStartDisplayIndex, panelState.dragCurrentDisplayIndex);
+			return displayIndex >= min && displayIndex <= max;
+		}
+
 		function renderPanel(panelState) {
 			const { key, canvas, ctx, legendMin, legendMax } = panelState;
 			const histogram = accumulators[key] || [];
+			const displayData = getDisplayData(histogram);
 
 			const width = Math.max(320, Math.floor(canvas.clientWidth));
 			const height = Math.max(170, Math.floor(canvas.clientHeight));
 			canvas.width = width;
 			canvas.height = height;
 
-			if (!histogram.length) {
+			if (!histogram.length || !displayData.length) {
 				legendMin.textContent = "0";
 				legendMax.textContent = "0";
 				panelState.drawMeta = null;
-				drawNoDataMessage(ctx, canvas, `No data available for ${GROUP_LABELS[key]}.`);
+				const message = histogram.length
+					? `No selected vertices to display for ${GROUP_LABELS[key]}.`
+					: `No data available for ${GROUP_LABELS[key]}.`;
+				drawNoDataMessage(ctx, canvas, message);
 				return;
 			}
 
@@ -517,8 +724,8 @@
 				return;
 			}
 
-			const maxValue = d3.max(histogram) || 0;
-			const barWidth = innerWidth / histogram.length;
+			const maxValue = d3.max(displayData, (item) => item.value) || 0;
+			const barWidth = innerWidth / displayData.length;
 			colorScale.domain([0, Math.max(1, maxValue)]);
 
 			legendMin.textContent = "0";
@@ -530,8 +737,23 @@
 
 			drawYAxisAndGrid(ctx, margin, innerWidth, innerHeight, maxValue);
 
-			for (let i = 0; i < histogram.length; i++) {
-				const value = histogram[i];
+			for (let i = 0; i < displayData.length; i++) {
+				const { vertexIndex } = displayData[i];
+				const x = margin.left + i * barWidth;
+
+				if (selectedVertices.has(vertexIndex)) {
+					ctx.fillStyle = "rgba(240, 140, 0, 0.13)";
+					ctx.fillRect(x, margin.top, Math.max(1, Math.ceil(barWidth)), innerHeight);
+				}
+
+				if (isDisplayIndexInDragRange(panelState, i)) {
+					ctx.fillStyle = "rgba(37, 99, 235, 0.14)";
+					ctx.fillRect(x, margin.top, Math.max(1, Math.ceil(barWidth)), innerHeight);
+				}
+			}
+
+			for (let i = 0; i < displayData.length; i++) {
+				const { value } = displayData[i];
 				if (!value) continue;
 
 				const barHeight = (value / Math.max(1, maxValue)) * innerHeight;
@@ -542,7 +764,22 @@
 				ctx.fillRect(x, y, Math.max(1, Math.ceil(barWidth)), barHeight);
 			}
 
-			if (panelState.hoveredIndex >= 0 && panelState.hoveredIndex < histogram.length) {
+			for (let i = 0; i < displayData.length; i++) {
+				const { vertexIndex } = displayData[i];
+				if (!selectedVertices.has(vertexIndex)) continue;
+
+				const x = margin.left + i * barWidth;
+				ctx.strokeStyle = "#f08c00";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(
+					x + 0.5,
+					margin.top + 0.5,
+					Math.max(1, Math.ceil(barWidth)) - 1,
+					innerHeight - 1
+				);
+			}
+
+			if (panelState.hoveredIndex >= 0 && panelState.hoveredIndex < displayData.length) {
 				const highlightX = margin.left + panelState.hoveredIndex * barWidth + barWidth / 2;
 				ctx.strokeStyle = "#f08c00";
 				ctx.lineWidth = 1;
@@ -555,7 +792,8 @@
 			ctx.fillStyle = "#2f445a";
 			ctx.font = "12px Segoe UI";
 			ctx.textAlign = "right";
-			ctx.fillText(`Vertex ${histogram.length}`, margin.left + innerWidth, canvas.height - 8);
+			const lastVertex = displayData[displayData.length - 1].vertexIndex + 1;
+			ctx.fillText(`Vertex ${lastVertex}`, margin.left + innerWidth, canvas.height - 8);
 			ctx.textAlign = "left";
 
 			ctx.fillStyle = "#3b5875";
@@ -567,7 +805,7 @@
 				innerWidth,
 				innerHeight,
 				barWidth,
-				histogram
+				displayData
 			};
 		}
 
@@ -583,6 +821,11 @@
 		}
 
 		function handlePanelHover(event, panelState) {
+			if (panelState.isPointerDown) {
+				hideTooltip();
+				return;
+			}
+
 			const meta = panelState.drawMeta;
 			if (!meta) {
 				hideTooltip();
@@ -593,7 +836,7 @@
 			const x = event.clientX - rect.left;
 			const y = event.clientY - rect.top;
 
-			const { margin, innerWidth, innerHeight, barWidth, histogram } = meta;
+			const { margin, innerWidth, innerHeight, barWidth, displayData } = meta;
 			const insidePlot =
 				x >= margin.left &&
 				x <= margin.left + innerWidth &&
@@ -610,7 +853,7 @@
 			}
 
 			const index = Math.floor((x - margin.left) / barWidth);
-			if (index < 0 || index >= histogram.length) {
+			if (index < 0 || index >= displayData.length) {
 				if (panelState.hoveredIndex !== -1) {
 					panelState.hoveredIndex = -1;
 					scheduleDraw();
@@ -619,8 +862,9 @@
 				return;
 			}
 
-			const value = histogram[index] || 0;
-			hoverTooltipEl.textContent = `Vertex ${index + 1}\nOccurrences: ${value}\nGroup: ${GROUP_LABELS[panelState.key]}`;
+			const { vertexIndex, value } = displayData[index];
+			const selectionText = selectedVertices.has(vertexIndex) ? "\nSelected" : "";
+			hoverTooltipEl.textContent = `Vertex ${vertexIndex + 1}\nOccurrences: ${value}\nGroup: ${GROUP_LABELS[panelState.key]}${selectionText}`;
 			hoverTooltipEl.style.display = "block";
 			positionTooltip(event);
 
@@ -630,8 +874,99 @@
 			}
 		}
 
+		function getPointerDisplayIndex(event, panelState) {
+			const meta = panelState.drawMeta;
+			if (!meta) return -1;
+
+			const rect = panelState.canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+			const { margin, innerWidth, innerHeight, barWidth, displayData } = meta;
+
+			const insidePlot =
+				x >= margin.left &&
+				x <= margin.left + innerWidth &&
+				y >= margin.top &&
+				y <= margin.top + innerHeight;
+
+			if (!insidePlot || barWidth <= 0) return -1;
+
+			const index = Math.floor((x - margin.left) / barWidth);
+			if (index < 0 || index >= displayData.length) return -1;
+			return index;
+		}
+
+		function commitSelectionFromDrag(event, panelState) {
+			const meta = panelState.drawMeta;
+			if (!meta) return;
+
+			const start = panelState.dragStartDisplayIndex;
+			const end = panelState.dragCurrentDisplayIndex;
+			if (start < 0 || end < 0) return;
+
+			if (start === end) {
+				const vertexIndex = meta.displayData[start].vertexIndex;
+				if (event.shiftKey && selectionAnchorVertex !== null) {
+					selectVertexRange(selectionAnchorVertex, vertexIndex, event.ctrlKey || event.metaKey);
+				} else if (event.ctrlKey || event.metaKey) {
+					toggleSelectedVertex(vertexIndex);
+				} else {
+					setSelectedVertices([vertexIndex]);
+				}
+				setSelectionAnchor(vertexIndex);
+				return;
+			}
+
+			const min = Math.min(start, end);
+			const max = Math.max(start, end);
+			const selectedRange = meta.displayData
+				.slice(min, max + 1)
+				.map((item) => item.vertexIndex);
+
+			setSelectedVertices(selectedRange, event.ctrlKey || event.metaKey);
+			setSelectionAnchor(selectedRange[selectedRange.length - 1]);
+		}
+
 		function attachPanelEvents(panelState) {
 			panelState.canvas.addEventListener("mousemove", (event) => handlePanelHover(event, panelState));
+			panelState.canvas.addEventListener("pointerdown", (event) => {
+				const displayIndex = getPointerDisplayIndex(event, panelState);
+				if (displayIndex < 0) return;
+
+				panelState.canvas.setPointerCapture(event.pointerId);
+				panelState.isPointerDown = true;
+				panelState.dragStartDisplayIndex = displayIndex;
+				panelState.dragCurrentDisplayIndex = displayIndex;
+				panelState.hoveredIndex = displayIndex;
+				hideTooltip();
+				scheduleDraw();
+				event.preventDefault();
+			});
+			panelState.canvas.addEventListener("pointermove", (event) => {
+				if (!panelState.isPointerDown) return;
+				const displayIndex = getPointerDisplayIndex(event, panelState);
+				if (displayIndex < 0 || displayIndex === panelState.dragCurrentDisplayIndex) return;
+				panelState.dragCurrentDisplayIndex = displayIndex;
+				panelState.hoveredIndex = displayIndex;
+				scheduleDraw();
+			});
+			panelState.canvas.addEventListener("pointerup", (event) => {
+				if (!panelState.isPointerDown) return;
+				const displayIndex = getPointerDisplayIndex(event, panelState);
+				if (displayIndex >= 0) panelState.dragCurrentDisplayIndex = displayIndex;
+
+				commitSelectionFromDrag(event, panelState);
+				panelState.isPointerDown = false;
+				panelState.dragStartDisplayIndex = -1;
+				panelState.dragCurrentDisplayIndex = -1;
+				scheduleDraw();
+			});
+			panelState.canvas.addEventListener("pointercancel", () => {
+				panelState.isPointerDown = false;
+				panelState.dragStartDisplayIndex = -1;
+				panelState.dragCurrentDisplayIndex = -1;
+				scheduleDraw();
+			});
 			panelState.canvas.addEventListener("mouseleave", () => {
 				if (panelState.hoveredIndex !== -1) {
 					panelState.hoveredIndex = -1;
@@ -678,6 +1013,9 @@
 				legendMin: minEl,
 				legendMax: maxEl,
 				hoveredIndex: -1,
+				isPointerDown: false,
+				dragStartDisplayIndex: -1,
+				dragCurrentDisplayIndex: -1,
 				drawMeta: null
 			};
 
@@ -717,6 +1055,26 @@
 		for (const key of Object.keys(checkboxes)) {
 			checkboxes[key].addEventListener("change", refreshLayoutAndDraw);
 		}
+
+		focusSelectedCheckbox.addEventListener("change", scheduleDraw);
+		sortAscButton.addEventListener("click", () => {
+			histogramSortDirection = "asc";
+			updateFocusControls();
+			scheduleDraw();
+		});
+		sortDescButton.addEventListener("click", () => {
+			histogramSortDirection = "desc";
+			updateFocusControls();
+			scheduleDraw();
+		});
+		clearSelectionButton.addEventListener("click", () => {
+			selectedVertices.clear();
+			selectionAnchorVertex = null;
+			histogramSortDirection = "vertex";
+			focusSelectedCheckbox.checked = false;
+			updateFocusControls();
+			scheduleDraw();
+		});
 
 		window.addEventListener("resize", scheduleDraw);
 
@@ -761,6 +1119,7 @@
 			statusEl.textContent = `Generation ${currentGeneration} | Population ${population.length} | Accumulated in ${processedGenerations} generations`;
 
 			updateCounts();
+			updateFocusControls();
 			scheduleDraw();
 		};
 
@@ -775,6 +1134,7 @@
 
 		resetAccumulatorState(0);
 		updateCounts();
+		updateFocusControls();
 		refreshLayoutAndDraw();
 	</script>
 </body>
