@@ -1,7 +1,3 @@
-// ===============================
-// HISTORY + DIAGNOSIS SYSTEM
-// ===============================
-
 const state = {
     history: {
         best: [],
@@ -35,10 +31,6 @@ function pushLimit(arr, value) {
     }
 }
 
-// ======================================
-// 2. DIAGNOSE
-// ======================================
-
 function diagnose(metrics) {
 
     const h = state.history;
@@ -58,9 +50,7 @@ function diagnose(metrics) {
     const avgNearBest =
         metrics.bestFitness - metrics.averageFitness <= 1;
 
-    // -------------------------
-    // COLLAPSED
-    // -------------------------
+        
     if (
         diversityLow &&
         repeatedHigh &&
@@ -72,10 +62,7 @@ function diagnose(metrics) {
             action: "critical_escape"
         };
     }
-
-    // -------------------------
-    // CONVERGING TOO MUCH
-    // -------------------------
+    
     if (
         diversityLow &&
         avgNearBest &&
@@ -86,10 +73,7 @@ function diagnose(metrics) {
             action: "increase_mutation"
         };
     }
-
-    // -------------------------
-    // CHAOTIC
-    // -------------------------
+    
     if (
         diversityHigh &&
         metrics.averageFitness <
@@ -100,10 +84,7 @@ function diagnose(metrics) {
             action: "reduce_mutation"
         };
     }
-
-    // -------------------------
-    // STAGNATED LOCAL OPTIMUM
-    // -------------------------
+    
     if (
         bestTrendFlat &&
         !bestImproving &&
@@ -115,10 +96,7 @@ function diagnose(metrics) {
             action: "increase_population"
         };
     }
-
-    // -------------------------
-    // HEALTHY
-    // -------------------------
+    
     if (bestImproving || avgImproving) {
         return {
             state: "healthy",
@@ -131,10 +109,6 @@ function diagnose(metrics) {
         action: null
     };
 }
-
-// ======================================
-// HELPERS
-// ======================================
 
 // verifica se últimos 30 valores ficaram iguais
 function isFlat(arr, n, tolerance = 0.20) {
@@ -163,9 +137,6 @@ function isImproving(arr, n, gain = 1) {
 
     return (newValue - oldValue) >= gain;
 }
-// ======================================
-// EXPORT
-// ======================================
 
 if (typeof module !== "undefined") {
     module.exports = {

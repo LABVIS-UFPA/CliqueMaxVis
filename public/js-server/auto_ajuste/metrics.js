@@ -21,12 +21,7 @@ function getPopulationMetrics(population) {
     let fitnessSum = 0;
 
     const map = new Map();
-
-    // -------------------------
-    // FITNESS + REPETIDOS
-    // -------------------------
-
-
+    
     for (const ind of population) {
         const fit = ind.fitness;
 
@@ -47,11 +42,6 @@ function getPopulationMetrics(population) {
         }
     }
     const uniqueCount = map.size; // número de soluções únicas (tamanho do map, que tem chaves únicas)
-    
-    // -------------------------
-    // DIVERSIDADE
-    // Média de diferenças entre pares
-    // -------------------------
     
     let diversity = 0;
     let pairCount = 0;
