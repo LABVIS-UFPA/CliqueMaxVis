@@ -65,6 +65,7 @@
         let isDrawingScheduled = false;
         let colorScale = d3.scaleSequential(d3.interpolateYlGnBu);
         let colorDomain = null;
+        const JITTER_RADIUS = 7;
         const PADDING = 40; // Margem para os pontos não encostarem na borda
 
         function resizeCanvas() {
@@ -217,6 +218,30 @@
             drawLegend(min, max);
         }
 
+        function hashIndividual(individual, fallbackIndex) {
+            let hash = 2166136261 ^ fallbackIndex;
+            const mask = Array.isArray(individual.nodeMask) ? individual.nodeMask : [];
+
+            for (let i = 0; i < mask.length; i++) {
+                hash ^= mask[i] ? i + 97 : i + 13;
+                hash = Math.imul(hash, 16777619);
+            }
+
+            hash ^= Math.round(Number(individual.fitness || 0) * 1000);
+            return hash >>> 0;
+        }
+
+        function getJitterOffset(individual, index) {
+            const hash = hashIndividual(individual, index);
+            const angle = ((hash & 0xffff) / 0xffff) * Math.PI * 2;
+            const distance = Math.sqrt(((hash >>> 16) & 0xffff) / 0xffff) * JITTER_RADIUS;
+
+            return {
+                x: Math.cos(angle) * distance,
+                y: Math.sin(angle) * distance
+            };
+        }
+
         function drawSearchSpace(population) {
             if (!canvas || !population || population.length === 0) return;
 
@@ -264,8 +289,9 @@
                 const coords = extensiveRepartitionCentered(ind.nodeMask, referenceMask, order, true);
                 
                 // Mapeia para os pixels do Canvas
-                const cx = PADDING + coords.x * drawWidth;
-                const cy = PADDING + coords.y * drawHeight;
+                const jitter = ind === bestInd ? { x: 0, y: 0 } : getJitterOffset(ind, i);
+                const cx = PADDING + coords.x * drawWidth + jitter.x;
+                const cy = PADDING + coords.y * drawHeight + jitter.y;
 
                 if (ind === bestInd) {
                     // Destaque para o indivíduo de referência (sempre no centro exato 0.5, 0.5)
