@@ -28,6 +28,17 @@
         canvas {
             display: block;
         }
+
+        #legend {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 70px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.82);
+            border-radius: 8px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -39,15 +50,21 @@
 
 <div id="container">
     <canvas id="canvasMatrix"></canvas>
+    <svg id="legend" width="70" height="300"></svg>
 </div>
 
 <script type="module">
+    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
     document.addEventListener("DOMContentLoaded", () => {
         const canvas = document.getElementById("canvasMatrix");
         const ctx = canvas.getContext("2d");
+        const legendEl = d3.select("#legend");
 
         let lastPopulationData = null;
         let isDrawingScheduled = false;
+        let colorScale = d3.scaleSequential(d3.interpolateYlGnBu);
+        let colorDomain = null;
         const PADDING = 40; // Margem para os pontos não encostarem na borda
 
         function resizeCanvas() {
@@ -68,6 +85,9 @@
 
             if (message.act === "data") {
                 lastPopulationData = message.data.population;
+                if (Number(message.data.generation) === 0) {
+                    colorDomain = null;
+                }
                 
                 const statusElem = document.getElementById("status");
                 if(statusElem) statusElem.innerHTML = `Geração: ${message.data.generation}`;
@@ -86,6 +106,7 @@
 
         socket.onopen = function () {
             console.log("Conectado ao servidor WebSocket");
+            socket.send(JSON.stringify({ act: "command", data: "initial_individuals" }));
             socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
         };
 
@@ -139,9 +160,63 @@
             };
         }
 
-        /**
-         * Renderiza o Espaço de Busca Bidimensional
-         */
+        function drawLegend(minFitness, maxFitness) {
+            const width = 70;
+            const height = 300;
+            const barWidth = 22;
+            const barHeight = height - 24;
+
+            legendEl.selectAll("*").remove();
+            legendEl
+                .attr("width", width)
+                .attr("height", height);
+
+            const gradient = legendEl.append("defs")
+                .append("linearGradient")
+                .attr("id", "extensive-repartitions-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "100%")
+                .attr("x2", "0%")
+                .attr("y2", "0%");
+
+            for (const stop of d3.range(0, 1.01, 0.1)) {
+                gradient.append("stop")
+                    .attr("offset", `${stop * 100}%`)
+                    .attr("stop-color", colorScale(minFitness + stop * (maxFitness - minFitness)));
+            }
+
+            const legend = legendEl.append("g")
+                .attr("transform", "translate(8,12)");
+
+            legend.append("rect")
+                .attr("width", barWidth)
+                .attr("height", barHeight)
+                .style("fill", "url(#extensive-repartitions-gradient)");
+
+            const axisScale = d3.scaleLinear()
+                .domain([maxFitness, minFitness])
+                .range([0, barHeight]);
+
+            const axis = d3.axisRight(axisScale)
+                .ticks(5)
+                .tickFormat((value) => Number.isInteger(value) ? value : value.toFixed(1));
+
+            legend.append("g")
+                .attr("transform", `translate(${barWidth},0)`)
+                .call(axis);
+        }
+
+        function ensureColorScaleDomain(minFitness, maxFitness) {
+            if (colorDomain) return;
+
+            const min = minFitness / 2;
+            const max = maxFitness === minFitness ? minFitness + 1 : maxFitness * 2;
+
+            colorDomain = { min, max };
+            colorScale.domain([min, max]);
+            drawLegend(min, max);
+        }
+
         function drawSearchSpace(population) {
             if (!canvas || !population || population.length === 0) return;
 
@@ -158,6 +233,8 @@
                 if (ind.fitness < minFitness) minFitness = ind.fitness;
                 if (ind.fitness > maxFitness) maxFitness = ind.fitness;
             }
+
+            ensureColorScaleDomain(minFitness, maxFitness);
 
             const referenceMask = bestInd.nodeMask;
             const numBits = referenceMask.length;
@@ -190,23 +267,17 @@
                 const cx = PADDING + coords.x * drawWidth;
                 const cy = PADDING + coords.y * drawHeight;
 
-                // Normaliza o fitness para ajustar a cor ou tamanho (0 a 1)
-                const fitRange = maxFitness - minFitness || 1;
-                const normalizedFitness = (ind.fitness - minFitness) / fitRange;
-
                 if (ind === bestInd) {
                     // Destaque para o indivíduo de referência (sempre no centro exato 0.5, 0.5)
-                    ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+                    ctx.fillStyle = colorScale(ind.fitness);
                     ctx.beginPath();
                     ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
                     ctx.fill();
                     ctx.strokeStyle = "black";
+                    ctx.lineWidth = 1.5;
                     ctx.stroke();
                 } else {
-                    // Outros indivíduos: mapeamento de cor (azul = ruim, roxo = médio, vermelho = bom)
-                    // e variação de opacidade baseada no fitness
-                    const hue = (1.0 - normalizedFitness) * 240; // 240 é Azul, 0 é Vermelho
-                    ctx.fillStyle = `hsla(${hue}, 80%, 50%, 0.6)`;
+                    ctx.fillStyle = colorScale(ind.fitness);
                     
                     ctx.beginPath();
                     ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
