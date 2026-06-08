@@ -193,7 +193,7 @@
 			border: 1px solid #c7d3e2;
 			border-radius: 8px;
 			padding: 4px 6px;
-			min-width: 150px;
+			min-width: 250px;
 			z-index: 1;
 			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 		}
@@ -213,6 +213,53 @@
 			font-size: 10px;
 			color: #40556d;
 			font-weight: 600;
+		}
+
+		.panel-sort-button {
+			border: 1px solid #c8d5e5;
+			background: rgba(255, 255, 255, 0.94);
+			border-radius: 7px;
+			color: #2f4d69;
+			cursor: pointer;
+			font-size: 11px;
+			font-weight: 700;
+			min-height: 24px;
+			padding: 3px 7px;
+		}
+
+		.panel-sort-button:hover {
+			background: #eef5ff;
+			border-color: #9db8d6;
+		}
+
+		.panel-sort-button.active {
+			background: #dbeafe;
+			border-color: #7aa6d8;
+			color: #173f69;
+		}
+
+		.panel-sort-button:disabled {
+			color: #98a8b9;
+			cursor: default;
+			background: #f4f7fb;
+		}
+
+		.panel-legend-top {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		.panel-sort-controls {
+			display: inline-flex;
+			gap: 4px;
+			order: 1;
+		}
+
+		.panel-scale-wrap {
+			flex: 1;
+			order: 2;
+			min-width: 140px;
 		}
 
 		#emptyState {
@@ -307,8 +354,6 @@
 				<input id="chk-focus-selected" type="checkbox" disabled />
 				<span>Show selected only</span>
 			</label>
-			<button id="btn-sort-asc" class="focus-button" type="button" disabled>Sort asc</button>
-			<button id="btn-sort-desc" class="focus-button" type="button" disabled>Sort desc</button>
 			<button id="btn-clear-selection" class="focus-button" type="button" disabled>Clear</button>
 			<span id="selectedList" class="focus-chip">Click or drag over bars to select vertices.</span>
 		</div>
@@ -335,6 +380,8 @@
 			return acc;
 		}, {});
 
+		const ORDERING_SOURCE = "histogram_aggregation_vis";
+
 		const chartWrapEl = document.getElementById("chartWrap");
 		const chartsStackEl = document.getElementById("chartsStack");
 		const hoverTooltipEl = document.getElementById("hoverTooltip");
@@ -342,8 +389,6 @@
 		const focusSelectedCheckbox = document.getElementById("chk-focus-selected");
 		const selectedSummaryEl = document.getElementById("selectedSummary");
 		const selectedListEl = document.getElementById("selectedList");
-		const sortAscButton = document.getElementById("btn-sort-asc");
-		const sortDescButton = document.getElementById("btn-sort-desc");
 		const clearSelectionButton = document.getElementById("btn-clear-selection");
 
 		const checkboxes = {
@@ -370,9 +415,17 @@
 		let processedGenerations = 0;
 		let currentGeneration = 0;
 		let drawScheduled = false;
-		let histogramSortDirection = "vertex";
 		let selectedVertices = new Set();
 		let selectionAnchorVertex = null;
+		let coordinatedVertexOrder = [];
+		let coordinatedOrderLocked = false;
+		let pendingOrderingPayload = null;
+		let lastBroadcastOrderingSignature = "";
+		let socket = null;
+		let coordinatedSort = {
+			key: null,
+			direction: "vertex"
+		};
 
 		let counters = {
 			total: 0,
@@ -427,6 +480,7 @@
 			currentGeneration = 0;
 			selectedVertices.clear();
 			selectionAnchorVertex = null;
+			resetHistogramSortDirections();
 			updateFocusControls();
 		}
 
@@ -532,6 +586,140 @@
 				.filter((key) => checkboxes[key].checked);
 		}
 
+		function resetHistogramSortDirections() {
+			coordinatedSort = {
+				key: null,
+				direction: "vertex"
+			};
+			coordinatedOrderLocked = false;
+			coordinatedVertexOrder = getDefaultVertexOrder();
+		}
+
+		function hasSortedHistogram() {
+			return coordinatedSort.direction !== "vertex";
+		}
+
+		function getDefaultVertexOrder() {
+			return Array.from({ length: vertexCount }, (_, index) => index);
+		}
+
+		function buildSortedVertexOrder(key, direction) {
+			const histogram = accumulators[key] || [];
+			return getDefaultVertexOrder().sort((a, b) => {
+				const valueA = histogram[a] || 0;
+				const valueB = histogram[b] || 0;
+				if (direction === "asc") return valueA - valueB || a - b;
+				return valueB - valueA || a - b;
+			});
+		}
+
+		function refreshCoordinatedVertexOrder() {
+			if (!hasSortedHistogram()) {
+				ensureCoordinatedVertexOrder();
+				return;
+			}
+
+			if (coordinatedOrderLocked) {
+				ensureCoordinatedVertexOrder();
+				return;
+			}
+
+			coordinatedVertexOrder = buildSortedVertexOrder(coordinatedSort.key, coordinatedSort.direction);
+		}
+
+		function getOrderingBroadcastPayload() {
+			ensureCoordinatedVertexOrder();
+			return {
+				source: ORDERING_SOURCE,
+				key: coordinatedSort.key,
+				direction: coordinatedSort.direction,
+				vertexCount,
+				vertexOrder: coordinatedVertexOrder.slice()
+			};
+		}
+
+		function getOrderingSignature(payload) {
+			return JSON.stringify({
+				key: payload.key,
+				direction: payload.direction,
+				vertexCount: payload.vertexCount,
+				vertexOrder: payload.vertexOrder
+			});
+		}
+
+		function broadcastOrderingChange(force = false) {
+			if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+			const payload = getOrderingBroadcastPayload();
+			const signature = getOrderingSignature(payload);
+			if (!force && signature === lastBroadcastOrderingSignature) return;
+
+			lastBroadcastOrderingSignature = signature;
+			socket.send(JSON.stringify({ act: "change_ordering", data: payload }));
+		}
+
+		function normalizeVertexOrder(vertexOrder, expectedVertexCount) {
+			if (!Array.isArray(vertexOrder) || vertexOrder.length !== expectedVertexCount) return null;
+
+			const seen = new Set();
+			const normalized = [];
+
+			for (const value of vertexOrder) {
+				const index = Number(value);
+				if (!Number.isInteger(index) || index < 0 || index >= expectedVertexCount || seen.has(index)) {
+					return null;
+				}
+				seen.add(index);
+				normalized.push(index);
+			}
+
+			return normalized;
+		}
+
+		function applyOrderingPayload(payload) {
+			if (!payload || typeof payload !== "object") return false;
+
+			if (payload.direction === "vertex") {
+				pendingOrderingPayload = null;
+				resetHistogramSortDirections();
+			} else {
+				const direction = payload.direction === "asc" ? "asc" : payload.direction === "desc" ? "desc" : null;
+				if (!direction) return false;
+
+				if (Number(payload.vertexCount) !== vertexCount) {
+					pendingOrderingPayload = payload;
+					return false;
+				}
+
+				const normalizedOrder = normalizeVertexOrder(payload.vertexOrder, vertexCount);
+				if (!normalizedOrder) return false;
+
+				coordinatedSort = {
+					key: payload.key || null,
+					direction
+				};
+				coordinatedVertexOrder = normalizedOrder;
+				coordinatedOrderLocked = true;
+			}
+
+			lastBroadcastOrderingSignature = getOrderingSignature(getOrderingBroadcastPayload());
+			for (const state of panelStateByKey.values()) {
+				updatePanelSortControls(state);
+			}
+			updateFocusControls();
+			scheduleDraw();
+			return true;
+		}
+
+		function applyPendingOrderingIfReady() {
+			if (!pendingOrderingPayload) return;
+			if (Number(pendingOrderingPayload.vertexCount) !== vertexCount) return;
+
+			const payload = pendingOrderingPayload;
+			pendingOrderingPayload = null;
+			applyOrderingPayload(payload);
+		}
+
 		function getOrderedSelectedVertices() {
 			return [...selectedVertices]
 				.filter((index) => index >= 0 && index < vertexCount)
@@ -551,14 +739,12 @@
 			const selectedCount = ordered.length;
 			const hasFocusState =
 				selectedCount > 0 ||
-				histogramSortDirection !== "vertex" ||
+				hasSortedHistogram() ||
 				focusSelectedCheckbox.checked;
 
 			selectedSummaryEl.textContent = `Selected vertices: ${selectedCount}`;
 			selectedListEl.textContent = formatVertexList(ordered);
 			focusSelectedCheckbox.disabled = selectedCount === 0;
-			sortAscButton.disabled = vertexCount < 2;
-			sortDescButton.disabled = vertexCount < 2;
 			clearSelectionButton.disabled = !hasFocusState;
 
 			if (selectedCount === 0) {
@@ -603,23 +789,59 @@
 			setSelectedVertices(indices, append);
 		}
 
+		function ensureCoordinatedVertexOrder() {
+			if (coordinatedVertexOrder.length !== vertexCount) {
+				coordinatedVertexOrder = getDefaultVertexOrder();
+			}
+		}
+
 		function getDisplayData(histogram) {
-			let displayData = histogram.map((value, vertexIndex) => ({
+			ensureCoordinatedVertexOrder();
+
+			let displayData = coordinatedVertexOrder.map((vertexIndex) => ({
 				vertexIndex,
-				value: value || 0
+				value: histogram[vertexIndex] || 0
 			}));
 
 			if (focusSelectedCheckbox.checked && selectedVertices.size) {
 				displayData = displayData.filter((item) => selectedVertices.has(item.vertexIndex));
 			}
 
-			if (histogramSortDirection === "asc") {
-				displayData.sort((a, b) => a.value - b.value || a.vertexIndex - b.vertexIndex);
-			} else if (histogramSortDirection === "desc") {
-				displayData.sort((a, b) => b.value - a.value || a.vertexIndex - b.vertexIndex);
+			return displayData;
+		}
+
+		function updatePanelSortControls(panelState) {
+			const isActivePanel = coordinatedSort.key === panelState.key;
+			const ascActive = isActivePanel && coordinatedSort.direction === "asc";
+			const descActive = isActivePanel && coordinatedSort.direction === "desc";
+
+			panelState.sortAscButton.classList.toggle("active", ascActive);
+			panelState.sortDescButton.classList.toggle("active", descActive);
+			panelState.sortAscButton.disabled = vertexCount < 2;
+			panelState.sortDescButton.disabled = vertexCount < 2;
+			panelState.sortAscButton.setAttribute("aria-pressed", String(ascActive));
+			panelState.sortDescButton.setAttribute("aria-pressed", String(descActive));
+		}
+
+		function setPanelSortDirection(panelState, direction) {
+			const isSameSort = coordinatedSort.key === panelState.key && coordinatedSort.direction === direction;
+			if (isSameSort) {
+				resetHistogramSortDirections();
+			} else {
+				coordinatedSort = {
+					key: panelState.key,
+					direction
+				};
+				coordinatedOrderLocked = false;
+				refreshCoordinatedVertexOrder();
 			}
 
-			return displayData;
+			for (const state of panelStateByKey.values()) {
+				updatePanelSortControls(state);
+			}
+			updateFocusControls();
+			broadcastOrderingChange(true);
+			scheduleDraw();
 		}
 
 		function hideTooltip() {
@@ -698,6 +920,7 @@
 			const { key, canvas, ctx, legendMin, legendMax } = panelState;
 			const histogram = accumulators[key] || [];
 			const displayData = getDisplayData(histogram);
+			updatePanelSortControls(panelState);
 
 			const width = Math.max(320, Math.floor(canvas.clientWidth));
 			const height = Math.max(170, Math.floor(canvas.clientHeight));
@@ -791,9 +1014,6 @@
 
 			ctx.fillStyle = "#2f445a";
 			ctx.font = "12px Segoe UI";
-			ctx.textAlign = "right";
-			const lastVertex = displayData[displayData.length - 1].vertexIndex + 1;
-			ctx.fillText(`Vertex ${lastVertex}`, margin.left + innerWidth, canvas.height - 8);
 			ctx.textAlign = "left";
 
 			ctx.fillStyle = "#3b5875";
@@ -814,6 +1034,10 @@
 			drawScheduled = true;
 			requestAnimationFrame(() => {
 				drawScheduled = false;
+				refreshCoordinatedVertexOrder();
+				if (hasSortedHistogram() && !coordinatedOrderLocked) {
+					broadcastOrderingChange();
+				}
 				for (const panelState of panelStateByKey.values()) {
 					renderPanel(panelState);
 				}
@@ -986,8 +1210,33 @@
 			const legendEl = document.createElement("div");
 			legendEl.className = "panel-legend";
 
+			const legendTopEl = document.createElement("div");
+			legendTopEl.className = "panel-legend-top";
+
+			const scaleWrapEl = document.createElement("div");
+			scaleWrapEl.className = "panel-scale-wrap";
+
 			const barEl = document.createElement("div");
 			barEl.className = "panel-legend-bar";
+
+			const sortControlsEl = document.createElement("div");
+			sortControlsEl.className = "panel-sort-controls";
+
+			const sortAscButtonEl = document.createElement("button");
+			sortAscButtonEl.className = "panel-sort-button";
+			sortAscButtonEl.type = "button";
+			sortAscButtonEl.textContent = "Asc";
+			sortAscButtonEl.title = "Sort all histograms by this histogram in ascending order";
+
+			const sortDescButtonEl = document.createElement("button");
+			sortDescButtonEl.className = "panel-sort-button";
+			sortDescButtonEl.type = "button";
+			sortDescButtonEl.textContent = "Desc";
+			sortDescButtonEl.title = "Sort all histograms by this histogram in descending order";
+
+			sortControlsEl.appendChild(sortAscButtonEl);
+			sortControlsEl.appendChild(sortDescButtonEl);
+			legendTopEl.appendChild(sortControlsEl);
 
 			const labelsEl = document.createElement("div");
 			labelsEl.className = "panel-legend-labels";
@@ -1000,8 +1249,10 @@
 
 			labelsEl.appendChild(minEl);
 			labelsEl.appendChild(maxEl);
-			legendEl.appendChild(barEl);
-			legendEl.appendChild(labelsEl);
+			scaleWrapEl.appendChild(barEl);
+			scaleWrapEl.appendChild(labelsEl);
+			legendTopEl.appendChild(scaleWrapEl);
+			legendEl.appendChild(legendTopEl);
 			panelEl.appendChild(canvas);
 			panelEl.appendChild(legendEl);
 
@@ -1010,6 +1261,8 @@
 				panelEl,
 				canvas,
 				ctx: canvas.getContext("2d"),
+				sortAscButton: sortAscButtonEl,
+				sortDescButton: sortDescButtonEl,
 				legendMin: minEl,
 				legendMax: maxEl,
 				hoveredIndex: -1,
@@ -1019,6 +1272,14 @@
 				drawMeta: null
 			};
 
+			sortAscButtonEl.addEventListener("click", (event) => {
+				event.stopPropagation();
+				setPanelSortDirection(panelState, "asc");
+			});
+			sortDescButtonEl.addEventListener("click", (event) => {
+				event.stopPropagation();
+				setPanelSortDirection(panelState, "desc");
+			});
 			attachPanelEvents(panelState);
 			return panelState;
 		}
@@ -1057,32 +1318,23 @@
 		}
 
 		focusSelectedCheckbox.addEventListener("change", scheduleDraw);
-		sortAscButton.addEventListener("click", () => {
-			histogramSortDirection = "asc";
-			updateFocusControls();
-			scheduleDraw();
-		});
-		sortDescButton.addEventListener("click", () => {
-			histogramSortDirection = "desc";
-			updateFocusControls();
-			scheduleDraw();
-		});
 		clearSelectionButton.addEventListener("click", () => {
 			selectedVertices.clear();
 			selectionAnchorVertex = null;
-			histogramSortDirection = "vertex";
+			resetHistogramSortDirections();
 			focusSelectedCheckbox.checked = false;
 			updateFocusControls();
+			broadcastOrderingChange(true);
 			scheduleDraw();
 		});
 
 		window.addEventListener("resize", scheduleDraw);
 
-		const socket = new WebSocket("ws://localhost:3214");
+		socket = new WebSocket("ws://localhost:3214");
 
 		socket.onopen = function() {
 			statusEl.textContent = "Connected to server. Waiting for population data...";
-			socket.send(JSON.stringify({ act: "obs", data: ["individuals", "ui_events"] }));
+			socket.send(JSON.stringify({ act: "obs", data: ["individuals", "ui_events", "ordering"] }));
 		};
 
 		socket.onmessage = function(event) {
@@ -1097,6 +1349,11 @@
 				return;
 			}
 
+			if (message.act === "change_ordering") {
+				applyOrderingPayload(message.data);
+				return;
+			}
+
 			if (message.act !== "data" || message.type !== "individuals") return;
 			if (!message.data || !Array.isArray(message.data.population) || message.data.population.length === 0) return;
 
@@ -1106,6 +1363,7 @@
 
 			const incomingGeneration = Number(message.data.generation || (currentGeneration + 1));
 			ensureAccumulatorSize(maskLength);
+			applyPendingOrderingIfReady();
 
 			if (incomingGeneration < currentGeneration) {
 				resetAccumulatorState(maskLength);

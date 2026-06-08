@@ -15,6 +15,7 @@ const observers = {
     obs_running: [],
     obs_timings: [],
     obs_parameters: [],
+    obs_ordering: [],
     obs_ui_events: []
 };
 
@@ -484,6 +485,13 @@ server.on('connection', ws => {
             case "set_parameters":
                 logger.log("GA_setting", Object.keys(obj.data).join(","));
                 ga.setParameters(obj.data);
+                break;
+            case "change_ordering":
+                for (const c of observers.obs_ordering) {
+                    if (c !== ws && c.readyState === WebSocket.OPEN) {
+                        c.send(JSON.stringify({ act: "change_ordering", data: obj.data }));
+                    }
+                }
                 break;
             case "command":
                 if (obj.data === "partialReset") {
