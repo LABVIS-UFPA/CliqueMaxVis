@@ -132,6 +132,113 @@ class Graph {
     }
   }
 
+
+  /**
+   * Calcula a distribuição dos vértices em "pixels" para visualização compacta.
+   * Onde k é o limite máximo de vértices não-conectados por pixel.
+   */
+  calculatePixelPacking(k = 3) {
+    if (this.nodes.length === 0) return null;
+
+    // 1. Ordenação GULOSA (Maior Grau Primeiro)
+    // Vértices com muitas conexões são os mais "difíceis" de alocar, pois têm
+    // conflito com quase todo mundo. Se deixarmos eles para o final, o algoritmo
+    // fatalmente falhará e precisará de grids gigantescos.
+    let sortedNodes = [...this.nodes].sort((a, b) => {
+      return this.getNodeDegree(b) - this.getNodeDegree(a);
+    });
+
+    // 2. Definindo o alvo inicial de Pixels
+    // Pega o número mínimo teórico de pixels e acha o lado do quadrado perfeito mais próximo
+    let minPixelsTarget = Math.ceil(this.nodes.length / k);
+    let sideLength = Math.ceil(Math.sqrt(minPixelsTarget));
+    let maxPixelsAllowed = sideLength * sideLength;
+
+    let pixels = [];
+    let attempts = 0;
+
+    // 3. O Loop de Tentativa e Erro
+    while (true) {
+      attempts++;
+      pixels = [];
+      let success = true;
+
+      for (let i = 0; i < sortedNodes.length; i++) {
+        let node = sortedNodes[i];
+        let placed = false;
+
+        // Tenta encaixar nos pixels já abertos
+        for (let pixel of pixels) {
+          
+          // Verifica a restrição UI (tamanho k)
+          if (pixel.length < k) {
+            
+            // Verifica a restrição Matemática (Conjunto Independente)
+            let hasConflict = false;
+            for (let n of pixel) {
+              if (this.adj[node.id][n.id]) {
+                hasConflict = true;
+                break;
+              }
+            }
+
+            // Se não tem conflito, aloca o vértice aqui
+            if (!hasConflict) {
+              pixel.push(node);
+              placed = true;
+              break;
+            }
+          }
+        }
+
+        // Se não coube em nenhum pixel aberto
+        if (!placed) {
+          // Podemos abrir um pixel novo?
+          if (pixels.length < maxPixelsAllowed) {
+            pixels.push([node]);
+          } else {
+            // Falha! O grid atual é muito pequeno para a densidade do grafo.
+            success = false;
+            break; 
+          }
+        }
+      }
+
+      // Se conseguiu alocar todo mundo dentro de maxPixelsAllowed, terminamos!
+      if (success) {
+        break;
+      }
+
+      // Caso contrário, aumenta o grid em 1 unidade (ex: 38x38 vira 39x39) e tenta de novo
+      sideLength++;
+      maxPixelsAllowed = sideLength * sideLength;
+    }
+
+    console.log(`Empacotamento concluído em ${attempts} tentativa(s). Grid: ${sideLength}x${sideLength} (${maxPixelsAllowed} pixels).`);
+
+    // 4. Salvando a estrutura de dados como propriedade do objeto
+    this.pixelPacking = {
+      sideLength: sideLength,
+      totalPixels: maxPixelsAllowed,
+      vertexMap: []   // Mapa de acesso rápido (O(1)) para o renderizador
+    };
+
+    // Preenche o mapa reverso por índice
+    for (let p = 0; p < pixels.length; p++) {
+      for (let c = 0; c < pixels[p].length; c++) {
+        let nodeIndex = pixels[p][c].index;
+        this.pixelPacking.vertexMap[nodeIndex] = {
+          pixelIndex: p,
+          colorIndex: c
+        };
+      }
+    }
+
+    return this.pixelPacking;
+  }
+
+
+
   /**
    * Antes de usar esse método, use o genMatAdjs()
    * 

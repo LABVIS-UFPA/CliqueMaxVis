@@ -389,6 +389,7 @@ function loadGA(dbpath, metaheuristic = 'GA') {
     let graph = new Graph();
     graph.importFromText(txt);
     graph.calcMatAdjs();
+    graph.calculatePixelPacking();
 
     if (metaheuristic === 'GRASP') {
         ga = new GRASP(CliqueMask.getConstructor(graph), graph.nodes.length);
@@ -492,6 +493,10 @@ server.on('connection', ws => {
                         c.send(JSON.stringify({ act: "change_ordering", data: obj.data }));
                     }
                 }
+                break;
+            case "get_pixel_packing":
+                if (ga && ga.newIndividual && ga.newIndividual.graph)
+                    ws.send(JSON.stringify({ act: "pixel_packing", data: ga.newIndividual.graph.pixelPacking }));
                 break;
             case "command":
                 if (obj.data === "partialReset") {

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Individual Visualization - Pixel Packing</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 5px;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;  /* Permite rolagem vertical */
+            overflow-x: hidden; /* Remove rolagem horizontal */
+            background-color: white;
+            font-family: sans-serif;
+        }
+        #topBar {
+            margin-bottom: 10px;
+        }
+        #container { 
+            width: 100%; 
+        }
+        canvas {
+            display: block;
+            /* Força a renderização "quadriculada" dos pixels para que fiquem muito nítidos */
+            image-rendering: pixelated; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="topBar">
+    <h3>Individual Visualization (Pixel Packing)</h3>
+    <p id="status">Aguardando dados...</p>
+</div>
+
+<div id="container">
+    <canvas id="canvasMatrix"></canvas>
+</div>
+
+<script type="module">
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById("canvasMatrix");
+        const ctx = canvas.getContext("2d");
+
+        // Paleta de Cores Categóricas (k=3)
+        const PALETA = ["#66c2a5", "#fc8d62", "#8da0cb"]; 
+        const COR_FUNDO_PIXEL = "#FFFFFF";
+
+        let lastPopulationData = null; 
+        let pixelPackingData = null; // Estrutura de mapeamento que virá do servidor
+        let isDrawingScheduled = false;
+
+        // Ao redimensionar a janela, a largura disponível muda e devemos reagrupar as imagens
+        window.addEventListener('resize', () => {
+            if (lastPopulationData && pixelPackingData) {
+                drawPixelPacking(lastPopulationData);
+            }
+        });
+
+        const socket = new WebSocket("ws://localhost:3214");
+
+        socket.onmessage = function (event) {
+            const message = JSON.parse(event.data);
+
+            switch (message.act) {
+                case "log":
+                    console.log(message.data);
+                    break;
+
+                case "pixel_packing":
+                    // Recebemos a planta (layout) dos pixels para os vértices
+                    pixelPackingData = message.data;
+                    console.log("Recebido Pixel Packing Data:", pixelPackingData);
+                    
+                    // Se a população chegou antes do mapa, desenha agora
+                    if (lastPopulationData) {
+                        drawPixelPacking(lastPopulationData);
+                    }
+                    break;
+
+                case "data":
+                    lastPopulationData = message.data.population;
+                    
+                    const statusElem = document.getElementById("status");
+                    if(statusElem) statusElem.innerHTML = `Geração: ${message.data.generation}`;
+
+                    if (!isDrawingScheduled && pixelPackingData) {
+                        isDrawingScheduled = true;
+                        requestAnimationFrame(() => {
+                            drawPixelPacking(lastPopulationData); 
+                            isDrawingScheduled = false;     
+                        });
+                    }
+                    break;
+            }
+        };
+
+        socket.onopen = function () {
+            console.log("Conectado ao servidor WebSocket");
+            // Solicita o layout de pixels compactado
+            socket.send(JSON.stringify({ act: "get_pixel_packing" }));
+            // Solicita os dados contínuos da população
+            socket.send(JSON.stringify({ act: "obs", data: ["individuals"] }));
+        };
+
+        
+        function drawPixelPacking(population) {
+            if (!pixelPackingData || !canvas) return;
+            
+            const indSize = pixelPackingData.sideLength;
+
+            //Fator de escala inteiro para garantir o mínimo de 64x64 sem borrar
+            const scaleFactor = Math.max(1, Math.ceil(64 / indSize)); 
+            const scaledIndSize = indSize * scaleFactor;
+
+            const spacing = 1; // 1px de borda/tabela
+            
+            // Pega a largura disponível no container do HTML
+            const containerWidth = document.getElementById("container").clientWidth;
+            
+            // Calcula quantas imagens cabem por linha
+            const boxTotalSize = scaledIndSize + spacing;
+            const cols = Math.max(1, Math.floor((containerWidth - spacing) / boxTotalSize));
+            const rows = Math.ceil(population.length / cols);
+
+            // Ajusta o tamanho do Canvas na tela. 
+            // Como a altura é calculada pelo número de rows, o canvas esticará gerando scroll.
+            canvas.width = cols * boxTotalSize + spacing;
+            canvas.height = rows * boxTotalSize + spacing;
+
+            // Limpa o fundo (Branco)
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Desenha a população
+            for (let i = 0; i < population.length; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+
+                // Posição base (x,y) da imagem do indivíduo (descontando o contorno)
+                const x = spacing + col * boxTotalSize;
+                const y = spacing + row * boxTotalSize;
+
+                // 1. DESENHA A BORDA PRETA
+                // Ao desenhar um quadrado preto ligeiramente maior, as bordas adjacentes 
+                // se sobrepõem perfeitamente. E os espaços vazios na última linha não recebem borda!
+                ctx.fillStyle = "black";
+                ctx.fillRect(x - spacing, y - spacing, scaledIndSize + spacing * 2, scaledIndSize + spacing * 2);
+
+                // 2. DESENHA O FUNDO DA IMAGEM
+                // Os vértices inativos ficarão com essa cor (cinza bem escuro)
+                ctx.fillStyle = COR_FUNDO_PIXEL;
+                ctx.fillRect(x, y, scaledIndSize, scaledIndSize);
+
+                // 3. PINTA OS VÉRTICES (Píxels Ativos do Clique)
+                const mask = population[i].nodeMask;
+                
+                for (let v = 0; v < mask.length; v++) {
+                    if (mask[v] === 1) {
+                        const info = pixelPackingData.vertexMap[v];
+                        if (info) {
+                            // Encontra a coordenada local x, y dentro da imagem do indivíduo
+                            const px = info.pixelIndex % indSize;
+                            const py = Math.floor(info.pixelIndex / indSize);
+                            
+                            // Seleciona e pinta a cor respectiva
+                            ctx.fillStyle = PALETA[info.colorIndex % PALETA.length];
+                            // Posição (px, py) e tamanho (1) multiplicados pela escala
+                            ctx.fillRect(
+                                x + (px * scaleFactor), 
+                                y + (py * scaleFactor), 
+                                scaleFactor, 
+                                scaleFactor
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+</script>
+
+</body>
+</html>
